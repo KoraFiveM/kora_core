@@ -1,6 +1,6 @@
 -- Core.inventory (server realm) -- the item model. Storage is the legacy
 -- slot-keyed table PlayerData.items[slot] = { slot, name, amount, info, type,
--- unique, useable, image, label, weight, ... }. Every mutation goes through the
+-- unique, useable, image, imageUrl, label, weight, ... }. Every mutation goes through the
 -- funnel Core.player.setPath(src, {'items', slot}, record) so inventory gets
 -- per-slot dirty tracking + delta replication for free. No NUI is shipped; open
 -- emits an event for a UI resource.
@@ -33,6 +33,7 @@ local function buildItem(name, amount, slot, info)
         unique = def.unique or false,
         useable = def.useable or false,
         image = def.image,
+        imageUrl = def.imageUrl,
         label = def.label or name,
         weight = def.weight or 0,
         shouldClose = def.shouldClose,

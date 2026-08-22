@@ -18,6 +18,8 @@ local function weapon(name, label, ammotype, weight, weapontype)
         weapontype = weapontype,
         unique = true,
         useable = true,
+        image = name .. '.png',
+        imageUrl = QBCoreSeed.imageUrl(name),
         shouldClose = true,
     }
 end

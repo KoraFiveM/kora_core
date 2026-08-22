@@ -1,7 +1,7 @@
 # Inventory module
 
 ## Overview
-The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, label, weight, … }`, persisted by qbcore through the player funnel. qbinventory is the inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; qbinventory will advertise that identity only after exact upstream compatibility is implemented and tested.
+The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, imageUrl?, label, weight, … }`, persisted by qbcore through the player funnel. `image` remains the legacy local filename; optional `imageUrl` is a browser-ready source supplied by the shared item definition. qbinventory is the inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; qbinventory will advertise that identity only after exact upstream compatibility is implemented and tested.
 
 For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while qbinventory is absent and logs a one-time warning. Set it to `false` once qbinventory is required to return a clear error instead. A started qbinventory missing any required gateway export is always an error; qbcore never mixes providers per operation.
 

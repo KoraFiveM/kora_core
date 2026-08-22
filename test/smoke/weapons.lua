@@ -56,6 +56,16 @@ h.test('Ammu-Nation core families and their magazines resolve through registries
     end
 end)
 
+h.test('core image URLs use exact reviewed GitHub artwork paths when available', function()
+    local base = 'https://raw.githubusercontent.com/aifazi/items-images/main/'
+    h.assertEqual(QBCoreSeed.itemImageBaseUrl, base)
+    h.assertEqual(QBCoreSeed.imageUrl('weapon_pistol'), base .. 'weapons/pistol/weapon_pistol.png')
+    h.assertEqual(QBCoreSeed.imageUrl('pistol_ammo'), base .. 'weapons/ammo/pistol_ammo.png')
+    h.assertEqual(QBCoreSeed.imageUrl('cash'), nil, 'missing artwork must fall back rather than guess a URL')
+    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').imageUrl, QBCoreSeed.imageUrl('weapon_pistol'))
+    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').imageUrl, QBCoreSeed.imageUrl('pistol_ammo'))
+end)
+
 h.test('every mapped specialised ammunition item is valid qbinventory stock', function()
     for ammoType, itemName in pairs(QBCoreSeed.ammoItems) do
         local item = Core.registry.getShared('items', itemName)
