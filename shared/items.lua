@@ -169,6 +169,10 @@ QBCoreSeed.items = {
     { name = 'id_card',      label = 'ID Card',  weight = 0,    type = 'item', image = 'id_card.png',      imageUrl = QBCoreSeed.imageUrl('id_card'), unique = true,  useable = true,  shouldClose = false, description = 'Identification.' },
     { name = 'lockpick',     label = 'Lockpick', weight = 160,  type = 'item', image = 'lockpick.png',     imageUrl = QBCoreSeed.imageUrl('lockpick'), unique = false, useable = true,  shouldClose = true,  description = 'For locked things.' },
     { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
+    -- A unique item because qbinventory binds one durable secondary inventory
+    -- to each physical backpack. Its capacity/access policy lives in
+    -- qbinventory's server-side container configuration.
+    { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
     { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
     -- Standard Ammu-Nation ammunition. These are ordinary stackable inventory
