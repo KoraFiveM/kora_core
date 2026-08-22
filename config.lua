@@ -39,7 +39,7 @@ Config.inventory = {
 
 Config.jobs = {
     defaultJob = 'unemployed',       -- job assigned to a fresh character
-    defaultGrade = 0,                -- grade for the default job
+    defaultGrade = 1,                -- one-based grade for the default job
     defaultDuty = true,              -- on-duty state for the default job
 }
 

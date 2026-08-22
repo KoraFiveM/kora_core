@@ -61,12 +61,13 @@ end
 ---@param grade integer
 ---@return table
 function CoreInternal.player.buildJob(name, grade)
+    grade = math.max(1, math.floor(tonumber(grade) or 1))
     local def = Core.registry.getShared('jobs', name)
     if not def then
         return { name = name, label = name, onduty = true, isboss = false,
                  payment = 0, grade = { name = 'Unknown', level = grade } }
     end
-    local g = def.grades and (def.grades[grade] or def.grades[0]) or { name = 'Grade', payment = 0 }
+    local g = def.grades and (def.grades[grade] or def.grades[1]) or { name = 'Grade', payment = 0 }
     return {
         name = def.name,
         label = def.label,

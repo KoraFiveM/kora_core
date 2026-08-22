@@ -42,7 +42,7 @@ function Core.jobs.setJob(src, name, grade)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
     if not Core.registry.getShared('jobs', name) then return false, 'unknown job' end
-    grade = tonumber(grade) or 0
+    grade = math.max(1, math.floor(tonumber(grade) or 1))
 
     indexRemove(src, p.PlayerData.job and p.PlayerData.job.name)
     local job = CoreInternal.player.buildJob(name, grade)

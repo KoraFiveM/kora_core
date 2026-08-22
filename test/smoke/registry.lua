@@ -24,6 +24,18 @@ h.test('seeds are ingested and readable via getShared', function()
     h.assertTrue(Core.registry.countShared('jobs') >= 3, 'seed jobs missing')
 end)
 
+h.test('seed job grades are one-based sequential arrays', function()
+    h.assertEqual(Config.jobs.defaultGrade, 1, 'new characters start at grade 1')
+    for _, name in ipairs({ 'unemployed', 'police', 'ambulance', 'mechanic' }) do
+        local job = assert(Core.registry.getShared('jobs', name))
+        h.assertTrue(job.grades[0] == nil, ('%s must not define grade zero'):format(name))
+        h.assertTrue(job.grades[1] ~= nil, ('%s must define grade one'):format(name))
+        for grade = 1, #job.grades do
+            h.assertTrue(job.grades[grade] ~= nil, ('%s has a gap at grade %d'):format(name, grade))
+        end
+    end
+end)
+
 h.test('register adds to list, index, and the materialised Shared table', function()
     local ok = Core.registry.registerShared('items', 'donut', { name = 'donut', label = 'Donut', weight = 100 })
     h.assertTrue(ok, 'register failed')
