@@ -51,12 +51,22 @@ local function dispatch(path, value)
     end
 end
 
+-- CFX may deserialize an argument when it routes a local event registered as
+-- a net event.  That means `data ~= mirror` is not a reliable way to identify
+-- our own compatibility re-fire: it can look like a foreign direct write even
+-- though it originated in this module.  Scope an explicit guard around the
+-- dispatch instead, while retaining the warning for genuinely foreign writes.
+local firingLegacyPlayerData = false
+
 -- Fire the legacy full-blob events LOCALLY from the mirror. No network cost --
 -- it's a table reference pass. Every legacy resource listening for
 -- QBCore:Player:SetPlayerData keeps working unchanged.
 local function fireLegacy(changedRoots)
     if Config.compat.fireLegacyPlayerDataEvent then
-        TriggerEvent('QBCore:Player:SetPlayerData', mirror)
+        firingLegacyPlayerData = true
+        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', mirror)
+        firingLegacyPlayerData = false
+        if not ok then error(err, 0) end
     end
     if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
         TriggerEvent('QBCore:Client:OnJobUpdate', mirror.job)
@@ -110,9 +120,9 @@ end)
 -- Accept it (replace the mirror) but warn -- it bypassed the delta stream and
 -- will be overwritten by the next server snapshot.
 RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
-    -- Only act on a genuinely foreign payload (our own fireLegacy passes the
-    -- SAME table reference we already hold; ignore that to avoid a loop).
-    if data ~= mirror and type(data) == 'table' then
+    -- Ignore the compatibility re-fire made immediately above.  Do not use
+    -- table identity for this: CFX can copy a locally-dispatched net payload.
+    if not firingLegacyPlayerData and data ~= mirror and type(data) == 'table' then
         local writer = GetInvokingResource and GetInvokingResource() or nil
         print(('^3[qbcore:rep]^7 %s wrote PlayerData directly via the legacy event -- it bypassed the '
             .. 'delta stream and will be overwritten on the next server snapshot.')

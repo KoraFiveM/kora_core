@@ -167,13 +167,16 @@ local function adopt(src, player)
 
     -- Legacy load events (both directions), plus the modern one.
     TriggerEvent('QBCore:Server:PlayerLoaded', player.PlayerData)          -- legacy server-side
-    TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)               -- legacy client-side
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
     -- The state bag is the authoritative client-facing character-session
     -- signal. It intentionally follows the snapshot so state-bag consumers
     -- can show UI only after the local PlayerData mirror is usable.
     Player(src).state:set('qbcore:loggedIn', true, true)
+    -- Preserve the legacy client event, but dispatch it only after the
+    -- snapshot has reached the client.  Legacy consumers now observe usable
+    -- PlayerData rather than having to race the replication channel.
+    TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
 end
 
 ---Log a player in with already-loaded data (from persistence.load). Builds the
