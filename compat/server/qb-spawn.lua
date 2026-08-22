@@ -1,7 +1,7 @@
 -- compat/server/qb-spawn.lua -- data-side compat for the real qb-spawn
 -- resource's ONE server callback. The spawn-picker UI itself lives in
--- qb-multichar (merged there rather than as a separate qb-spawn resource --
--- see qb-multichar/spawn.lua), following the same split as
+-- qbmultichar (merged there rather than as a separate qb-spawn resource --
+-- see qbmultichar/spawn.lua), following the same split as
 -- compat/server/qb-multicharacter.lua: qbcore owns legacy server-side DATA
 -- compat regardless of which UI resource is installed.
 
