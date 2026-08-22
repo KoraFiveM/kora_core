@@ -14,6 +14,9 @@ function M.install()
     local netHandlers = {}
     local clientEvents = {}     -- recorded TriggerClientEvent
     local serverEvents = {}     -- recorded TriggerServerEvent
+    local playerStates = {}     -- source -> replicated Player() state bag values
+    local stateWrites = {}      -- ordered state bag writes for lifecycle tests
+    local lifecycleTrace = {}   -- interleaved client events and state writes
     local timeouts = {}         -- pending SetTimeout callbacks
     local threads = {}
 
@@ -25,7 +28,10 @@ function M.install()
         for _, fn in ipairs(eventHandlers[name] or {}) do fn(...) end
         for _, fn in ipairs(netHandlers[name] or {}) do fn(...) end
     end
-    function _G.TriggerClientEvent(name, target, ...) table.insert(clientEvents, { name = name, target = target, args = { ... } }) end
+    function _G.TriggerClientEvent(name, target, ...)
+        table.insert(clientEvents, { name = name, target = target, args = { ... } })
+        table.insert(lifecycleTrace, { kind = 'client', name = name, target = target })
+    end
     function _G.TriggerServerEvent(name, ...) table.insert(serverEvents, { name = name, args = { ... } }) end
 
     function _G.CreateThread(fn) table.insert(threads, coroutine.create(fn)) end
@@ -41,6 +47,21 @@ function M.install()
     function _G.GetResourceState(name) return resourceStates[name] or 'missing' end
     function _G.GetConvar(_, d) return d end
     function _G.GetConvarInt(_, d) return d end
+    function _G.vector4(x, y, z, w) return { x = x, y = y, z = z, w = w } end
+
+    -- Server-side Player(source).state, including the colon form used by the
+    -- lifecycle module. This is deliberately small but records replication so
+    -- state-bag ordering can be smoke-tested without a CFX runtime.
+    function _G.Player(src)
+        playerStates[src] = playerStates[src] or {}
+        local state = playerStates[src]
+        state.set = function(_, key, value, replicated)
+            state[key] = value
+            table.insert(stateWrites, { source = src, key = key, value = value, replicated = replicated })
+            table.insert(lifecycleTrace, { kind = 'state', source = src, key = key, value = value, replicated = replicated })
+        end
+        return { state = state }
+    end
 
     -- Ped/position natives for the persistence position sampler.
     function _G.GetPlayerPed(_) return 100 end
@@ -114,6 +135,9 @@ function M.install()
         eventHandlers = eventHandlers,
         clientEvents = clientEvents,
         serverEvents = serverEvents,
+        playerStates = playerStates,
+        stateWrites = stateWrites,
+        lifecycleTrace = lifecycleTrace,
         sqlCalls = sqlCalls,
         sqlResponses = sqlResponses,
         QB = QB,

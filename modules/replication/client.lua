@@ -113,8 +113,10 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(data)
     -- Only act on a genuinely foreign payload (our own fireLegacy passes the
     -- SAME table reference we already hold; ignore that to avoid a loop).
     if data ~= mirror and type(data) == 'table' then
-        print('^3[qbcore:rep]^7 a resource wrote PlayerData directly via the legacy event -- it bypassed the '
+        local writer = GetInvokingResource and GetInvokingResource() or nil
+        print(('^3[qbcore:rep]^7 %s wrote PlayerData directly via the legacy event -- it bypassed the '
             .. 'delta stream and will be overwritten on the next server snapshot.')
+            :format(writer and ("resource '" .. writer .. "'") or 'an unknown resource'))
         mirror = data
     end
 end)

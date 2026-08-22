@@ -121,4 +121,24 @@ h.test('setMaxCharacters issues an upsert with the license and value', function(
     h.assertEqual(call.params[2], 8)
 end)
 
+h.test('the replicated login state bag follows the initial player snapshot and clears on logout', function()
+    local start = #handle.lifecycleTrace
+    local data = CoreInternal.player.freshData('CID-state', LICENSE, 1, { firstname = 'State', lastname = 'Bag' })
+    h.assertTrue(Core.player.login(42, 'CID-state', data))
+
+    local snapshotIndex, loginStateIndex
+    for index = start + 1, #handle.lifecycleTrace do
+        local entry = handle.lifecycleTrace[index]
+        if entry.kind == 'client' and entry.name == 'qbcore:rep:snapshot' and entry.target == 42 then snapshotIndex = index end
+        if entry.kind == 'state' and entry.source == 42 and entry.key == 'qbcore:loggedIn' and entry.value == true then loginStateIndex = index end
+    end
+    h.assertTrue(snapshotIndex ~= nil, 'login should send the initial PlayerData snapshot')
+    h.assertTrue(loginStateIndex ~= nil, 'login should replicate qbcore:loggedIn=true')
+    h.assertTrue(loginStateIndex > snapshotIndex, 'login state must follow the initial snapshot')
+    h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], true, 'Player state should expose logged-in status')
+
+    h.assertTrue(Core.player.logout(42))
+    h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], false, 'logout should replicate qbcore:loggedIn=false')
+end)
+
 h.report('player_create')

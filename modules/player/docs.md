@@ -93,7 +93,7 @@ Removes a server-side subscription by id.
 - `id: integer`
 
 ### `Core.player.login(src, citizenid, data)` — server
-Logs a source in with already-loaded `data` (from `Core.persistence.load`). Builds the `Player` handle, adopts it into the caches, and fires the load events. Returns `(true)` or `(false, err)`.
+Logs a source in with already-loaded `data` (from `Core.persistence.load`). Builds the `Player` handle, adopts it into the caches, sends the initial PlayerData snapshot, then replicates `Player(src).state['qbcore:loggedIn'] = true`. Legacy load events are retained for compatibility. Returns `(true)` or `(false, err)`.
 
 #### Parameters
 - `src: integer`
@@ -116,7 +116,7 @@ Creates a brand-new character: resolves the primary identifier, builds a fresh `
 - `string | nil` — Failure reason.
 
 ### `Core.player.logout(src)` — server
-Logs a source out (keeps the connection, drops the character). Flushes to DB first, fires unload events, and evicts from every cache.
+Logs a source out (keeps the connection, drops the character). Flushes to DB first, replicates `Player(src).state['qbcore:loggedIn'] = false`, fires unload events, and evicts from every cache.
 
 #### Parameters
 - `src: integer`

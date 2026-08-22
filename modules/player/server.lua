@@ -170,6 +170,10 @@ local function adopt(src, player)
     TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)               -- legacy client-side
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
+    -- The state bag is the authoritative client-facing character-session
+    -- signal. It intentionally follows the snapshot so state-bag consumers
+    -- can show UI only after the local PlayerData mirror is usable.
+    Player(src).state:set('qbcore:loggedIn', true, true)
 end
 
 ---Log a player in with already-loaded data (from persistence.load). Builds the
@@ -262,6 +266,9 @@ function Core.player.logout(src)
     local player = bySource[src]
     if not player then return false end
     Core.persistence.saveNow(player)
+    -- Clear this before any legacy unload notifications or cache teardown so
+    -- state-bag consumers immediately stop rendering character-only UI.
+    Player(src).state:set('qbcore:loggedIn', false, true)
     TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
     byCitizenId[player.citizenid] = nil
