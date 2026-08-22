@@ -16,6 +16,10 @@ local bySource = {}
 local byCitizenId = {}
 PI.bySource = bySource
 PI.byCitizenId = byCitizenId
+-- Opaque same-VM capability for Core.money's ledger-to-item migration. It is
+-- never exported, so another resource cannot forge the exception accepted by
+-- setPath below.
+local physicalCashWriteToken = {}
 
 -- Path-prefix onChange subscribers: { id -> { resource, prefix (array), handler } }
 local subscribers = {}
@@ -50,6 +54,14 @@ function Core.player.setPath(src, path, value, opts)
     if not player then return false, 'no such player' end
     if type(path) ~= 'table' or #path == 0 then return false, 'path must be a non-empty array' end
 
+    -- Once qbinventory owns a physical cash account, a generic direct write
+    -- here would create a second balance beside the cash item. The only
+    -- exception is Core.money's one-way, preflighted ledger-to-item migration.
+    if path[1] == 'money' and Core.money and Core.money.isPhysicalCash
+        and Core.money.isPhysicalCash(path[2]) and not (opts and opts._physicalCashToken == physicalCashWriteToken) then
+        return false, 'physical cash account is inventory-owned'
+    end
+
     Core.util.pathSet(player.PlayerData, path, value)
 
     local column = COLUMN_FOR[path[1]]
@@ -79,6 +91,10 @@ function Core.player.setPath(src, path, value, opts)
         TriggerEvent('qbcore:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
     end
     return true
+end
+
+function PI._setPhysicalCashLedger(src, account, value)
+    return Core.player.setPath(src, { 'money', account }, value, { _physicalCashToken = physicalCashWriteToken })
 end
 
 -- --- reads ---
@@ -165,6 +181,20 @@ local function adopt(src, player)
     Core.persistence._adopt(player)
     Core.replication._adopt(player)
 
+    -- qbinventory may own the physical cash account. Convert any persisted
+    -- ledger balance before a snapshot or legacy load event can expose it;
+    -- failure is fail-closed, avoiding a hidden or duplicated balance.
+    if Core.money and Core.money.migratePhysicalCash then
+        local migrated, migrateErr = Core.money.migratePhysicalCash(src)
+        if not migrated then
+            bySource[src] = nil
+            byCitizenId[player.citizenid] = nil
+            Core.replication._forget(player)
+            Core.persistence._forget(player)
+            return false, migrateErr
+        end
+    end
+
     -- Legacy load events (both directions), plus the modern one.
     TriggerEvent('QBCore:Server:PlayerLoaded', player.PlayerData)          -- legacy server-side
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
@@ -177,6 +207,7 @@ local function adopt(src, player)
     -- snapshot has reached the client.  Legacy consumers now observe usable
     -- PlayerData rather than having to race the replication channel.
     TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    return true
 end
 
 ---Log a player in with already-loaded data (from persistence.load). Builds the
@@ -200,8 +231,7 @@ function Core.player.login(src, citizenid, data)
         _pendingOps = {},
         _seq = 0,
     }
-    adopt(src, player)
-    return true
+    return adopt(src, player)
 end
 
 ---Create a brand-new character for a source. Returns (citizenid) or (nil, err).
@@ -258,7 +288,8 @@ function Core.player.createCharacter(src, charinfo, cid)
     }
     -- Seed _encoded from the freshly-inserted values so the first save is a no-op.
     Core.persistence._seedEncoded(player)
-    adopt(src, player)
+    local adopted, adoptErr = adopt(src, player)
+    if not adopted then return nil, adoptErr end
     return citizenid
 end
 
