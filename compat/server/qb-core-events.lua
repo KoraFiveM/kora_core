@@ -21,6 +21,17 @@ RegisterNetEvent('QBCore:Server:Logout', function()
     Core.player.logout(source)
 end)
 
+-- Registered so the name is dispatchable at all -- FXServer silently drops a
+-- client TriggerServerEvent for a net event name no resource has
+-- RegisterNetEvent'd server-side, so real qb-spawn/qb-multicharacter's own
+-- TriggerServerEvent('QBCore:Server:OnPlayerLoaded') (and any third-party
+-- AddEventHandler for it) would otherwise be a complete no-op here. No Core.*
+-- action needed: Core.player.login's adopt() already fires the equivalent
+-- PlayerLoaded/OnPlayerLoaded signals, at character-select time rather than
+-- at spawn-confirm time like upstream -- a pre-existing timing difference,
+-- out of scope to rearchitect for this compat shim.
+RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function() end)
+
 -- UpdateObject: legacy resources call this to grab a fresh core object handle
 -- server-side. It re-broadcasts the object to the caller via the client event.
 RegisterNetEvent('QBCore:Server:UpdateObject', function()

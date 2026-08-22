@@ -33,6 +33,8 @@ Config.inventory = {
     slots = 41,                      -- inventory slots per player
     matchInfoOnStack = false,        -- if true, items only stack when their `info` matches (stricter than legacy)
     warnOnUnhandledOpen = true,      -- print when stashOpen has no UI resource listening
+    provider = 'qbinventory',        -- headless inventory authority qbcore delegates operational calls to
+    allowLegacyFallback = true,      -- temporary staged-rollout fallback; set false to require qbinventory
 }
 
 Config.jobs = {
@@ -45,7 +47,6 @@ Config.compat = {
     fireLegacyPlayerDataEvent = true,     -- fire QBCore:Player:SetPlayerData client-side from the mirror
     jobUpdateEventSource = 'client',      -- 'client' | 'server' | 'both' -- who emits QBCore:Client:OnJobUpdate
     coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
-    provideQbInventory = true,            -- register the qb-inventory export/event surface
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
 }
 

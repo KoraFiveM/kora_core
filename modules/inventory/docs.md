@@ -1,7 +1,9 @@
 # Inventory module
 
 ## Overview
-The item model, storing items in the **legacy slot-keyed shape** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, label, weight, … }`. Every mutation goes through the player funnel (`Core.player.setPath(src, { 'items', slot }, record)`), so inventory gets per-slot dirty tracking and delta replication for free. Weights and stacking come from the `items`/`weapons` registries. **No NUI is shipped** — `stashOpen` emits an event for a UI resource to handle (an explicit non-goal). Server owns the model; the client surfaces the pickup box and reads the local inventory from the mirror. Functions are defined on `Core.inventory` and exported flat as `exports.qbcore:<fn>`.
+The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, label, weight, … }`, persisted by qbcore through the player funnel. qbinventory is the headless inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**: qbinventory owns that compatibility identity.
+
+For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while qbinventory is absent and logs a one-time warning. Set it to `false` once qbinventory is required to return a clear error instead. A started qbinventory missing any required gateway export is always an error; qbcore never mixes providers per operation.
 
 ## API
 
@@ -215,5 +217,5 @@ Returns the local inventory table from the mirror (`{ 'items' }`), or an empty t
 - **Stacking rules.** Weapons and items flagged `unique` never stack. Stackables merge into the lowest matching slot; when `Config.inventory.matchInfoOnStack` is on, they only stack if their `info` tables match (stricter than legacy).
 - **Weight.** Total weight is computed from the `items`/`weapons` registry weights (falling back to a record's own `weight`); `canCarry`/`addItem` enforce `Config.inventory.maxWeight`.
 - **Every mutation is a funnel write per slot**, so a slot change is one dirty column (`inventory`) and one delta op — deleting a slot is `setPath(..., nil)`.
-- **No NUI, on purpose.** `stashOpen` emits `qbcore:inventory:open` and warns if unhandled — bring your own inventory UI (or bridge one). This is a documented non-goal, not a stub.
+- **Headless boundary.** qbcore has no inventory NUI and no `qb-inventory` provider. qbinventory may run headlessly or alongside its optional UI companion; its server exports remain the authority.
 - **Drops are ephemeral.** Ground drops live in memory only and vanish on restart, by design.

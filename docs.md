@@ -80,7 +80,8 @@ exports.qbcore:useItem(src, slotOrName)
 exports.qbcore:stashGet(id)  exports.qbcore:stashSet(id, items)  exports.qbcore:stashOpen(src, id, opts)
 ```
 Items are slot-keyed (`items[slot] = {slot, name, amount, info, ...}`). No NUI is
-shipped — `stashOpen` emits `qbcore:inventory:open` for a UI resource.
+shipped. qbinventory is the headless inventory authority and separately owns the
+`qb-inventory` compatibility identity; its optional companion resource owns any UI.
 
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
 ```lua

@@ -37,6 +37,8 @@ function M.install()
     function _G.GetGameTimer() clock = clock + 16; return clock end
     function _G.GetInvokingResource() return nil end
     function _G.GetCurrentResourceName() return 'qbcore' end
+    local resourceStates = { qbinventory = 'missing' }
+    function _G.GetResourceState(name) return resourceStates[name] or 'missing' end
     function _G.GetConvar(_, d) return d end
     function _G.GetConvarInt(_, d) return d end
 
@@ -104,6 +106,7 @@ function M.install()
         serverEvents = serverEvents,
         sqlCalls = sqlCalls,
         QB = QB,
+        resourceStates = resourceStates,
         -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).
         drainTimeouts = function()
             local pending = timeouts

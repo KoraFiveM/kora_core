@@ -1,0 +1,90 @@
+-- Inventory gateway smoke test. qbcore must preserve PlayerData.items as its
+-- persistence shape, but delegate public inventory operations to a running
+-- qbinventory. The fallback remains deliberately explicit for staged rollout.
+
+local h = dofile('test/harness.lua')
+local mocks = dofile('test/mocks.lua')
+local handle = mocks.install()
+
+dofile('config.lua')
+dofile('shared/items.lua'); dofile('shared/jobs.lua'); dofile('shared/gangs.lua')
+dofile('shared/vehicles.lua'); dofile('shared/weapons.lua'); dofile('shared/locations.lua')
+dofile('modules/util/shared.lua')
+dofile('modules/registry/shared.lua'); dofile('modules/registry/server.lua')
+dofile('modules/player/shared.lua')
+dofile('modules/replication/server.lua')
+dofile('modules/persistence/server.lua')
+dofile('modules/player/server.lua')
+dofile('modules/inventory/shared.lua')
+dofile('modules/inventory/server.lua')
+
+local calls = {}
+_G.exports = {
+    qbinventory = setmetatable({}, {
+        __index = function(_, name)
+            return function(_self, ...)
+                calls[#calls + 1] = { name = name, args = { ... } }
+                if name == 'addItem' then return true end
+                if name == 'getItemCount' then return 42 end
+                return true
+            end
+        end,
+    }),
+}
+
+dofile('modules/inventory/gateway.lua')
+dofile('compat/shared/coreobject.lua')
+dofile('compat/server/qb-core.lua')
+
+local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
+Core.player.login(1, 'CID1', data)
+
+h.test('delegates a public operation to a started qbinventory without mutating qbcore directly', function()
+    handle.resourceStates.qbinventory = 'started'
+    local ok = Core.inventory.addItem(1, 'water_bottle', 2, 7, { source = 'test' })
+    h.assertTrue(ok)
+    h.assertEqual(calls[#calls].name, 'addItem')
+    h.assertEqual(calls[#calls].args[1], 1)
+    h.assertEqual(calls[#calls].args[2], 'water_bottle')
+    h.assertTrue(next(CoreInternal.player.handle(1).PlayerData.items) == nil, 'provider owns the operation')
+end)
+
+h.test('delegates read operations through the same provider boundary', function()
+    handle.resourceStates.qbinventory = 'started'
+    h.assertEqual(Core.inventory.getItemCount(1, 'water_bottle'), 42)
+    h.assertEqual(calls[#calls].name, 'getItemCount')
+end)
+
+h.test('legacy QBCore Player.Functions inventory calls use the same gateway', function()
+    handle.resourceStates.qbinventory = 'started'
+    local Player = QBCore.Functions.GetPlayer(1)
+    h.assertTrue(Player.Functions.AddItem('water_bottle', 1))
+    h.assertEqual(calls[#calls].name, 'addItem')
+    h.assertEqual(calls[#calls].args[1], 1)
+end)
+
+h.test('uses the documented legacy fallback only while the provider is absent', function()
+    handle.resourceStates.qbinventory = 'missing'
+    Config.inventory.allowLegacyFallback = true
+    local ok = Core.inventory.addItem(1, 'water_bottle', 1)
+    h.assertTrue(ok)
+    h.assertEqual(Core.inventory.getItemCount(1, 'water_bottle'), 1)
+end)
+
+h.test('returns a clear error instead of silently splitting authority when fallback is disabled', function()
+    handle.resourceStates.qbinventory = 'missing'
+    Config.inventory.allowLegacyFallback = false
+    local value, err = Core.inventory.addItem(1, 'water_bottle', 1)
+    h.assertTrue(value == nil)
+    h.assertTrue(type(err) == 'string' and err:find('qbinventory is not started', 1, true) ~= nil)
+end)
+
+h.test('does not fall back when a started provider is incomplete', function()
+    handle.resourceStates.qbinventory = 'started'
+    _G.exports.qbinventory = {}
+    local value, err = Core.inventory.addItem(1, 'water_bottle', 1)
+    h.assertTrue(value == nil)
+    h.assertTrue(type(err) == 'string' and err:find("missing required qbcore gateway export 'addItem'", 1, true) ~= nil)
+end)
+
+h.report('inventory_gateway')

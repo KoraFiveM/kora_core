@@ -14,7 +14,6 @@ dependency 'qbsql'
 -- 'qb-multicharacter' -- that compat is event-level only, and hijacking the name
 -- would silently disable a real character-select UI a server wants to keep.
 provide 'qb-core'
-provide 'qb-inventory'
 
 -- Both are shared_script (not shared_scripts) so they resolve BEFORE the table
 -- below, qblib strictly before qbsql: '@qbsql/init.lua' extends and asserts on
@@ -56,6 +55,9 @@ shared_scripts {
 --   persistence  player.login/create call adopt()/insertNew(); migrate.lua runs here
 --   player       the funnel + lifecycle (depends on replication + persistence)
 --   money/jobs/metadata/inventory  wrappers over the funnel
+--   inventory/gateway              delegates inventory operations to qbinventory
+--                                  when it is running; keeps the legacy engine as
+--                                  a staged-rollout fallback only
 --   permissions/commands/logging
 --   compat/*     LAST (before finalise) so it calls Core.* directly and
 --                GetInvokingResource() resolves to the real external consumer
@@ -71,14 +73,15 @@ server_scripts {
     'modules/jobs/server.lua',
     'modules/metadata/server.lua',
     'modules/inventory/server.lua',
+    'modules/inventory/gateway.lua',
     'modules/multichar/server.lua',
     'modules/permissions/server.lua',
     'modules/commands/server.lua',
     'modules/logging/server.lua',
     'compat/server/qb-core.lua',
     'compat/server/qb-core-events.lua',
-    'compat/server/qb-inventory.lua',
     'compat/server/qb-multicharacter.lua',
+    'compat/server/qb-spawn.lua',
     'build/finalise.lua'
 }
 
