@@ -18,9 +18,14 @@ provide 'qb-core'
 -- Both are shared_script (not shared_scripts) so they resolve BEFORE the table
 -- below, qblib strictly before qbsql: '@qbsql/init.lua' extends and asserts on
 -- the QB table '@qblib/init.lua' creates. '@qbcore/init.lua' is NOT included
--- here -- it's for OTHER resources to pull QB.shared.* into their own VM.
+-- here -- it's for OTHER resources to pull QB.shared.* into their own VM. It
+-- must still be listed in `files` below so FiveM can resolve that @-import.
 shared_script '@qblib/init.lua'
 shared_script '@qbsql/init.lua'
+
+files {
+    'init.lua' -- '@qbcore/init.lua' -- shared registry mirror for consumers
+}
 
 -- Explicit, never globbed. A `modules/**/shared.lua` glob expands in
 -- alphabetical FOLDER order, which would put 'inventory' before 'registry' and
