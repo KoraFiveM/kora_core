@@ -45,5 +45,8 @@ function Core.metadata.incrementMetaData(src, key, delta, min, max)
     if min and newValue < min then newValue = min end
     if max and newValue > max then newValue = max end
     Core.player.setPath(src, { 'metadata', key }, newValue)
+    -- Fire the same legacy event setMetaData does, so a listener sees every
+    -- metadata mutation regardless of which entry point produced it.
+    TriggerEvent('QBCore:Server:OnMetaDataChange', src, key, newValue)
     return newValue
 end

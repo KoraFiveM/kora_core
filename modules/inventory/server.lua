@@ -8,8 +8,17 @@
 local PI = CoreInternal.player
 local II = CoreInternal.inventory
 
--- Registered useable-item handlers: name -> handler(src, item).
+-- Registered useable-item handlers: name -> { resource, handler(src, item) }.
+-- OWNER-TRACKED via QB.resources.serverRegistry, same as commands/registry, so a
+-- resource that registered useables and then restarts doesn't leave dead
+-- handlers behind (its handlers would otherwise fire against a stale closure).
 local useables = {}
+
+local useableRegistry = QB.resources.serverRegistry(function(owner)
+    for name, u in pairs(useables) do
+        if u.resource == owner then useables[name] = nil end
+    end
+end)
 
 -- Build a full item record from a registry definition.
 local function buildItem(name, amount, slot, info)
@@ -283,7 +292,9 @@ end
 ---@param name string
 ---@param handler fun(src:integer, item:table)
 function Core.inventory.createUseable(name, handler)
-    useables[name] = { resource = GetInvokingResource() or GetCurrentResourceName(), handler = handler }
+    local owner = GetInvokingResource() or GetCurrentResourceName()
+    useables[name] = { resource = owner, handler = handler }
+    if owner then useableRegistry.track(owner) end
 end
 
 ---@param src integer
