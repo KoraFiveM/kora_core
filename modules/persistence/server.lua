@@ -140,7 +140,12 @@ function Core.persistence.flushAll()
     for _, player in pairs(PI.bySource) do samplePosition(player) end
     local rows = collectRows()
     if #rows > 0 then
-        QB.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign' })
+        -- Every Player in this cache came from _load() or _insertNew(), so its
+        -- row already exists. A partial INSERT ... ON DUPLICATE KEY UPDATE is
+        -- unsafe for players: MariaDB validates required immutable columns
+        -- (license/cid) before considering the duplicate branch. Update-only
+        -- batching keeps the compact dirty-column writes without that insert.
+        QB.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign', writeMode = 'update' })
     end
     return #rows
 end
@@ -165,7 +170,9 @@ function Core.persistence.saveNow(player)
     player._dirty = {}
     dirty[player.citizenid] = nil
     if cols then
-        QB.sql.enqueue('players', 'citizenid', { pk = player.citizenid, cols = cols }, { priority = 'immediate' })
+        QB.sql.enqueue('players', 'citizenid', { pk = player.citizenid, cols = cols }, {
+            priority = 'immediate', mode = 'assign', writeMode = 'update',
+        })
     end
 end
 

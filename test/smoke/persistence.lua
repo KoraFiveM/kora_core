@@ -53,6 +53,7 @@ h.test('flushAll enqueues one row with ONLY the money column', function()
     local call = handle.sqlCalls.enqueueMany[1]
     h.assertTrue(call ~= nil, 'expected an enqueueMany')
     h.assertEqual(call.table, 'players')
+    h.assertEqual(call.opts.writeMode, 'update', 'existing player saves must never use a partial upsert')
     h.assertEqual(#call.rows, 1, 'one dirty player')
     local cols = call.rows[1].cols
     local colNames = {}
