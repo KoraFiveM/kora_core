@@ -54,6 +54,9 @@ Requests creation of a new character (fires `qbcore:server:createCharacter`, whi
 - `charinfo: table`
 - `cid: integer | nil`
 
+### `Core.multichar.claimUI()` — client
+Suppresses the built-in default auto-select/auto-create flow (see "Default auto-select flow" below). A character-select UI resource calls this, as `exports.qbcore:multichar_claimUI()`, before it starts driving selection itself — and before qbcore's own ~500ms kick-off timer fires, or the default flow may already have run.
+
 ## Net-event surface (for a UI resource)
 Server listens for: `qbcore:server:requestCharacters`, `qbcore:server:selectCharacter`, `qbcore:server:createCharacter`, `qbcore:server:deleteCharacter`.
 Server replies with: `qbcore:client:receiveCharacters`, `qbcore:client:characterSelected` (`ok, err`).
@@ -61,5 +64,5 @@ Server replies with: `qbcore:client:receiveCharacters`, `qbcore:client:character
 ## Notes
 - **Creation lives on `Core.player`.** There is no `Core.multichar.createCharacter`; call `Core.player.createCharacter(src, charinfo, cid)` server-side, or drive it through the `qbcore:server:createCharacter` net event / the client `create` helper.
 - **Default auto-select flow.** On load, the client waits briefly then requests characters and, on receiving them, selects slot 1 — or creates a default "John Doe" character (via the create net event) if none exist — so a bare server spawns the player with no UI.
-- **A UI resource overrides the default flow** by setting `_G.__qbcoreCharSelectUI = true` (which suppresses the auto-select) and handling the same events / calling `request`/`select`/`create` itself.
+- **A UI resource overrides the default flow** by calling `Core.multichar.claimUI()` (as `exports.qbcore:multichar_claimUI()`, which suppresses the auto-select) and handling the same events / calling `request`/`select`/`create` itself. This is a real cross-resource export rather than a shared global — every resource (client and server alike) runs in its own isolated Lua VM, so nothing written to `_G` in one resource's script is ever visible from another's.
 - **Ownership is verified server-side.** `selectCharacter`/`deleteCharacter` check the character's `license` against the source's primary identifier — a client can't select or delete a character that isn't theirs.

@@ -5,6 +5,20 @@
 -- exports below instead.
 
 local selecting = false
+local uiClaimed = false
+
+---A character-select UI resource calls this (via `exports.qbcore:multichar_claimUI()`)
+---to suppress the default auto-select/auto-create flow below. Must be called
+---before ~500ms after THIS resource's own scripts start, or the default flow
+---may already have fired -- see the kick-off thread at the bottom of this file.
+---
+---This is a real export rather than a `_G` flag on purpose: every resource
+---gets its own isolated Lua VM (client and server alike), so a `_G` write in
+---a UI resource's own script is never visible to qbcore's script -- only a
+---genuine cross-resource call (an export, a net event) crosses that boundary.
+function Core.multichar.claimUI()
+    uiClaimed = true
+end
 
 ---Ask the server for this player's characters.
 function Core.multichar.request()
@@ -25,10 +39,9 @@ function Core.multichar.create(charinfo, cid)
 end
 
 -- Default auto-flow: if no UI resource claims the slot within a moment, pick or
--- create slot 1. A UI resource sets `_G.__qbcoreCharSelectUI = true` to suppress
--- this.
+-- create slot 1. A UI resource calls Core.multichar.claimUI() to suppress this.
 RegisterNetEvent('qbcore:client:receiveCharacters', function(characters)
-    if _G.__qbcoreCharSelectUI or selecting then return end
+    if uiClaimed or selecting then return end
     selecting = true
     if characters and characters[1] then
         Core.multichar.select(characters[1].citizenid)
@@ -50,7 +63,7 @@ end)
 -- Kick off the default flow shortly after load unless a UI took over.
 CreateThread(function()
     Wait(500)
-    if not _G.__qbcoreCharSelectUI then
+    if not uiClaimed then
         Core.multichar.request()
     end
 end)
