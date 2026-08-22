@@ -51,6 +51,8 @@ shared_scripts {
 -- Server order is load-bearing:
 --   registry     creates the authoritative registries + ingests seeds
 --   identity     identifier extraction (player.create uses it)
+--   users        per-license account rows (character-slot cap override);
+--                player.createCharacter calls Core.users.getMaxCharacters
 --   replication  player.adopt registers into it
 --   persistence  player.login/create call adopt()/insertNew(); migrate.lua runs here
 --   player       the funnel + lifecycle (depends on replication + persistence)
@@ -65,6 +67,7 @@ shared_scripts {
 server_scripts {
     'modules/registry/server.lua',
     'modules/identity/server.lua',
+    'modules/users/server.lua',
     'modules/replication/server.lua',
     'modules/persistence/server.lua',
     'modules/persistence/migrate.lua',

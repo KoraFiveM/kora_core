@@ -147,6 +147,12 @@ character if none exist). A character-select UI calls
 `exports.qbcore:getCharacters/selectCharacter/deleteCharacter` (or the
 `qbcore:server:*` / legacy `qb-multicharacter:*` events).
 
+The character-slot cap is `Config.identity.maxCharacters` by default, but a
+`users` row can override it per license (`exports.qbcore:setMaxCharacters`) --
+see `modules/users/docs.md`. `Core.player.createCharacter` enforces the cap
+and assigns the slot itself; a client-supplied `cid` is only honoured if it's
+free and in bounds, never trusted to gate the limit.
+
 ## Config highlights (`config.lua`)
 `Config.persistence.interval` (60s save window), `Config.money.types/default`,
 `Config.inventory.maxWeight/slots`, `Config.compat.fireLegacyPlayerDataEvent`

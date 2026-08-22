@@ -7,7 +7,7 @@ Config.identity = {
     primaryIdentifier = 'license',   -- which identifier keys a player across characters
     citizenIdLength = 8,             -- length of a generated citizenid (excluding the type prefix)
     citizenIdPrefix = '',            -- optional prefix, e.g. 'QB' -> 'QBAB12CD34'
-    maxCharacters = 5,               -- multichar slots per identity
+    maxCharacters = 5,               -- default multichar slots per identity; a `users` row can override this per-license (see Core.users.setMaxCharacters)
 }
 
 Config.persistence = {

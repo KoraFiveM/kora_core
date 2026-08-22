@@ -36,6 +36,11 @@ if Config.persistence.generatedColumns then
     MIGRATIONS[#MIGRATIONS + 1] = { version = 3, name = 'generated_columns', file = 'sql/003_generated_columns.sql' }
 end
 
+-- Unconditional, fixed version number 4 regardless of whether the opt-in
+-- migration above ran -- the runner keys applied migrations by this literal
+-- number, so it must stay stable independent of Config.persistence.generatedColumns.
+MIGRATIONS[#MIGRATIONS + 1] = { version = 4, name = 'users', file = 'sql/004_users.sql' }
+
 CreateThread(function()
     local ok = QB.sql.ready(60000)
     if not ok then

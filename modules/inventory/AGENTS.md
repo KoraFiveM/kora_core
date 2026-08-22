@@ -28,5 +28,5 @@ Shared math (internal, `CoreInternal.inventory`): `totalWeight`, `isUnique`, `fi
 
 ## Best practices
 - Mutate inventory only through these functions so each change is one funnel write with correct dirty/replication behaviour.
-- qbinventory is the headless API provider; any UI belongs in its separate companion resource. Do not reintroduce `provide 'qb-inventory'` or direct NUI calls here.
+- qbinventory owns the inventory API and bundled UI. Do not reintroduce `provide 'qb-inventory'` or direct NUI calls here; compatibility identity advertising belongs to qbinventory only after its contracts are complete.
 - Put per-instance state (serials, durability) in `info`; enable `matchInfoOnStack` if such items must not merge.

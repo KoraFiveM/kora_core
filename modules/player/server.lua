@@ -70,6 +70,14 @@ function Core.player.setPath(src, path, value, opts)
             end
         end
     end
+
+    -- Inventory authorities may keep session revisions independently of
+    -- PlayerData persistence. This generic notification preserves qbcore's
+    -- ownership while allowing them to invalidate stale views after an item
+    -- write made directly through the funnel.
+    if path[1] == 'items' then
+        TriggerEvent('qbcore:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
+    end
     return true
 end
 
@@ -190,6 +198,11 @@ function Core.player.login(src, citizenid, data)
 end
 
 ---Create a brand-new character for a source. Returns (citizenid) or (nil, err).
+---An explicit `cid` (e.g. from an admin tool) is honoured if it's in bounds
+---and free; the common case (nil, from qb-multicharacter's self-serve
+---create) gets the next free slot computed HERE, server-side -- a client's
+---own slot guess is never trusted for this, since it gates the character
+---count limit below.
 ---@param src integer
 ---@param charinfo table
 ---@param cid integer|nil
@@ -197,7 +210,32 @@ end
 function Core.player.createCharacter(src, charinfo, cid)
     local license = Core.identity.primary(src)
     if not license then return nil, 'could not resolve primary identifier' end
-    cid = cid or 1
+
+    local maxCharacters = Core.users.getMaxCharacters(license)
+    local existing = Core.persistence._listCharacters(license)
+    local taken = {}
+    for _, character in ipairs(existing) do taken[character.cid] = true end
+
+    if cid then
+        if cid < 1 or cid > maxCharacters or taken[cid] then
+            return nil, 'requested character slot is unavailable'
+        end
+    elseif #existing >= maxCharacters then
+        return nil, 'character limit reached'
+    else
+        for candidate = 1, maxCharacters do
+            if not taken[candidate] then
+                cid = candidate
+                break
+            end
+        end
+    end
+
+    -- Unreachable in practice: the elseif above already guarantees a free
+    -- slot exists in 1..maxCharacters whenever the loop runs. Asserted
+    -- rather than left implicit so a future change to the branch above fails
+    -- loudly instead of inserting a row with a nil cid.
+    assert(cid ~= nil, 'createCharacter: failed to compute a free slot')
 
     local citizenid = Core.identity.generateCitizenId()
     local data = PI.freshData(citizenid, license, cid, charinfo or {})

@@ -81,14 +81,24 @@ function M.install()
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }
 
-    -- fake QB.sql recording writes.
-    local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, execute = {} }
+    -- fake QB.sql recording writes. query/single results are canned per exact
+    -- SQL string (sqlResponses.query[sql] / .single[sql]) -- unset means the
+    -- same nil/{} default every test relied on before this existed, so this
+    -- is purely additive for a test that needs a specific row back.
+    local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {} }
+    local sqlResponses = { query = {}, single = {} }
     QB.sql = {
         ready = function() return true end,
         enqueue = function(t, k, row, opts) table.insert(sqlCalls.enqueue, { table = t, key = k, row = row, opts = opts }) end,
         enqueueMany = function(t, k, rows, opts) table.insert(sqlCalls.enqueueMany, { table = t, key = k, rows = rows, opts = opts }) end,
-        query = function(sql, params) table.insert(sqlCalls.query, { sql = sql, params = params }); return {} end,
-        single = function() return nil end,
+        query = function(sql, params)
+            table.insert(sqlCalls.query, { sql = sql, params = params })
+            return sqlResponses.query[sql] or {}
+        end,
+        single = function(sql, params)
+            table.insert(sqlCalls.single, { sql = sql, params = params })
+            return sqlResponses.single[sql]
+        end,
         execute = function(sql, params) table.insert(sqlCalls.execute, { sql = sql, params = params }); return { affectedRows = 1 } end,
         flush = function() return true end,
     }
@@ -105,6 +115,7 @@ function M.install()
         clientEvents = clientEvents,
         serverEvents = serverEvents,
         sqlCalls = sqlCalls,
+        sqlResponses = sqlResponses,
         QB = QB,
         resourceStates = resourceStates,
         -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).

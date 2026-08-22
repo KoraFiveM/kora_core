@@ -18,12 +18,16 @@ end)
 -- GetServerLogs: deliberately NOT implemented -- no `server_logs` table
 -- anywhere in this schema, nothing to honestly return.
 
-QB.callback.register('qb-multicharacter:server:GetNumberOfCharacters', function(_src)
-    -- Real signature: cb(numOfChars, Countries). Per-license overrides and a
-    -- static Countries list aren't modeled in this codebase -- fall back to
-    -- the single global cap and an empty list rather than guessing at data
-    -- that doesn't exist here.
-    return Config.identity.maxCharacters, {}
+QB.callback.register('qb-multicharacter:server:GetNumberOfCharacters', function(src)
+    -- Real signature: cb(numOfChars, Countries). A static Countries list
+    -- isn't modeled in this codebase -- an empty list rather than guessing at
+    -- data that doesn't exist here. numOfChars is per-license
+    -- (Core.users.getMaxCharacters), not a single global constant: a `users`
+    -- row can override Config.identity.maxCharacters for one license (e.g. a
+    -- VIP allowance) without changing the server default.
+    local license = Core.identity.primary(src)
+    if not license then return Config.identity.maxCharacters, {} end
+    return Core.users.getMaxCharacters(license), {}
 end)
 
 QB.callback.register('qb-multicharacter:server:setupCharacters', function(src)
@@ -74,7 +78,11 @@ end)
 RegisterNetEvent('qb-multicharacter:server:createCharacter', function(data)
     local src = source
     data = data or {}
-    local citizenid, err = Core.player.createCharacter(src, data, data.cid)
+    -- data.cid (a client-side slot guess) is deliberately NOT forwarded --
+    -- Core.player.createCharacter computes the next free slot itself and
+    -- enforces the per-license character limit against it; trusting a
+    -- client-supplied slot would let it bypass that limit outright.
+    local citizenid, err = Core.player.createCharacter(src, data)
     if not citizenid then
         TriggerClientEvent('multichar:client:selectFailed', src, err)
         return

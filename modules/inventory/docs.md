@@ -1,7 +1,7 @@
 # Inventory module
 
 ## Overview
-The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, label, weight, … }`, persisted by qbcore through the player funnel. qbinventory is the headless inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**: qbinventory owns that compatibility identity.
+The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, label, weight, … }`, persisted by qbcore through the player funnel. qbinventory is the inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; qbinventory will advertise that identity only after exact upstream compatibility is implemented and tested.
 
 For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while qbinventory is absent and logs a one-time warning. Set it to `false` once qbinventory is required to return a clear error instead. A started qbinventory missing any required gateway export is always an error; qbcore never mixes providers per operation.
 
@@ -217,5 +217,5 @@ Returns the local inventory table from the mirror (`{ 'items' }`), or an empty t
 - **Stacking rules.** Weapons and items flagged `unique` never stack. Stackables merge into the lowest matching slot; when `Config.inventory.matchInfoOnStack` is on, they only stack if their `info` tables match (stricter than legacy).
 - **Weight.** Total weight is computed from the `items`/`weapons` registry weights (falling back to a record's own `weight`); `canCarry`/`addItem` enforce `Config.inventory.maxWeight`.
 - **Every mutation is a funnel write per slot**, so a slot change is one dirty column (`inventory`) and one delta op — deleting a slot is `setPath(..., nil)`.
-- **Headless boundary.** qbcore has no inventory NUI and no `qb-inventory` provider. qbinventory may run headlessly or alongside its optional UI companion; its server exports remain the authority.
+- **UI boundary.** qbcore has no inventory NUI and no `qb-inventory` provider. qbinventory owns its bundled NUI while qbcore remains the sole player item store.
 - **Drops are ephemeral.** Ground drops live in memory only and vanish on restart, by design.
