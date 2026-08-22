@@ -1,0 +1,4 @@
+-- Core.commands (client realm) -- reserved for client-side command glue. Chat
+-- suggestions are delivered by the server module via the `chat` resource; there
+-- is currently no client-side registration API, so this file intentionally
+-- defines no functions (kept for symmetry + a clear place to add them).
