@@ -142,7 +142,7 @@ API. Legacy net events fire both directions (`QBCore:Server:PlayerLoaded`,
 ## Character selection
 No NUI ships. A bare server auto-selects character slot 1 (creating a default
 character if none exist). A character-select UI calls
-`exports.qbcore:multichar_claimUI()` and drives
+`exports.qbcore:claimUI()` and drives
 `exports.qbcore:getCharacters/selectCharacter/deleteCharacter` (or the
 `qbcore:server:*` / legacy `qb-multicharacter:*` events).
 

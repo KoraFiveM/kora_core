@@ -7,8 +7,10 @@
 local selecting = false
 local uiClaimed = false
 
----A character-select UI resource calls this (via `exports.qbcore:multichar_claimUI()`)
----to suppress the default auto-select/auto-create flow below. Must be called
+---A character-select UI resource calls this (via `exports.qbcore:claimUI()` --
+---qbcore's flat exports are named after the function alone, not
+---`<module>_<fn>`; see build/finalise.lua) to suppress the default
+---auto-select/auto-create flow below. Must be called
 ---before ~500ms after THIS resource's own scripts start, or the default flow
 ---may already have fired -- see the kick-off thread at the bottom of this file.
 ---
