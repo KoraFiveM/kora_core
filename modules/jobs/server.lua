@@ -66,7 +66,7 @@ function Core.jobs.setGang(src, name, grade)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
     if not Core.registry.getShared('gangs', name) then return false, 'unknown gang' end
-    grade = tonumber(grade) or 0
+    grade = math.max(1, math.floor(tonumber(grade) or 1))
     local gang = CoreInternal.player.buildGang(name, grade)
     Core.player.setPath(src, { 'gang' }, gang)
     TriggerEvent('QBCore:Server:OnGangUpdate', src, gang)

@@ -169,6 +169,17 @@ QBCoreSeed.items = {
     { name = 'id_card',      label = 'ID Card',  weight = 0,    type = 'item', image = 'id_card.png',      imageUrl = QBCoreSeed.imageUrl('id_card'), unique = true,  useable = true,  shouldClose = false, description = 'Identification.' },
     { name = 'lockpick',     label = 'Lockpick', weight = 160,  type = 'item', image = 'lockpick.png',     imageUrl = QBCoreSeed.imageUrl('lockpick'), unique = false, useable = true,  shouldClose = true,  description = 'For locked things.' },
     { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
+
+    -- Further consumables (food/drink/alcohol/drugs). Their actual hunger/
+    -- thirst/stress/drunk/high effects live in qbinventory's own useable
+    -- handler (server/useables.lua), not here -- this registry only carries
+    -- display/weight/useable metadata, same as every other item.
+    { name = 'chocolate_bar', label = 'Chocolate Bar', weight = 80,  type = 'item', image = 'chocolate_bar.png', imageUrl = QBCoreSeed.imageUrl('chocolate_bar'), unique = false, useable = true, shouldClose = true, description = 'A quick snack.' },
+    { name = 'soda',          label = 'Soda',          weight = 350, type = 'item', image = 'soda.png',          imageUrl = QBCoreSeed.imageUrl('soda'),          unique = false, useable = true, shouldClose = true, description = 'Sweet and fizzy.' },
+    { name = 'beer',          label = 'Beer',          weight = 350, type = 'item', image = 'beer.png',          imageUrl = QBCoreSeed.imageUrl('beer'),          unique = false, useable = true, shouldClose = true, description = 'An alcoholic drink.' },
+    { name = 'whiskey',       label = 'Whiskey',       weight = 400, type = 'item', image = 'whiskey.png',       imageUrl = QBCoreSeed.imageUrl('whiskey'),       unique = false, useable = true, shouldClose = true, description = 'Strong stuff.' },
+    { name = 'weed',          label = 'Weed',          weight = 20,  type = 'item', image = 'weed.png',          imageUrl = QBCoreSeed.imageUrl('weed'),          unique = false, useable = true, shouldClose = true, description = 'Best used off duty.' },
+
     -- A unique item because qbinventory binds one durable secondary inventory
     -- to each physical backpack. Its capacity/access policy lives in
     -- qbinventory's server-side container configuration.

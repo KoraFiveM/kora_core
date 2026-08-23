@@ -100,4 +100,22 @@ h.test('the legacy QBCore:Player:SetPlayerData event fires locally on a delta', 
     h.assertTrue(fired, 'legacy full-blob event should fire client-side from the mirror')
 end)
 
+h.test('the local legacy re-fire never warns when CFX copies a net-event payload', function()
+    local originalPrint = print
+    local warnings = {}
+    _G.print = function(message) warnings[#warnings + 1] = tostring(message) end
+    handle.setCloneLocalNetPayloads(true)
+
+    TriggerEvent('qbcore:rep:snapshot', 40, { money = { cash = 1 } })
+    TriggerEvent('qbcore:rep:delta', 41, { { p = { 'money', 'cash' }, v = 2 } })
+
+    handle.setCloneLocalNetPayloads(false)
+    _G.print = originalPrint
+
+    h.assertEqual(#warnings, 0,
+        'qbcore must not report its own local compatibility event as a direct PlayerData write')
+    h.assertEqual(clientRep.getData({ 'money', 'cash' }), 2,
+        'the local compatibility event must not replace the replication mirror')
+end)
+
 h.report('replication')

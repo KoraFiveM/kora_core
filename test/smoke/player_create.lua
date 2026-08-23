@@ -54,35 +54,35 @@ end)
 
 h.test('assigns the next free slot when slot 1 is already taken', function()
     withExistingCount(1)
-    local citizenid = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' })
+    local citizenid = Core.player.createCharacter(2, { firstname = 'A', lastname = 'B' })
     h.assertTrue(citizenid ~= nil)
     h.assertEqual(lastInsertParams()[3], 2)
 end)
 
 h.test('honours an explicit free cid from an admin-style caller', function()
     withExistingCount(1) -- slot 1 taken
-    local citizenid = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' }, 3)
+    local citizenid = Core.player.createCharacter(3, { firstname = 'A', lastname = 'B' }, 3)
     h.assertTrue(citizenid ~= nil)
     h.assertEqual(lastInsertParams()[3], 3)
 end)
 
 h.test('rejects an explicit cid that is already taken', function()
     withExistingCount(1) -- slot 1 taken
-    local citizenid, err = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' }, 1)
+    local citizenid, err = Core.player.createCharacter(10, { firstname = 'A', lastname = 'B' }, 1)
     h.assertTrue(citizenid == nil)
     h.assertEqual(err, 'requested character slot is unavailable')
 end)
 
 h.test('rejects an explicit cid out of bounds', function()
     withExistingCount(0)
-    local citizenid, err = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' }, 99)
+    local citizenid, err = Core.player.createCharacter(11, { firstname = 'A', lastname = 'B' }, 99)
     h.assertTrue(citizenid == nil)
     h.assertEqual(err, 'requested character slot is unavailable')
 end)
 
 h.test('rejects creation once the configured limit is reached', function()
     withExistingCount(Config.identity.maxCharacters)
-    local citizenid, err = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' })
+    local citizenid, err = Core.player.createCharacter(12, { firstname = 'A', lastname = 'B' })
     h.assertTrue(citizenid == nil)
     h.assertEqual(err, 'character limit reached')
 end)
@@ -90,7 +90,7 @@ end)
 h.test('a per-license users.max_characters override raises the limit', function()
     handle.sqlResponses.single[MAXCHAR_SQL] = { max_characters = Config.identity.maxCharacters + 1 }
     withExistingCount(Config.identity.maxCharacters) -- at the GLOBAL default, but under the override
-    local citizenid, err = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' })
+    local citizenid, err = Core.player.createCharacter(4, { firstname = 'A', lastname = 'B' })
     h.assertTrue(citizenid ~= nil, err)
     h.assertEqual(lastInsertParams()[3], Config.identity.maxCharacters + 1)
     handle.sqlResponses.single[MAXCHAR_SQL] = nil
@@ -99,7 +99,7 @@ end)
 h.test('a per-license users.max_characters override can also lower the limit', function()
     handle.sqlResponses.single[MAXCHAR_SQL] = { max_characters = 1 }
     withExistingCount(1)
-    local citizenid, err = Core.player.createCharacter(1, { firstname = 'A', lastname = 'B' })
+    local citizenid, err = Core.player.createCharacter(13, { firstname = 'A', lastname = 'B' })
     h.assertTrue(citizenid == nil)
     h.assertEqual(err, 'character limit reached')
     handle.sqlResponses.single[MAXCHAR_SQL] = nil

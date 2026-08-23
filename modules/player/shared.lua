@@ -43,7 +43,7 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
         money = money,
         charinfo = charinfo,
         job = defaultJob,
-        gang = CoreInternal.player.buildGang('none', 0),
+        gang = CoreInternal.player.buildGang('none', 1),
         position = { x = 195.17, y = -933.77, z = 30.69, h = 144.0 },
         metadata = {
             hunger = 100, thirst = 100, stress = 0, armor = 0,
@@ -83,11 +83,12 @@ end
 ---@param grade integer
 ---@return table
 function CoreInternal.player.buildGang(name, grade)
+    grade = math.max(1, math.floor(tonumber(grade) or 1))
     local def = Core.registry.getShared('gangs', name)
     if not def then
         return { name = name, label = name, isboss = false, grade = { name = 'None', level = grade } }
     end
-    local g = def.grades and (def.grades[grade] or def.grades[0]) or { name = 'None' }
+    local g = def.grades and (def.grades[grade] or def.grades[1]) or { name = 'None' }
     return {
         name = def.name,
         label = def.label,

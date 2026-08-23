@@ -170,6 +170,13 @@ function Core.player.offChange(id)
     subscribers[id] = nil
 end
 
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() then return end
+    for id, subscriber in pairs(subscribers) do
+        if subscriber.resource == resource then subscribers[id] = nil end
+    end
+end)
+
 -- --- lifecycle ---
 
 -- Insert a fully-hydrated Player into the caches and fire loaded events.
@@ -199,6 +206,7 @@ local function adopt(src, player)
     TriggerEvent('QBCore:Server:PlayerLoaded', player.PlayerData)          -- legacy server-side
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
+    if Core.money and Core.money.syncState then Core.money.syncState(src) end
     -- The state bag is the authoritative client-facing character-session
     -- signal. It intentionally follows the snapshot so state-bag consumers
     -- can show UI only after the local PlayerData mirror is usable.
@@ -244,7 +252,10 @@ end
 ---@param charinfo table
 ---@param cid integer|nil
 ---@return string|nil, string|nil
-function Core.player.createCharacter(src, charinfo, cid)
+local creatingCharacter = {}
+
+local function createCharacterUnlocked(src, charinfo, cid)
+    if bySource[src] then return nil, 'source already logged in' end
     local license = Core.identity.primary(src)
     if not license then return nil, 'could not resolve primary identifier' end
 
@@ -291,6 +302,16 @@ function Core.player.createCharacter(src, charinfo, cid)
     local adopted, adoptErr = adopt(src, player)
     if not adopted then return nil, adoptErr end
     return citizenid
+end
+
+function Core.player.createCharacter(src, charinfo, cid)
+    if bySource[src] then return nil, 'source already logged in' end
+    if creatingCharacter[src] then return nil, 'character creation already in progress' end
+    creatingCharacter[src] = true
+    local results = table.pack(pcall(createCharacterUnlocked, src, charinfo, cid))
+    creatingCharacter[src] = nil
+    if not results[1] then error(results[2], 0) end
+    return table.unpack(results, 2, results.n)
 end
 
 ---Log a player out (keep the connection, drop the character). Flushes first.

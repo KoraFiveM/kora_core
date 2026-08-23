@@ -36,6 +36,17 @@ h.test('seed job grades are one-based sequential arrays', function()
     end
 end)
 
+h.test('seed gang grades are one-based sequential arrays', function()
+    for _, name in ipairs({ 'none', 'ballas', 'vagos' }) do
+        local gang = assert(Core.registry.getShared('gangs', name))
+        h.assertTrue(gang.grades[0] == nil, ('%s must not define grade zero'):format(name))
+        h.assertTrue(gang.grades[1] ~= nil, ('%s must define grade one'):format(name))
+        for grade = 1, #gang.grades do
+            h.assertTrue(gang.grades[grade] ~= nil, ('%s has a gap at grade %d'):format(name, grade))
+        end
+    end
+end)
+
 h.test('register adds to list, index, and the materialised Shared table', function()
     local ok = Core.registry.registerShared('items', 'donut', { name = 'donut', label = 'Donut', weight = 100 })
     h.assertTrue(ok, 'register failed')

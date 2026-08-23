@@ -1,14 +1,258 @@
 -- compat/client/qb-core-events.lua -- client-side legacy event glue. The delta
 -- apply in modules/replication/client.lua already fires
 -- QBCore:Player:SetPlayerData / OnJobUpdate / OnGangUpdate locally; this file
--- handles the remaining inbound admin/command events.
+-- handles the remaining inbound admin/command events a stock qb admin menu or
+-- third-party resource fires (spawn/delete vehicle, teleports, /me, etc.),
+-- porting the real qb-core client/events.lua bodies.
 
-RegisterNetEvent('QBCore:Command:TeleportToCoords', function(x, y, z)
+-- Teleport Commands ----------------------------------------------------------
+
+RegisterNetEvent('QBCore:Command:TeleportToCoords', function(x, y, z, h)
     local ped = PlayerPedId()
-    SetEntityCoords(ped, x + 0.0, y + 0.0, z + 0.0, false, false, false, false)
+    SetPedCoordsKeepVehicle(ped, x + 0.0, y + 0.0, z + 0.0)
+    SetEntityHeading(ped, h or GetEntityHeading(ped))
 end)
+
+RegisterNetEvent('QBCore:Command:TeleportToPlayer', function(coords)
+    local ped = PlayerPedId()
+    SetPedCoordsKeepVehicle(ped, coords.x, coords.y, coords.z)
+end)
+
+-- Ported from real qb-core. Real uses Lang:t() for its notifications; we don't
+-- ship the qb locale object client-side, so the notify strings are inlined and
+-- routed through QBCore.Functions.Notify (which forwards to qblib).
+RegisterNetEvent('QBCore:Command:GoToMarker', function()
+    local PlayerPedId = PlayerPedId
+    local GetEntityCoords = GetEntityCoords
+    local GetGroundZFor_3dCoord = GetGroundZFor_3dCoord
+
+    local blipMarker <const> = GetFirstBlipInfoId(8)
+    if not DoesBlipExist(blipMarker) then
+        QBCore.Functions.Notify('No waypoint set', 'error', 5000)
+        return 'marker'
+    end
+
+    -- Fade screen to hide how clients get teleported.
+    DoScreenFadeOut(650)
+    while not IsScreenFadedOut() do
+        Wait(0)
+    end
+
+    local ped, coords <const> = PlayerPedId(), GetBlipInfoIdCoord(blipMarker)
+    local vehicle = GetVehiclePedIsIn(ped, false)
+    local oldCoords <const> = GetEntityCoords(ped)
+
+    -- Unpack coords instead of having to unpack them while iterating.
+    -- 825.0 seems to be the max a player can reach while 0.0 being the lowest.
+    local x, y, groundZ, Z_START = coords['x'], coords['y'], 850.0, 950.0
+    local found = false
+    if vehicle > 0 then
+        FreezeEntityPosition(vehicle, true)
+    else
+        FreezeEntityPosition(ped, true)
+    end
+
+    for i = Z_START, 0, -25.0 do
+        local z = i
+        if (i % 2) ~= 0 then
+            z = Z_START - i
+        end
+
+        NewLoadSceneStart(x, y, z, x, y, z, 50.0, 0)
+        local curTime = GetGameTimer()
+        while IsNetworkLoadingScene() do
+            if GetGameTimer() - curTime > 1000 then
+                break
+            end
+            Wait(0)
+        end
+        NewLoadSceneStop()
+        SetPedCoordsKeepVehicle(ped, x, y, z)
+
+        curTime = GetGameTimer()
+        while not HasCollisionLoadedAroundEntity(ped) do
+            RequestCollisionAtCoord(x, y, z)
+            if GetGameTimer() - curTime > 1000 then
+                break
+            end
+            Wait(0)
+        end
+
+        -- Get ground coord. As mentioned in the natives, this only works if the client is in render distance.
+        found, groundZ = GetGroundZFor_3dCoord(x, y, z, false)
+        if found then
+            Wait(0)
+            SetPedCoordsKeepVehicle(ped, x, y, groundZ)
+            break
+        end
+        Wait(0)
+    end
+
+    -- Remove black screen once the loop has ended.
+    DoScreenFadeIn(650)
+    if vehicle > 0 then
+        FreezeEntityPosition(vehicle, false)
+    else
+        FreezeEntityPosition(ped, false)
+    end
+
+    if not found then
+        -- If we can't find the coords, set the coords to the old ones.
+        SetPedCoordsKeepVehicle(ped, oldCoords['x'], oldCoords['y'], oldCoords['z'] - 1.0)
+        QBCore.Functions.Notify('Unable to teleport to waypoint', 'error', 5000)
+        return
+    end
+
+    -- If Z coord was found, set coords in found coords.
+    SetPedCoordsKeepVehicle(ped, x, y, groundZ)
+    QBCore.Functions.Notify('Teleported to waypoint', 'success', 5000)
+end)
+
+-- Vehicle Commands -----------------------------------------------------------
+
+RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
+    local ped = PlayerPedId()
+    local hash = joaat(vehName)
+    local veh = GetVehiclePedIsUsing(ped)
+    if not IsModelInCdimage(hash) then return end
+    RequestModel(hash)
+    while not HasModelLoaded(hash) do
+        Wait(0)
+    end
+
+    if IsPedInAnyVehicle(ped) then
+        SetEntityAsMissionEntity(veh, true, true)
+        DeleteVehicle(veh)
+    end
+
+    local vehicle = CreateVehicle(hash, GetEntityCoords(ped), GetEntityHeading(ped), true, false)
+    TaskWarpPedIntoVehicle(ped, vehicle, -1)
+    SetVehicleFuelLevel(vehicle, 100.0)
+    SetVehicleDirtLevel(vehicle, 0.0)
+    SetModelAsNoLongerNeeded(hash)
+    TriggerEvent('vehiclekeys:client:SetOwner', QBCore.Functions.GetPlate(vehicle))
+end)
+
+RegisterNetEvent('QBCore:Command:DeleteVehicle', function()
+    local ped = PlayerPedId()
+    local veh = GetVehiclePedIsUsing(ped)
+    if veh ~= 0 then
+        SetEntityAsMissionEntity(veh, true, true)
+        DeleteVehicle(veh)
+    else
+        local pcoords = GetEntityCoords(ped)
+        local vehicles = GetGamePool('CVehicle')
+        for _, v in pairs(vehicles) do
+            if #(pcoords - GetEntityCoords(v)) <= 5.0 then
+                SetEntityAsMissionEntity(v, true, true)
+                DeleteVehicle(v)
+            end
+        end
+    end
+end)
+
+RegisterNetEvent('QBCore:Client:VehicleInfo', function(info)
+    local plate = QBCore.Functions.GetPlate(info.vehicle)
+    local hasKeys = true
+
+    if GetResourceState('qb-vehiclekeys') == 'started' then
+        hasKeys = exports['qb-vehiclekeys']:HasKeys(plate)
+    end
+
+    local data = {
+        vehicle = info.vehicle,
+        seat = info.seat,
+        name = info.modelName,
+        plate = plate,
+        driver = GetPedInVehicleSeat(info.vehicle, -1),
+        inseat = GetPedInVehicleSeat(info.vehicle, info.seat),
+        haskeys = hasKeys
+    }
+
+    TriggerEvent('QBCore:Client:' .. info.event .. 'Vehicle', data)
+end)
+
+-- Lifecycle ------------------------------------------------------------------
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     -- Ensure the mirror requests a snapshot if it somehow hasn't yet.
     if Core.replication.getData() == nil then Core.replication.requestResync() end
+end)
+
+-- Keep the paired legacy unload signal network-safe even when no compatibility
+-- resource currently consumes it.  This avoids CFX rejecting qbcore's legacy
+-- TriggerClientEvent during character logout.
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
+
+-- Legacy QBCore:Notify -- real qb-core registers this on the client so any
+-- resource (and qbcore's own admin commands / compat GetCoreObject:Notify) can
+-- fire TriggerClientEvent('QBCore:Notify', src, text, type, length) and have it
+-- shown. Without this handler the event is emitted server-side (see
+-- compat/server/qb-core.lua and modules/commands/server.lua) but silently
+-- dropped client-side. Route it through the SAME path QBCore.Functions.Notify
+-- uses (which forwards to qblib's QB.notify.send), so there's one notify code
+-- path. QBCore is the global assembled in compat/shared/coreobject.lua and
+-- compat/client/qb-core.lua (loaded before this file), so Functions.Notify is
+-- present by the time this fires.
+RegisterNetEvent('QBCore:Notify', function(text, type_, length, icon)
+    QBCore.Functions.Notify(text, type_, length, icon)
+end)
+
+-- /me command 3D text --------------------------------------------------------
+
+local function Draw3DText(coords, str)
+    local onScreen, worldX, worldY = World3dToScreen2d(coords.x, coords.y, coords.z)
+    local camCoords = GetGameplayCamCoord()
+    local scale = 200 / (GetGameplayCamFov() * #(camCoords - coords))
+    if onScreen then
+        SetTextScale(1.0, 0.5 * scale)
+        SetTextFont(4)
+        SetTextColour(255, 255, 255, 255)
+        SetTextEdge(2, 0, 0, 0, 150)
+        SetTextProportional(1)
+        SetTextOutline()
+        SetTextCentre(1)
+        BeginTextCommandDisplayText('STRING')
+        AddTextComponentSubstringPlayerName(str)
+        EndTextCommandDisplayText(worldX, worldY)
+    end
+end
+
+RegisterNetEvent('QBCore:Command:ShowMe3D', function(senderId, msg)
+    local sender = GetPlayerFromServerId(senderId)
+    CreateThread(function()
+        local displayTime = 5000 + GetGameTimer()
+        while displayTime > GetGameTimer() do
+            local targetPed = GetPlayerPed(sender)
+            local tCoords = GetEntityCoords(targetPed)
+            Draw3DText(tCoords, msg)
+            Wait(0)
+        end
+    end)
+end)
+
+-- Shared table updates -------------------------------------------------------
+-- Real qb-core patches its in-VM QBCore.Shared tables from these events. In our
+-- build QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are the MATERIALISED
+-- registry tables (see compat/shared/coreobject.lua's metatable), and the
+-- authoritative sync happens over qbcore:registry:delta -- the client registry
+-- is server-owned and has no local "set" API. So these stay thin, best-effort
+-- local patches for any resource that still broadcasts the legacy shared-update
+-- events; a subsequent registry delta will reconcile if it diverges.
+RegisterNetEvent('QBCore:Client:OnSharedUpdate', function(tableName, key, value)
+    local tbl = QBCore.Shared[tableName]
+    if type(tbl) == 'table' then
+        tbl[key] = value
+    end
+    TriggerEvent('QBCore:Client:UpdateObject')
+end)
+
+RegisterNetEvent('QBCore:Client:OnSharedUpdateMultiple', function(tableName, values)
+    local tbl = QBCore.Shared[tableName]
+    if type(tbl) == 'table' then
+        for key, value in pairs(values) do
+            tbl[key] = value
+        end
+    end
+    TriggerEvent('QBCore:Client:UpdateObject')
 end)

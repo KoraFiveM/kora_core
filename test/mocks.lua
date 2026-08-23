@@ -19,6 +19,17 @@ function M.install()
     local lifecycleTrace = {}   -- interleaved client events and state writes
     local timeouts = {}         -- pending SetTimeout callbacks
     local threads = {}
+    local cloneLocalNetPayloads = false
+
+    local function clone(value, seen)
+        if type(value) ~= 'table' then return value end
+        seen = seen or {}
+        if seen[value] then return seen[value] end
+        local copy = {}
+        seen[value] = copy
+        for key, child in pairs(value) do copy[clone(key, seen)] = clone(child, seen) end
+        return copy
+    end
 
     _G.source = nil
 
@@ -26,7 +37,15 @@ function M.install()
     function _G.RegisterNetEvent(name, cb) if cb then netHandlers[name] = netHandlers[name] or {}; table.insert(netHandlers[name], cb) end end
     function _G.TriggerEvent(name, ...)
         for _, fn in ipairs(eventHandlers[name] or {}) do fn(...) end
-        for _, fn in ipairs(netHandlers[name] or {}) do fn(...) end
+        for _, fn in ipairs(netHandlers[name] or {}) do
+            if cloneLocalNetPayloads then
+                local args = { ... }
+                for index, value in ipairs(args) do args[index] = clone(value) end
+                fn(table.unpack(args))
+            else
+                fn(...)
+            end
+        end
     end
     function _G.TriggerClientEvent(name, target, ...)
         table.insert(clientEvents, { name = name, target = target, args = { ... } })
@@ -67,6 +86,8 @@ function M.install()
     function _G.GetPlayerPed(_) return 100 end
     function _G.GetEntityCoords(_) return { x = 0.0, y = 0.0, z = 0.0 } end
     function _G.GetEntityHeading(_) return 0.0 end
+    function _G.GetPlayerRoutingBucket(_) return 0 end
+    function _G.SetEntityRoutingBucket(_, _) end
 
     -- json (FiveM provides a global json with encode/decode). Use a stable
     -- key-sorted encoder so the persistence "byte-identical" gate is testable.
@@ -101,6 +122,9 @@ function M.install()
     QB.drawing = { text3d = function() end }
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }
+    QB.commands = { add = function() end, remove = function() end, refresh = function() end, list = function() return {} end }
+    QB.status = { apply = function() return true end, remove = function() return true end }
+    QB.zones = { sphere = function() return { remove = function() end } end }
 
     -- fake QB.sql recording writes. query/single results are canned per exact
     -- SQL string (sqlResponses.query[sql] / .single[sql]) -- unset means the
@@ -142,6 +166,7 @@ function M.install()
         sqlResponses = sqlResponses,
         QB = QB,
         resourceStates = resourceStates,
+        setCloneLocalNetPayloads = function(value) cloneLocalNetPayloads = value == true end,
         -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).
         drainTimeouts = function()
             local pending = timeouts

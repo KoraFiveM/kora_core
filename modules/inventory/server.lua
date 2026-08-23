@@ -314,9 +314,12 @@ function Core.inventory.useItem(src, slotOrName)
         TriggerEvent('QBCore:Server:UseItem', src, item)   -- legacy hook
         return false
     end
-    local ok, err = pcall(u.handler, src, item)
-    if not ok then print(("^3[qbcore:inventory]^7 useable '%s' errored: %s"):format(item.name, tostring(err))) end
-    return true
+    local ok, result = pcall(u.handler, src, item)
+    if not ok then
+        print(("^3[qbcore:inventory]^7 useable '%s' errored: %s"):format(item.name, tostring(result)))
+        return false
+    end
+    return result ~= false
 end
 
 -- --- stashes (persisted to the `inventories` table) ---
@@ -366,7 +369,7 @@ end
 
 -- --- ground drops (in-memory; not persisted across restart by design) ---
 
-local drops = {}   -- dropId -> { coords, items }
+local drops = {}   -- dropId -> { coords, items, created }
 local nextDropId = 1
 
 ---@param coords table
@@ -375,7 +378,7 @@ local nextDropId = 1
 function Core.inventory.dropCreate(coords, dropItems)
     local id = nextDropId
     nextDropId = nextDropId + 1
-    drops[id] = { coords = coords, items = dropItems or {} }
+    drops[id] = { coords = coords, items = dropItems or {}, created = os.time() }
     TriggerClientEvent('qbcore:client:dropCreated', -1, id, coords)
     return id
 end
@@ -400,3 +403,18 @@ function Core.inventory.dropTake(src, dropId, slot, amount)
     end
     return true
 end
+
+-- Uncollected drops otherwise live forever in memory for the life of the
+-- process; periodically expire ones older than Config.inventory.dropTTL.
+CreateThread(function()
+    while true do
+        Wait(Config.inventory.dropSweepInterval)
+        local cutoff = os.time() - (Config.inventory.dropTTL / 1000)
+        for id, drop in pairs(drops) do
+            if drop.created and drop.created < cutoff then
+                drops[id] = nil
+                TriggerClientEvent('qbcore:client:dropRemoved', -1, id)
+            end
+        end
+    end
+end)

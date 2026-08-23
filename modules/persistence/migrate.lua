@@ -33,13 +33,24 @@ local MIGRATIONS = {
 
 -- Generated columns are opt-in.
 if Config.persistence.generatedColumns then
-    MIGRATIONS[#MIGRATIONS + 1] = { version = 3, name = 'generated_columns', file = 'sql/003_generated_columns.sql' }
+    MIGRATIONS[#MIGRATIONS + 1] = {
+        version = 3,
+        name = 'generated_columns',
+        file = 'sql/003_generated_columns.sql',
+        -- v3 originally shipped without IF NOT EXISTS. Its replacement is
+        -- retry-safe, and this exact old digest is the only historic form the
+        -- runner may accept rather than treating as unexplained schema drift.
+        acceptedChecksums = {
+            'c55391eb33cd16ea6e66f4d337786e5800000000000000000000000000000000',
+        },
+    }
 end
 
 -- Unconditional, fixed version number 4 regardless of whether the opt-in
 -- migration above ran -- the runner keys applied migrations by this literal
 -- number, so it must stay stable independent of Config.persistence.generatedColumns.
 MIGRATIONS[#MIGRATIONS + 1] = { version = 4, name = 'users', file = 'sql/004_users.sql' }
+MIGRATIONS[#MIGRATIONS + 1] = { version = 5, name = 'vehicles', file = 'sql/005_vehicles.sql' }
 
 CreateThread(function()
     local ok = QB.sql.ready(60000)
@@ -56,7 +67,13 @@ CreateThread(function()
             print(('^1[qbcore:migrate]^7 missing migration file %s'):format(m.file))
             return
         end
-        migrations[#migrations + 1] = { version = m.version, name = m.name, sql = sql, checksum = checksum(sql) }
+        migrations[#migrations + 1] = {
+            version = m.version,
+            name = m.name,
+            sql = sql,
+            checksum = checksum(sql),
+            acceptedChecksums = m.acceptedChecksums,
+        }
     end
 
     local applied, err = QB.sql.migrate(resource, migrations)

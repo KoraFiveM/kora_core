@@ -71,6 +71,46 @@ local function buildQBPlayer(src)
     function F.Save() Core.persistence.saveNow(handle); return true end
     function F.Logout() return Core.player.logout(src) end
 
+    -- --- methods present on CURRENT qb-core's player object (server/player.lua's
+    -- varargMethods/noargMethods) that classic-era compat lacked. Added so a
+    -- script written against modern qb-core (`Player.Functions.Notify(...)`,
+    -- `Player.Functions.HasItem(...)`, the reputation + extension methods) works
+    -- too -- this object is the UNION of both qb-core eras.
+    function F.Notify(text, type_, length) TriggerClientEvent('QBCore:Notify', src, text, type_, length) end
+    function F.HasItem(items, amount) return Core.inventory.hasItem(src, items, amount) end
+
+    -- Reputation lives in metadata.rep (a name->number map), matching qb-core.
+    function F.GetRep(rep)
+        local reps = Core.metadata.getMetaData(src, 'rep') or {}
+        return reps[rep] or 0
+    end
+    function F.AddRep(rep, amount)
+        amount = tonumber(amount)
+        if not rep or not amount then return end
+        local reps = Core.metadata.getMetaData(src, 'rep') or {}
+        reps[rep] = math.max(0, (reps[rep] or 0) + amount)
+        Core.metadata.setMetaData(src, 'rep', reps)
+    end
+    function F.RemoveRep(rep, amount)
+        amount = tonumber(amount)
+        if not rep or not amount then return end
+        local reps = Core.metadata.getMetaData(src, 'rep') or {}
+        reps[rep] = math.max(0, (reps[rep] or 0) - amount)
+        Core.metadata.setMetaData(src, 'rep', reps)
+    end
+
+    -- UpdateClient pushes PlayerData to the owning client. Our replication does
+    -- that automatically on every setPath, so there's nothing to force here --
+    -- kept as a no-op alias pair so both legacy names resolve. (UpdatePlayerData
+    -- above is the same no-op for the identical reason.)
+    function F.UpdateClient() --[[ data is already live via delta replication ]] end
+
+    -- Extension hooks: qb-core lets a resource bolt a custom method/field onto a
+    -- player object at runtime. AddMethod adds to THIS player's Functions table;
+    -- AddField adds a field to the player object itself.
+    function F.AddMethod(name, method) F[name] = method; return true end
+    function F.AddField(name, data) self[name] = data; return true end
+
     return self
 end
 
@@ -159,7 +199,16 @@ function F.HasPermission(src, perm) return Core.permissions.hasPermission(src, p
 function F.GetPermission(src) return Core.permissions.getPermission(src) end
 function F.AddPermission(src, perm) return Core.permissions.addPermission(src, perm) end
 function F.IsOptin(src) return Core.permissions.isOptin(src) end
-function F.Kick(src, reason) DropPlayer(src, reason or 'Kicked') end
+-- Full upstream signature: supports the connect-phase setKickReason/deferrals
+-- path so a script kicking during playerConnecting behaves the same.
+function F.Kick(source, reason, setKickReason, deferrals)
+    reason = '\n' .. (reason or 'Kicked') .. '\n🔸 Check our Discord for further information: ' .. (QBCore.Config.Server.Discord or '')
+    if setKickReason then setKickReason(reason) end
+    CreateThread(function()
+        if deferrals then deferrals.update(reason); Wait(2500) end
+        if source then DropPlayer(source, reason) end
+    end)
+end
 
 function F.Notify(src, text, type_, length)
     TriggerClientEvent('QBCore:Notify', src, text, type_, length)
@@ -178,32 +227,447 @@ end
 
 function F.PaycheckInterval() return Config.jobs.paycheckInterval or 300000 end
 
+-- ---------------------------------------------------------------------------
+-- Parity block: the rest of real qb-core's QBCore.Functions.* surface
+-- (server/functions.lua) plus the server/exports.lua registry mutators, so a
+-- third-party script calling any of them -- via GetCoreObject OR directly via
+-- exports['qb-core']:Fn(...) -- resolves. Native-heavy helpers are ported
+-- almost verbatim from upstream (self-contained CFX code); semantic ones map
+-- onto our Core.* implementations.
+-- ---------------------------------------------------------------------------
+
+-- CFX delivers export-boundary callbacks as tables with a __call/functionRef;
+-- treat those as callable too (same test real qb-core uses).
+local function isCallable(v)
+    if type(v) == 'function' then return true end
+    if type(v) == 'table' then
+        if type(rawget(v, '__cfx_functionReference')) == 'string' then return true end
+        local mt = getmetatable(v)
+        return mt ~= nil and type(mt.__call) == 'function'
+    end
+    return false
+end
+
+function F.GetCoords(entity)
+    local coords = GetEntityCoords(entity, false)
+    return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
+end
+
+function F.GetPlayerByLicense(license)
+    for src in pairs(PI.bySource) do
+        local ids = Core.identity.getIdentifiers(src)
+        if ids.license == license then return F.GetPlayer(src) end
+    end
+    return nil
+end
+
+function F.GetPlayerByAccount(account)
+    for src in pairs(PI.bySource) do
+        local h = PI.handle(src)
+        if h and h.PlayerData.charinfo and h.PlayerData.charinfo.account == account then return F.GetPlayer(src) end
+    end
+    return nil
+end
+
+function F.GetPlayerByCharInfo(property, value)
+    for src in pairs(PI.bySource) do
+        local h = PI.handle(src)
+        local ci = h and h.PlayerData.charinfo
+        if ci and ci[property] == value then return F.GetPlayer(src) end
+    end
+    return nil
+end
+
+-- Job/duty helpers -- iterate the live QBCore.Players map exactly as upstream,
+-- so the (players, count) return shape and the job.name/job.type match are
+-- byte-for-byte compatible.
+function F.GetPlayersByJob(job, checkOnDuty)
+    local players, count = {}, 0
+    for src, Player in pairs(QBCore.Players) do
+        local jd = Player.PlayerData.job
+        if jd and (jd.name == job or jd.type == job) then
+            if not checkOnDuty or jd.onduty then
+                players[#players + 1] = src
+                count = count + 1
+            end
+        end
+    end
+    return players, count
+end
+function F.GetPlayersOnDuty(job) return F.GetPlayersByJob(job, true) end
+function F.GetDutyCount(job) local _, count = F.GetPlayersByJob(job, true); return count end
+
+-- Server-side closest-entity helpers -- thin forwards to QB.world.getClosestEntity
+-- (see AGENTS.md's "thin forwards to QB.*, not reimplementations"). GetClosestPlayer
+-- additionally maps the ped QB.world returns back to a player id via QB.closest.player,
+-- matching real qb-core's (playerId, distance) signature.
+function F.GetClosestPlayer(source, coords)
+    coords = coords and (type(coords) == 'table' and vector3(coords.x, coords.y, coords.z) or coords) or nil
+    local result = QB.closest.player(source, coords)
+    return result.id or -1, result.distance or -1
+end
+
+local function closestFromPool(source, coords, entityType, excludeSelf)
+    coords = coords and (type(coords) == 'table' and vector3(coords.x, coords.y, coords.z) or coords)
+        or GetEntityCoords(GetPlayerPed(source))
+    local options = excludeSelf and { excludeEntities = { GetPlayerPed(source) } } or nil
+    local entity, _, distance = QB.world.getClosestEntity(entityType, coords, options)
+    return entity or -1, distance or -1
+end
+function F.GetClosestObject(source, coords) return closestFromPool(source, coords, 'object', false) end
+function F.GetClosestVehicle(source, coords) return closestFromPool(source, coords, 'vehicle', false) end
+function F.GetClosestPed(source, coords) return closestFromPool(source, coords, 'ped', true) end
+
+-- Routing buckets. QBCore tracks its own maps so GetPlayersInBucket/etc work.
+QBCore.Player_Buckets = QBCore.Player_Buckets or {}
+QBCore.Entity_Buckets = QBCore.Entity_Buckets or {}
+function F.GetBucketObjects() return QBCore.Player_Buckets, QBCore.Entity_Buckets end
+function F.SetPlayerBucket(source, bucket)
+    if not (source and bucket) then return false end
+    local plicense = F.GetIdentifier(source, 'license')
+    SetPlayerRoutingBucket(source, bucket)
+    QBCore.Player_Buckets[plicense] = { id = source, bucket = bucket }
+    return true
+end
+function F.SetEntityBucket(entity, bucket)
+    if not (entity and bucket) then return false end
+    SetEntityRoutingBucket(entity, bucket)
+    QBCore.Entity_Buckets[entity] = { id = entity, bucket = bucket }
+    return true
+end
+function F.GetPlayersInBucket(bucket)
+    local pool = {}
+    for _, v in pairs(QBCore.Player_Buckets) do if v.bucket == bucket then pool[#pool + 1] = v.id end end
+    return pool
+end
+function F.GetEntitiesInBucket(bucket)
+    local pool = {}
+    for _, v in pairs(QBCore.Entity_Buckets) do if v.bucket == bucket then pool[#pool + 1] = v.id end end
+    return pool
+end
+
+-- Server-side vehicle creation (ported verbatim from upstream).
+function F.SpawnVehicle(source, model, coords, warp)
+    local ped = GetPlayerPed(source)
+    model = type(model) == 'string' and joaat(model) or model
+    if not coords then coords = GetEntityCoords(ped) end
+    local heading = coords.w and coords.w or 0.0
+    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, heading, true, true)
+    local t = 0
+    while not DoesEntityExist(veh) and t < 1000 do Wait(0); t = t + 1 end
+    if warp then
+        t = 0
+        while GetVehiclePedIsIn(ped) ~= veh and t < 100 do Wait(0); t = t + 1; TaskWarpPedIntoVehicle(ped, veh, -1) end
+    end
+    t = 0
+    while NetworkGetEntityOwner(veh) ~= source and t < 1000 do Wait(0); t = t + 1 end
+    return veh
+end
+-- Upstream's CreateAutomobile uses the experimental CREATE_AUTOMOBILE native
+-- (documented there as "doesn't work for all vehicles"). We delegate to the
+-- reliable CreateVehicleServerSetter path with the 'automobile' type instead --
+-- same result, and it avoids a CFX hash-literal the toolchain can't parse.
+function F.CreateAutomobile(source, model, coords, warp)
+    return F.CreateVehicle(source, model, 'automobile', coords, warp)
+end
+function F.CreateVehicle(source, model, vehtype, coords, warp)
+    model = type(model) == 'string' and joaat(model) or model
+    vehtype = type(vehtype) == 'string' and tostring(vehtype) or vehtype
+    if not coords then coords = GetEntityCoords(GetPlayerPed(source)) end
+    local veh = CreateVehicleServerSetter(model, vehtype, coords, coords.w and coords.w or 0.0)
+    local t = 0
+    while not DoesEntityExist(veh) and t < 1000 do Wait(0); t = t + 1 end
+    if warp then TaskWarpPedIntoVehicle(GetPlayerPed(source), veh, -1) end
+    return veh
+end
+
+-- Client callbacks: real qb-core has its own wire protocol; we route through
+-- qblib's callback system (the client compat maps CreateClientCallback ->
+-- QB.callback.register to match), which keeps one tested implementation.
+function F.TriggerClientCallback(name, source, ...)
+    if not source then return end
+    local args = { ... }
+    local cb
+    if isCallable(args[1]) then cb = table.remove(args, 1) end
+    if cb then
+        CreateThread(function() cb(QB.callback.trigger(source, name, table.unpack(args))) end)
+    else
+        return QB.callback.trigger(source, name, table.unpack(args))
+    end
+end
+
+-- Permissions: add the Remove counterpart (upstream ExecuteCommand form; the
+-- no-arg case strips every configured permission group).
+function F.RemovePermission(src, permission)
+    if permission then
+        if IsPlayerAceAllowed(src, permission) then
+            Core.permissions.removePermission(src, permission)
+            QBCore.Commands.Refresh(src)
+        end
+    else
+        for _, v in pairs(QBCore.Config.Server.Permissions) do
+            if IsPlayerAceAllowed(src, v) then
+                Core.permissions.removePermission(src, v)
+                QBCore.Commands.Refresh(src)
+            end
+        end
+    end
+end
+
+function F.ToggleOptin(src)
+    if not F.HasPermission(src, 'admin') then return end
+    local current = Core.metadata.getMetaData(src, 'optin')
+    Core.metadata.setMetaData(src, 'optin', not current)
+end
+
+function F.IsWhitelisted(src)
+    if not QBCore.Config.Server.Whitelist then return true end
+    return F.HasPermission(src, QBCore.Config.Server.WhitelistPermission) and true or false
+end
+
+function F.IsPlayerBanned(src)
+    local license = F.GetIdentifier(src, 'license')
+    local row = QB.sql.single('SELECT id, reason, expire FROM bans WHERE license = ?', { license })
+    if not row then return false end
+    if os.time() < tonumber(row.expire) then
+        local t = os.date('*t', tonumber(row.expire))
+        return true, ('You have been banned from the server:\n%s\nYour ban expires %d/%d/%d %d:%d\n')
+            :format(row.reason, t.day, t.month, t.year, t.hour, t.min)
+    end
+    QB.sql.query('DELETE FROM bans WHERE id = ?', { row.id })
+    return false
+end
+
+function F.IsLicenseInUse(license)
+    for src in pairs(PI.bySource) do
+        local ids = Core.identity.getIdentifiers(src)
+        if ids.license == license then return true end
+    end
+    return false
+end
+
+function F.GetDatabaseInfo()
+    local details = { exists = false, database = '' }
+    local cs = GetConvar('mysql_connection_string', '')
+    if cs == '' then return details end
+    if cs:find('mysql://') then
+        cs = cs:sub(9, -1)
+        details.database = cs:sub((cs:find('/') or 0) + 1, -1):gsub('[%?]+[%w%p]*$', '')
+        details.exists = details.database ~= ''
+    end
+    return details
+end
+
+function F.GetCoreVersion(invokingResource)
+    local version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0)
+    if invokingResource and invokingResource ~= '' then
+        print(('%s called qbcore version check: %s'):format(invokingResource, version))
+    end
+    return version
+end
+
+function F.ExploitBan(playerId, origin)
+    local name = GetPlayerName(playerId)
+    QB.sql.insert('INSERT INTO bans (name, license, discord, ip, reason, expire, bannedby) VALUES (?, ?, ?, ?, ?, ?, ?)', {
+        name, F.GetIdentifier(playerId, 'license'), F.GetIdentifier(playerId, 'discord'),
+        F.GetIdentifier(playerId, 'ip'), origin, 2147483647, 'Anti Cheat',
+    })
+    DropPlayer(playerId, ('You have been banned for exploiting: %s'):format(tostring(origin)))
+    TriggerEvent('qb-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'red', name .. ' banned for exploiting ' .. tostring(origin), true)
+end
+
+-- Runtime object extension (server/exports.lua's SetMethod/SetField).
+function F.SetMethod(methodName, handler)
+    if type(methodName) ~= 'string' then return false, 'invalid_method_name' end
+    if QBCore.Functions[methodName] ~= nil then return false, 'method_exists' end
+    QBCore.Functions[methodName] = handler
+    provideExport('qb-core', methodName, handler)
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+function F.SetField(fieldName, data)
+    if type(fieldName) ~= 'string' then return false, 'invalid_field_name' end
+    if QBCore[fieldName] ~= nil then return false, 'field_exists' end
+    QBCore[fieldName] = data
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+
+-- Shared-registry mutators (server/exports.lua). These route through
+-- Core.registry so the change materialises into QBCore.Shared.*, fires our
+-- subscribers, AND replicates to clients -- strictly more correct than
+-- upstream's raw table write, while returning upstream's (ok, reason) shape.
+-- The legacy QBCore:Client:OnSharedUpdate event is fired too, for scripts that
+-- listen for it directly.
+local REGISTRY_FOR = { item = 'items', job = 'jobs', gang = 'gangs' }
+local SHARED_KEY = { item = 'Items', job = 'Jobs', gang = 'Gangs' }
+
+local function sharedAdd(kind, key, record)
+    if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
+    if Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_exists' end
+    local ok, err = Core.registry.registerShared(REGISTRY_FOR[kind], key, record)
+    if not ok then return false, err end
+    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, record)
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+local function sharedUpdate(kind, key, record)
+    if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
+    if not Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_not_exists' end
+    Core.registry.registerShared(REGISTRY_FOR[kind], key, record)
+    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, record)
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+local function sharedRemove(kind, key)
+    if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
+    if not Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_not_exists' end
+    Core.registry.unregisterShared(REGISTRY_FOR[kind], key)
+    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, nil)
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+local function sharedAddMany(kind, records)
+    for key in pairs(records) do
+        if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
+        if Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_exists', key end
+    end
+    for key, record in pairs(records) do Core.registry.registerShared(REGISTRY_FOR[kind], key, record) end
+    TriggerClientEvent('QBCore:Client:OnSharedUpdateMultiple', -1, SHARED_KEY[kind], records)
+    TriggerEvent('QBCore:Server:UpdateObject')
+    return true, 'success'
+end
+
+function F.AddItem(name, item) return sharedAdd('item', name, item) end
+function F.UpdateItem(name, item) return sharedUpdate('item', name, item) end
+function F.AddItems(items) return sharedAddMany('item', items) end
+function F.RemoveItem(name) return sharedRemove('item', name) end
+function F.AddJob(name, job) return sharedAdd('job', name, job) end
+function F.AddJobs(jobs) return sharedAddMany('job', jobs) end
+function F.UpdateJob(name, job) return sharedUpdate('job', name, job) end
+function F.RemoveJob(name) return sharedRemove('job', name) end
+function F.AddGang(name, gang) return sharedAdd('gang', name, gang) end
+function F.AddGangs(gangs) return sharedAddMany('gang', gangs) end
+function F.UpdateGang(name, gang) return sharedUpdate('gang', name, gang) end
+function F.RemoveGang(name) return sharedRemove('gang', name) end
+
+-- GetShared is a top-level export in real qb-core (shared/main.lua), not a
+-- Functions entry. It reads QBCore.Shared[namespace], which our coreobject.lua
+-- metatable resolves to the live materialised registry table -- so this body is
+-- identical to upstream's.
+local function GetShared(namespace, item)
+    local ns = QBCore.Shared[namespace]
+    if not ns then return nil end
+    return item and ns[item] or ns
+end
+
 -- --- QBCore.Player.* ---------------------------------------------------------
 
 local P = QBCore.Player
-function P.Login(src, citizenid) local d = Core.persistence._load(citizenid); return d and Core.player.login(src, citizenid, d) end
+
+-- Login accepts real qb-core's (source, citizenid, newData); newData is used
+-- verbatim when supplied, otherwise the character is loaded from persistence.
+function P.Login(src, citizenid, newData)
+    local d = newData or Core.persistence._load(citizenid)
+    return d and Core.player.login(src, citizenid, d)
+end
 function P.Logout(src) return Core.player.logout(src) end
 function P.Save(src) local h = PI.handle(src); if h then Core.persistence.saveNow(h) end end
 function P.SaveOffline() --[[ offline saves go through QB.sql directly ]] end
-function P.CreatePlayer(src, charinfo, cid) return Core.player.createCharacter(src, charinfo, cid) end
+
+function P.CreatePlayer(srcOrData, charinfo, cid)
+    if type(srcOrData) == 'table' then
+        -- real qb-core CreatePlayer(PlayerData, Offline) builds a player from a
+        -- full pre-made blob -- an internal login-flow path we don't expose.
+        -- External scripts create characters via the multichar events /
+        -- exports.qbcore:createCharacter, so refuse loudly rather than silently.
+        print('^3[qbcore:qb-core-bridge]^7 CreatePlayer(PlayerData, Offline) is not supported; use createCharacter/selectCharacter.')
+        return nil
+    end
+    return Core.player.createCharacter(srcOrData, charinfo, cid)
+end
 function P.DeleteCharacter(src, citizenid) return Core.multichar.deleteCharacter(src, citizenid) end
+function P.ForceDeleteCharacter(citizenid)
+    return QB.sql.query('UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
+end
 function P.CheckPlayerData(src) return F.GetPlayer(src) end
 function P.ForceUpdatePlayerData() --[[ live data; no-op ]] end
 
--- QBCore.Commands.Add -> Core.commands.add.
+function P.GetOfflinePlayer(citizenid) return F.GetOfflinePlayerByCitizenId(citizenid) end
+function P.GetPlayerByLicense(license) return F.GetPlayerByLicense(license) end
+function P.GetOfflinePlayerByLicense(license)
+    local row = QB.sql.single('SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL LIMIT 1', { license })
+    return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
+end
+
+-- Id generators (server/player.lua). CitizenId routes to our identity module;
+-- the rest are self-contained random generators matching qb-core's formats.
+local function randomId(len, alpha)
+    local chars = alpha and 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' or '0123456789'
+    local t = {}
+    for i = 1, len do local n = math.random(1, #chars); t[i] = chars:sub(n, n) end
+    return table.concat(t)
+end
+function P.CreateCitizenId() return Core.identity.generateCitizenId() end
+function P.CreateFingerId() return randomId(2, true) .. randomId(3, false) .. randomId(1, true) .. randomId(2, false) end
+function P.CreateWalletId() return 'QB-' .. tostring(math.random(10000000, 99999999)) end
+function P.CreateSerialNumber() return randomId(9, false) end
+
+-- --- QBCore.Commands ---------------------------------------------------------
+-- Real qb-core's QBCore.Commands.List is a TABLE keyed by command name, not a
+-- function -- scripts read List[name] and iterate pairs(List). We keep a keyed
+-- table rebuilt whenever a command is added/refreshed through the compat.
+-- (Commands another resource registers straight through QB.commands aren't
+-- reflected until the next Add/Refresh -- documented in AGENTS.md.)
+QBCore.Commands.List = {}
+local function rebuildCommandList()
+    -- Defensive: in production commands/server.lua loads before this file (see
+    -- fxmanifest), but guard the call so a partial load order can't crash us.
+    if not (Core.commands and Core.commands.listCommands) then return end
+    for k in pairs(QBCore.Commands.List) do QBCore.Commands.List[k] = nil end
+    for _, c in ipairs(Core.commands.listCommands()) do
+        QBCore.Commands.List[c.name] = { name = c.name, help = c.help, permission = c.permission }
+    end
+end
 QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
     Core.commands.addCommand(name, help, args, argsRequired, cb, permission)
+    rebuildCommandList()
 end
-QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src) end
-QBCore.Commands.List = function() return Core.commands.listCommands() end
+QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src); rebuildCommandList() end
+rebuildCommandList()
 
--- Map the commonly-read Config fields onto ours.
+-- --- QBCore.Config -----------------------------------------------------------
+-- Map the commonly-read Config fields onto ours. Config.Server is what
+-- Kick/IsWhitelisted/RemovePermission read (Discord link, whitelist toggle,
+-- the permission-group list).
 QBCore.Config.Money = { MoneyTypes = Config.money.default, PayCheckTimeOut = 10 }
 QBCore.Config.Player = { MaxWeight = Config.inventory.maxWeight, MaxInvSlots = Config.inventory.slots }
 QBCore.Config.MaxPlayers = GetConvarInt('sv_maxclients', 32)
+QBCore.Config.Server = {
+    Discord = GetConvar('qb_discord', ''),
+    Whitelist = false,
+    WhitelistPermission = 'admin',
+    Permissions = { 'god', 'admin', 'mod' },
+    Closed = false,
+    ClosedReason = 'Server Closed',
+}
 
--- Register the export. A nested table of functions crossing exports() is the
--- assumption Phase 0 validated (and legacy qb-core has relied on for years).
+-- --- Exports -----------------------------------------------------------------
+-- GetCoreObject supports upstream's optional `filters` array (return a subset of
+-- the object). Beyond it, real qb-core exposes GetShared plus EVERY
+-- QBCore.Functions.* as a direct exports['qb-core']:Fn(...) -- mirror that with
+-- one provideExport loop so `exports['qb-core']:GetPlayer(src)` etc. resolve.
+local function getCoreObject(filters)
+    if not filters then return QBCore end
+    local results = {}
+    for i = 1, #filters do local k = filters[i]; if QBCore[k] then results[k] = QBCore[k] end end
+    return results
+end
+
 if Config.compat.coreObjectExport then
-    provideExport('qb-core', 'GetCoreObject', function() return QBCore end)
+    provideExport('qb-core', 'GetCoreObject', getCoreObject)
+    provideExport('qb-core', 'GetShared', GetShared)
+    for name, fn in pairs(QBCore.Functions) do
+        if type(fn) == 'function' then provideExport('qb-core', name, fn) end
+    end
 end

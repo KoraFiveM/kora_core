@@ -96,3 +96,7 @@ end)
 RegisterNetEvent('qb-multicharacter:server:deleteCharacter', function(citizenid)
     Core.multichar.deleteCharacter(source, citizenid)
 end)
+
+QB.callback.register('qb-multicharacter:server:deleteCharacter', function(src, citizenid)
+    return Core.multichar.deleteCharacter(src, citizenid)
+end)

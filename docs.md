@@ -27,7 +27,8 @@ exports.qbcore:getPlayerData(src, path)       -- a sub-path, or the whole blob
 exports.qbcore:getPlayers()                   -- array of sources
 exports.qbcore:getAllPlayers()                -- array of snapshots
 exports.qbcore:setPath(src, path, value)      -- THE funnel (path is a key array)
-exports.qbcore:onChange(pathPrefix, handler)  -- server-side subscription
+exports.qbcore:onChange(pathPrefix, handler)  -- server-side subscription -> id
+exports.qbcore:offChange(id)                  -- tear down a server-side subscription
 ```
 Client-side (over the replicated mirror):
 ```lua
@@ -89,7 +90,8 @@ exports.qbcore:getShared(name, key)          -- one record
 exports.qbcore:allShared(name)               -- the dense array
 exports.qbcore:registerShared(name, key, record)   -- server-authoritative
 exports.qbcore:unregisterShared(name, key)
-exports.qbcore:onSharedChange(name, handler) -- handler(action, key, record, previous)
+exports.qbcore:onSharedChange(name, handler) -- handler(action, key, record, previous) -> id
+exports.qbcore:offSharedChange(name, id)     -- tear down a shared-registry subscription
 ```
 
 Prefer the LIVE MIRROR in a consumer resource — add
@@ -123,10 +125,36 @@ Player.Functions.AddMoney('cash', 500, 'reason')
 Player.Functions.SetJob('police', 2)
 Player.Functions.AddItem('water_bottle', 1)
 ```
-All 24 `Player.Functions.*` methods route through the same funnel as the modern
+All `Player.Functions.*` methods route through the same funnel as the modern
 API. Legacy net events fire both directions (`QBCore:Server:PlayerLoaded`,
 `QBCore:Client:OnPlayerLoaded`, `QBCore:Player:SetPlayerData`,
 `QBCore:Server:OnJobUpdate`, `QBCore:Notify`, ...).
+
+The compat surface targets **full parity with upstream qbcore-framework/qb-core**
+(both the classic and current-main eras — the player object is the union of
+both). Besides `GetCoreObject`, every `QBCore.Functions.*` is ALSO exposed as a
+direct export in each realm, exactly as upstream does:
+```lua
+exports['qb-core']:GetPlayer(src)          -- server
+exports['qb-core']:AddItem('burger', {...}) -- server: registry mutators (AddItem/AddJob/AddGang/...)
+exports['qb-core']:GetShared('Items', 'water_bottle')
+exports['qb-core']:SpawnVehicle(model)     -- client
+```
+Server helpers present: identity/player lookups (`GetPlayerBy*`), job/duty
+(`GetPlayersByJob/OnDuty/GetDutyCount`), routing buckets
+(`SetPlayerBucket`/`GetPlayersInBucket`/...), server vehicle spawn
+(`SpawnVehicle`/`CreateVehicle`/`CreateAutomobile`), permissions
+(`AddPermission`/`RemovePermission`/`HasPermission`/...), `IsWhitelisted`,
+`IsPlayerBanned`, `TriggerClientCallback`, `GetCoreVersion`, `ExploitBan`,
+`SetMethod`/`SetField`. Client helpers present: the full vehicle-property /
+world / drawing / anim-and-particle set (`GetVehicleProperties`,
+`SetVehicleProperties`, `GetClosest*`, `DrawText3D`, `StartParticle*`, ...).
+
+For client UI visibility, prefer the server-owned replicated player state bag
+`LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
+legacy load/unload events. qbcore sets it true only after the initial PlayerData
+snapshot and clears it before logout teardown; legacy lifecycle events remain
+for compatibility.
 
 ### Known compat caveats
 - A `Player` object returned to ANOTHER resource carries a `PlayerData` SNAPSHOT
@@ -138,7 +166,22 @@ API. Legacy net events fire both directions (`QBCore:Server:PlayerLoaded`,
 - `QBCore.Functions.ExecuteSql` is deprecated (its `wait` arg is ignored) —
   forwarded to `QB.sql.query`, warned once per calling resource.
 - Writing `QBCore.Shared.Items['x'] = {...}` directly bypasses the registry, so
-  subscribers won't fire.
+  subscribers won't fire. Use `exports['qb-core']:AddItem(name, item)` (or
+  `QBCore.Functions.AddItem`) instead — it routes through the registry, so the
+  item materialises, replicates to clients, and fires subscribers.
+- `QBCore.Commands.List` is a table keyed by command name (matching upstream), but
+  it reflects commands registered THROUGH the compat (`QBCore.Commands.Add`) or
+  present at the last `Refresh`; commands added by another resource straight
+  through `QB.commands` appear only after the next `Add`/`Refresh`.
+- `QBCore.Player.CreatePlayer(PlayerData, Offline)` (the raw-blob form) is not
+  supported — create characters via the multichar events /
+  `exports.qbcore:createCharacter`. It refuses loudly rather than corrupting state.
+- `QBCore:UpdatePlayer` does NOT decrement hunger/thirst here (the `needs` module
+  owns decay on its own timer); the handler refreshes the stock HUD and persists,
+  so a stock qb-hud keeps working without double-ticking.
+- Client `QBCore.Functions.Progressbar` accepts `prop`/`propTwo` for signature
+  parity but qblib's progressbar renders no props; `IsWearingGloves` returns
+  `true` for unknown arm indices (our `QBCore.Shared` seeds no NoGloves tables).
 
 ## Character selection
 No NUI ships. A bare server auto-selects character slot 1 (creating a default

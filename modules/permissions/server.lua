@@ -30,6 +30,16 @@ function Core.permissions.addPermission(src, permission)
     return true
 end
 
+---Revoke a runtime permission by removing the ace principal added by addPermission.
+---@param src integer
+---@param permission string
+function Core.permissions.removePermission(src, permission)
+    local license = Core.identity.primary(src)
+    if not license then return false end
+    ExecuteCommand(('remove_principal identifier.%s:%s qbcore.%s'):format(Config.identity.primaryIdentifier, license:gsub('^%w+:', ''), permission))
+    return true
+end
+
 ---@param src integer
 ---@return boolean  -- whether the player opted into admin/dev features
 function Core.permissions.isOptin(src)

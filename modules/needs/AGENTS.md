@@ -1,0 +1,21 @@
+# needs module guide
+
+## Purpose
+Hunger/thirst decay — the one piece of legacy qb-core behavior (hunger/thirst ticking down over time) nothing else in this engine reimplements. Server only. Stress is deliberately NOT auto-decayed here — there's no generic "stress should go down over time" rule the way there is for hunger/thirst; job resources push stress increases/decreases directly via `Core.metadata.incrementMetaData`.
+
+## Public API
+- `Core.needs.startNeedsDecay()` — starts the decay loop. No-op if already running.
+- `Core.needs.stopNeedsDecay()` — stops it.
+- `Core.needs.reset(src)` — sets hunger/thirst to 100 and stress to 0 for one player.
+- (`Core.needs._tick()` is the tick body, underscore-prefixed — see [[paycheck]]'s identical convention.)
+
+## Implementation notes
+- **Self-starts on `onResourceStart` for qbcore's own resource name**, same pattern as [[paycheck]] — see that module's AGENTS.md for why this isn't a bare top-level call.
+- **`_tick` decrements every online player's `hunger`/`thirst`** by `Config.needs.hungerDecay`/`Config.needs.thirstDecay`, clamped `[0, 100]`, via `Core.metadata.incrementMetaData`.
+- **`_tick` is directly callable outside the loop** for the same reason `Core.paycheck._tick` is — the mock test harness's `Wait()` never yields, so resuming the `CreateThread` loop even once would hang the test process.
+- **Generation counter guards stop/restart races**, identical to [[paycheck]].
+- **`reset` mirrors legacy qb-ambulancejob's `hospital:server:resetHungerThirst`** — called from a job resource's own respawn/heal flow. This module doesn't hook death itself.
+
+## Best practices
+- Don't auto-decay stress here — push stress changes directly via `Core.metadata.incrementMetaData` from whichever job resource causes them.
+- Call `Core.needs.reset(src)` from a respawn/heal flow rather than hand-setting `hunger`/`thirst`/`stress` metadata keys individually.

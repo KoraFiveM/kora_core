@@ -41,6 +41,17 @@ h.test('QBCore.Functions.* surface is complete', function()
         'GetOfflinePlayerByCitizenId', 'GetIdentifier', 'GetSource', 'CreateCallback', 'TriggerCallback',
         'CreateUseableItem', 'CanUseItem', 'UseItem', 'HasPermission', 'GetPermission', 'AddPermission',
         'IsOptin', 'Kick', 'Notify', 'HasItem', 'ExecuteSql', 'PaycheckInterval',
+        -- full-parity additions (real qb-core server/functions.lua + exports.lua)
+        'GetCoords', 'GetPlayerByLicense', 'GetPlayerByAccount', 'GetPlayerByCharInfo',
+        'GetPlayersByJob', 'GetPlayersOnDuty', 'GetDutyCount',
+        'GetClosestPlayer', 'GetClosestVehicle', 'GetClosestPed', 'GetClosestObject',
+        'GetBucketObjects', 'SetPlayerBucket', 'SetEntityBucket', 'GetPlayersInBucket', 'GetEntitiesInBucket',
+        'SpawnVehicle', 'CreateAutomobile', 'CreateVehicle', 'TriggerClientCallback',
+        'RemovePermission', 'ToggleOptin', 'IsWhitelisted', 'IsPlayerBanned', 'IsLicenseInUse',
+        'GetDatabaseInfo', 'GetCoreVersion', 'ExploitBan', 'SetMethod', 'SetField',
+        'AddItem', 'UpdateItem', 'AddItems', 'RemoveItem',
+        'AddJob', 'AddJobs', 'UpdateJob', 'RemoveJob',
+        'AddGang', 'AddGangs', 'UpdateGang', 'RemoveGang',
     }, 'QBCore.Functions')
 end)
 
@@ -48,7 +59,14 @@ h.test('QBCore.Player.* surface is complete', function()
     assertCallableFields(QBCore.Player, {
         'Login', 'Logout', 'Save', 'SaveOffline', 'CreatePlayer', 'DeleteCharacter',
         'CheckPlayerData', 'ForceUpdatePlayerData',
+        -- full-parity additions
+        'ForceDeleteCharacter', 'GetOfflinePlayer', 'GetPlayerByLicense', 'GetOfflinePlayerByLicense',
+        'CreateCitizenId', 'CreateFingerId', 'CreateWalletId', 'CreateSerialNumber',
     }, 'QBCore.Player')
+end)
+
+h.test('QBCore.Commands.List is a table (not a function), matching real qb-core', function()
+    h.assertTrue(type(QBCore.Commands.List) == 'table', 'Commands.List must be an indexable/iterable table')
 end)
 
 h.test('QBCore.Shared.* helpers and data tables resolve', function()
@@ -76,7 +94,9 @@ h.test('per-player Player.Functions.* is complete after login', function()
         'AddItem', 'RemoveItem', 'GetItemByName', 'GetItemsByName', 'GetItemBySlot',
         'ClearInventory', 'SetInventory', 'SetCreditCard',
         'SetMetaData', 'GetMetaData', 'SetCharInfo', 'SetPlayerData', 'UpdatePlayerData',
-        'Save', 'Logout', 'GetName',
+        'GetPlayerData', 'Save', 'Logout', 'GetName',
+        -- modern-era additions (real qb-core varargMethods/noargMethods)
+        'Notify', 'HasItem', 'AddRep', 'RemoveRep', 'GetRep', 'AddMethod', 'AddField', 'UpdateClient',
     }, 'Player.Functions')
     h.assertEqual(Player.PlayerData.citizenid, 'CID1', 'PlayerData wired through')
 end)

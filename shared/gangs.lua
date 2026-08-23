@@ -1,14 +1,15 @@
--- Seed gang definitions. Same graded shape as jobs; keyed by gang name.
+-- Seed gang definitions. Same one-based graded shape as jobs (see
+-- shared/jobs.lua); keyed by gang name.
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.gangs = {
-    { name = 'none', label = 'No Gang', grades = { [0] = { name = 'None' } } },
+    { name = 'none', label = 'No Gang', grades = { { name = 'None' } } },
     {
         name = 'ballas', label = 'Ballas',
-        grades = { [0] = { name = 'Associate' }, [1] = { name = 'Soldier' }, [2] = { name = 'Boss', isboss = true } },
+        grades = { { name = 'Associate' }, { name = 'Soldier' }, { name = 'Boss', isboss = true } },
     },
     {
         name = 'vagos', label = 'Vagos',
-        grades = { [0] = { name = 'Associate' }, [1] = { name = 'Soldier' }, [2] = { name = 'Boss', isboss = true } },
+        grades = { { name = 'Associate' }, { name = 'Soldier' }, { name = 'Boss', isboss = true } },
     },
 }

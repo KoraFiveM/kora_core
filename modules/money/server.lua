@@ -8,6 +8,7 @@ local PI = CoreInternal.player
 -- provider stop so cash mutations fail closed instead of silently falling back
 -- to a second ledger balance.
 local physicalAccounts = {}
+local MONEY_STATE_PREFIX = 'qbcore:money:'
 
 local function validAccount(account)
     for _, a in ipairs(Config.money.types) do if a == account then return true end end
@@ -29,8 +30,20 @@ local function providerFor(account)
 end
 
 local function emitMoneyChange(src, account, amount, action, reason)
+    local balance = Core.money.getMoney(src, account)
+    if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
+end
+
+---Publish authoritative balances for state-bag consumers such as qbhud.
+---Physical accounts are read from their registered provider, never the
+---legacy PlayerData ledger.
+function Core.money.syncState(src)
+    for _, account in ipairs(Config.money.types) do
+        local balance = Core.money.getMoney(src, account)
+        if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
+    end
 end
 
 ---Register the configured inventory authority for a physical money account.

@@ -65,7 +65,14 @@ shared_scripts {
 --   inventory/gateway              delegates inventory operations to qbinventory
 --                                  when it is running; keeps the legacy engine as
 --                                  a staged-rollout fallback only
+--   dispatch/paycheck  need Core.jobs' index (dispatch also needs money for
+--                      nothing itself, but paycheck does)
+--   needs              needs Core.metadata
 --   permissions/commands/logging
+--   garage/consumables  no framework ordering need beyond what's already
+--                       loaded above; grouped here rather than earlier
+--   jail                needs Core.commands (registers /jail, /unjail) and
+--                       Core.permissions (via addCommand's permission check)
 --   compat/*     LAST (before finalise) so it calls Core.* directly and
 --                GetInvokingResource() resolves to the real external consumer
 --   build/finalise.lua  absolutely last -- flattens Core.<module>.<fn> to exports
@@ -79,13 +86,19 @@ server_scripts {
     'modules/player/server.lua',
     'modules/money/server.lua',
     'modules/jobs/server.lua',
+    'modules/dispatch/server.lua',
+    'modules/paycheck/server.lua',
     'modules/metadata/server.lua',
+    'modules/needs/server.lua',
     'modules/inventory/server.lua',
     'modules/inventory/gateway.lua',
     'modules/multichar/server.lua',
     'modules/permissions/server.lua',
     'modules/commands/server.lua',
     'modules/logging/server.lua',
+    'modules/garage/server.lua',
+    'modules/consumables/server.lua',
+    'modules/jail/server.lua',
     'compat/server/qb-core.lua',
     'compat/server/qb-core-events.lua',
     'compat/server/qb-multicharacter.lua',
@@ -97,6 +110,7 @@ client_scripts {
     'modules/registry/client.lua',
     'modules/replication/client.lua',
     'modules/player/client.lua',
+    'modules/jail/client.lua',
     'modules/jobs/client.lua',
     'modules/inventory/client.lua',
     'modules/multichar/client.lua',

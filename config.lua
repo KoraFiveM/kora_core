@@ -35,12 +35,44 @@ Config.inventory = {
     warnOnUnhandledOpen = true,      -- print when stashOpen has no UI resource listening
     provider = 'qbinventory',        -- headless inventory authority qbcore delegates operational calls to
     allowLegacyFallback = true,      -- temporary staged-rollout fallback; set false to require qbinventory
+    dropTTL = 1800000,               -- ms a ground drop survives uncollected before the sweep removes it
+    dropSweepInterval = 300000,      -- ms between sweeps that expire old ground drops
 }
 
 Config.jobs = {
     defaultJob = 'unemployed',       -- job assigned to a fresh character
     defaultGrade = 1,                -- one-based grade for the default job
     defaultDuty = true,              -- on-duty state for the default job
+    paycheckInterval = 300000,       -- ms between Core.paycheck ticks
+}
+
+Config.dispatch = {
+    legacyEvents = true,             -- also fire police:client:policeAlert / hospital:client:ambulanceAlert compat events
+}
+
+Config.needs = {
+    tickInterval = 60000,            -- ms between hunger/thirst decay ticks
+    hungerDecay = 1,                 -- hunger lost per tick
+    thirstDecay = 1,                 -- thirst lost per tick
+}
+
+Config.jail = {
+    -- Resources checked (in order) via GetResourceState before Core.jail
+    -- applies its own teleport/timer -- if one of these is running, Core.jail
+    -- fires 'qbcore:server:onJailRequest' and steps aside entirely, same
+    -- deference pattern qbx_police uses for xt-prison/qbx_prison.
+    deferToResources = { 'xt-prison', 'qbx_prison' },
+    coords = vector4(1651.86, 2570.13, 45.56, 22.0), -- Bolingbroke Penitentiary yard, used when nothing else configures a location
+}
+
+Config.garage = {
+    defaultFuel = 100,
+    defaultEngineHealth = 1000,
+    defaultBodyHealth = 1000,
+}
+
+Config.consumables = {
+    enabled = true,                  -- bridge qbinventory's 'usingItem' hook into QB.status/QB.fx for any item with a shared `effect` table
 }
 
 Config.compat = {
@@ -48,6 +80,7 @@ Config.compat = {
     jobUpdateEventSource = 'client',      -- 'client' | 'server' | 'both' -- who emits QBCore:Client:OnJobUpdate
     coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
+    clientMetadataKeys = {},              -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes; empty is secure by default
 }
 
 Config.replication = {
