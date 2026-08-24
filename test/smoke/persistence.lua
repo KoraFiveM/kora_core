@@ -102,4 +102,36 @@ h.test('license and cid never appear in a write set', function()
     end
 end)
 
+-- A sparse slot map serialises to a JSON OBJECT, so json.decode hands the slot
+-- keys back as STRINGS. PlayerData.items is contractually a NUMERIC slot-keyed
+-- map (modules/inventory/AGENTS.md), and every reader looks up items[slot] with
+-- a number -- so before this was normalised, a character restored from the
+-- database had an inventory that rendered correctly but could not be moved:
+-- the first drag reported "invalid item amount" because items[1] was nil while
+-- items['1'] held the item.
+h.test('_load re-keys JSON string slot keys back to numbers', function()
+    local sql = 'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL'
+    handle.sqlResponses.single[sql] = {
+        citizenid = 'CID9', license = 'license:z', cid = 1, name = 'jay sixty',
+        money = '{}', charinfo = '{}', job = '{}', gang = '{}',
+        position = '{}', metadata = '{}', phone_number = nil,
+        -- Exactly the shape the live players.inventory column holds.
+        inventory = '{"1":{"slot":1,"name":"weapon_knife","amount":1,"weight":500},'
+            .. '"29":{"slot":29,"name":"weapon_knife","amount":1,"weight":500}}',
+    }
+
+    local data = Core.persistence._load('CID9')
+    h.assertTrue(data ~= nil, 'character loaded')
+    h.assertTrue(data.items[1] ~= nil, 'slot 1 is reachable by NUMBER')
+    h.assertTrue(data.items[29] ~= nil, 'slot 29 is reachable by NUMBER')
+    h.assertEqual(data.items[1].name, 'weapon_knife')
+    h.assertEqual(data.items[1].slot, 1)
+    h.assertTrue(data.items['1'] == nil, 'the string key does not survive')
+
+    -- An empty inventory persists as '[]', which must stay an empty map.
+    handle.sqlResponses.single[sql].inventory = '[]'
+    local empty = Core.persistence._load('CID9')
+    h.assertEqual(next(empty.items), nil, 'an empty inventory decodes to an empty map')
+end)
+
 h.report('persistence')

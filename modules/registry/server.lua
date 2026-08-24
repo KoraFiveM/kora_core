@@ -61,7 +61,11 @@ function Core.registry.registerShared(name, key, record)
 
     local owner = GetInvokingResource() or GetCurrentResourceName()
     if owner then
-        subRegistry.track(owner)
+        -- subRegistry only needs one dispose call per resource (its callback
+        -- does its own manual sweep below, not per-id cleanup), so the
+        -- resource name doubles as its own tracking id -- QB.resources.
+        -- serverRegistry's track(resource, id) requires both.
+        subRegistry.track(owner, owner)
         ownedRecords[owner] = ownedRecords[owner] or {}
         ownedRecords[owner][name] = ownedRecords[owner][name] or {}
         ownedRecords[owner][name][key] = true
@@ -118,7 +122,7 @@ function Core.registry.onSharedChange(name, handler)
     local subId = r.nextSubId
     r.nextSubId = r.nextSubId + 1
     r.subscribers[subId] = { resource = owner, handler = handler }
-    if owner then subRegistry.track(owner) end
+    if owner then subRegistry.track(owner, owner) end
     return subId
 end
 

@@ -79,4 +79,20 @@ h.test('clearInventory(keep) retains the kept item names', function()
     h.assertTrue(Core.inventory.getItemByName(1, 'water_bottle') == nil, 'water_bottle cleared')
 end)
 
+-- The legacy (qbinventory-absent) useable path. This registers against the
+-- resource registry, and the registry's contract is track(resource, id) --
+-- calling it with the id missing indexed the registry with a nil key and threw
+-- "table index is nil". Only reachable when qbinventory is stopped and
+-- Config.inventory.allowLegacyFallback is on, so no boot log ever showed it.
+h.test('createUseable registers against the owning resource without erroring', function()
+    local fired = 0
+    local ok, err = pcall(Core.inventory.createUseable, 'lockpick', function() fired = fired + 1 end)
+    h.assertTrue(ok, 'createUseable did not error: ' .. tostring(err))
+
+    -- A cross-resource handler arrives as a __call table, not a function.
+    local callable = setmetatable({}, { __call = function(_, ...) fired = fired + 1 end })
+    local ok2, err2 = pcall(Core.inventory.createUseable, 'radio', callable)
+    h.assertTrue(ok2, 'createUseable accepts a cross-resource funcref: ' .. tostring(err2))
+end)
+
 h.report('inventory')

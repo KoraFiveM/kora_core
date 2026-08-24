@@ -104,13 +104,40 @@ function M.install()
 
     -- resources.serverRegistry: a REAL implementation (the sweep is under test).
     QB.resources = {
+        -- Mirrors qblib/local/resources/server.lua: track(resource, id) records
+        -- WHICH resource owns WHICH id, untrack(id) drops one id, and the stop
+        -- sweep disposes every id a resource owned -- onDispose receives the
+        -- ID, not the resource. The old mock took a single argument for both,
+        -- which is why it never caught Core.inventory.createUseable calling
+        -- track(owner) with the id missing (a nil table index at runtime).
         serverRegistry = function(onDispose)
-            local tracked = {}
+            local byResource, ownerOf = {}, {}
             return {
-                track = function(owner) tracked[owner] = true end,
-                untrack = function(owner) tracked[owner] = nil end,
+                track = function(resource, id)
+                    assert(resource ~= nil and id ~= nil, 'serverRegistry.track(resource, id) requires both')
+                    local previous = ownerOf[id]
+                    if previous and previous ~= resource and byResource[previous] then
+                        byResource[previous][id] = nil
+                    end
+                    byResource[resource] = byResource[resource] or {}
+                    byResource[resource][id] = true
+                    ownerOf[id] = resource
+                end,
+                untrack = function(id)
+                    local resource = ownerOf[id]
+                    if resource and byResource[resource] then byResource[resource][id] = nil end
+                    ownerOf[id] = nil
+                end,
                 owner = function() return GetInvokingResource() or GetCurrentResourceName() end,
-                _dispose = function(owner) if tracked[owner] then onDispose(owner); tracked[owner] = nil end end,
+                _dispose = function(resource)
+                    local owned = byResource[resource]
+                    if not owned then return end
+                    byResource[resource] = nil
+                    for id in pairs(owned) do
+                        ownerOf[id] = nil
+                        onDispose(id)
+                    end
+                end,
             }
         end,
     }
@@ -218,6 +245,107 @@ function M.stableEncode(v)
     return 'null'
 end
 
-function M.simpleDecode() return {} end
+-- A real (small) JSON decoder. This used to `return {}` unconditionally, which
+-- made every test touching the decode path pass vacuously -- including the one
+-- that should have caught PlayerData.items coming back from the database with
+-- STRING slot keys. A mock that cannot fail is not a test.
+--
+-- Supports the subset the players table actually stores: objects, arrays,
+-- strings (with the standard escapes), numbers, true/false/null. `null`
+-- decodes to nil, matching FiveM's json.decode.
+function M.simpleDecode(text)
+    if type(text) ~= 'string' then return nil end
+    local pos = 1
+
+    local function skip()
+        pos = text:find('[^ \t\r\n]', pos) or #text + 1
+    end
+
+    local parseValue
+
+    local function parseString()
+        pos = pos + 1 -- opening quote
+        local buf = {}
+        while true do
+            local c = text:sub(pos, pos)
+            if c == '' then error('unterminated string') end
+            if c == '"' then pos = pos + 1; break end
+            if c == '\\' then
+                local esc = text:sub(pos + 1, pos + 1)
+                local map = { n = '\n', t = '\t', r = '\r', b = '\b', f = '\f', ['"'] = '"', ['\\'] = '\\', ['/'] = '/' }
+                if esc == 'u' then
+                    buf[#buf + 1] = utf8.char(tonumber(text:sub(pos + 2, pos + 5), 16) or 63)
+                    pos = pos + 6
+                else
+                    buf[#buf + 1] = map[esc] or esc
+                    pos = pos + 2
+                end
+            else
+                buf[#buf + 1] = c
+                pos = pos + 1
+            end
+        end
+        return table.concat(buf)
+    end
+
+    local function parseObject()
+        pos = pos + 1 -- {
+        local out = {}
+        skip()
+        if text:sub(pos, pos) == '}' then pos = pos + 1; return out end
+        while true do
+            skip()
+            local k = parseString()
+            skip()
+            pos = pos + 1 -- :
+            local v = parseValue()
+            -- A JSON object always has string keys; that is precisely the shape
+            -- the inventory column round-trips through.
+            out[k] = v
+            skip()
+            local c = text:sub(pos, pos)
+            pos = pos + 1
+            if c == '}' then break end
+        end
+        return out
+    end
+
+    local function parseArray()
+        pos = pos + 1 -- [
+        local out, n = {}, 0
+        skip()
+        if text:sub(pos, pos) == ']' then pos = pos + 1; return out end
+        while true do
+            n = n + 1
+            out[n] = parseValue()
+            skip()
+            local c = text:sub(pos, pos)
+            pos = pos + 1
+            if c == ']' then break end
+        end
+        return out
+    end
+
+    parseValue = function()
+        skip()
+        local c = text:sub(pos, pos)
+        if c == '{' then return parseObject() end
+        if c == '[' then return parseArray() end
+        if c == '"' then return parseString() end
+        if text:sub(pos, pos + 3) == 'true' then pos = pos + 4; return true end
+        if text:sub(pos, pos + 4) == 'false' then pos = pos + 5; return false end
+        if text:sub(pos, pos + 3) == 'null' then pos = pos + 4; return nil end
+        local numText = text:match('^%-?%d+%.?%d*[eE]?[%+%-]?%d*', pos)
+        if numText and numText ~= '' then
+            pos = pos + #numText
+            return tonumber(numText)
+        end
+        error('unexpected character at ' .. pos .. ': ' .. c)
+    end
+
+    local ok, value = pcall(parseValue)
+    if not ok then return nil end
+    return value
+end
 
 return M

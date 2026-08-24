@@ -204,6 +204,31 @@ function Core.persistence._load(citizenid)
     local row, err = QB.sql.single('SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { citizenid })
     if not row then return nil, err or 'not found' end
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
+
+    -- PlayerData.items is a NUMERIC slot-keyed map (see modules/inventory/
+    -- AGENTS.md); every write is setPath(src, {'items', slot}, record) with a
+    -- numeric slot. But a sparse slot map serialises to a JSON *object*, and
+    -- json.decode hands those keys back as STRINGS -- so a character restored
+    -- from the database came back with items['1'] where every reader looks up
+    -- items[1]. The inventory still rendered (the UI iterates pairs and reads
+    -- item.slot), but any lookup by slot missed, which surfaced as
+    -- "invalid item amount" on the first attempt to move an item after a
+    -- relog. Re-key on load, preferring the slot recorded inside the item.
+    local function decodeItems(s)
+        local raw = dec(s, {})
+        if type(raw) ~= 'table' then return {} end
+        local out = {}
+        for rawSlot, item in pairs(raw) do
+            if type(item) == 'table' then
+                local slot = math.floor(tonumber(item.slot) or tonumber(rawSlot) or 0)
+                if slot > 0 then
+                    item.slot = slot
+                    out[slot] = item
+                end
+            end
+        end
+        return out
+    end
     return {
         citizenid = row.citizenid,
         license = row.license,
@@ -215,7 +240,7 @@ function Core.persistence._load(citizenid)
         gang = dec(row.gang, {}),
         position = dec(row.position, { x = 0, y = 0, z = 70, h = 0 }),
         metadata = dec(row.metadata, {}),
-        items = dec(row.inventory, {}),
+        items = decodeItems(row.inventory),
         phone = row.phone_number,
     }
 end

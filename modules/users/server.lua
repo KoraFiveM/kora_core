@@ -26,6 +26,8 @@ function Core.users.setMaxCharacters(license, maxCharacters)
     QB.sql.execute(
         'INSERT INTO `users` (`license`, `max_characters`) VALUES (?, ?) '
             .. 'ON DUPLICATE KEY UPDATE `max_characters` = VALUES(`max_characters`)',
-        { license, maxCharacters }
+        -- maxCharacters is nil when clearing the override; a trailing nil
+        -- would truncate this array to one element for two placeholders.
+        { license, maxCharacters or QB.sql.NULL }
     )
 end

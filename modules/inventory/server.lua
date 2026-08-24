@@ -295,7 +295,10 @@ end
 function Core.inventory.createUseable(name, handler)
     local owner = GetInvokingResource() or GetCurrentResourceName()
     useables[name] = { resource = owner, handler = handler }
-    if owner then useableRegistry.track(owner) end
+    -- track(resource, id) -- the id is what gets untracked when the owning
+    -- resource stops. Calling it with one argument indexed the registry with a
+    -- nil key and raised "table index is nil". Matches qbinventory's own call.
+    if owner then useableRegistry.track(owner, name) end
 end
 
 ---@param src integer

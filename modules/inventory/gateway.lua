@@ -26,6 +26,25 @@ local function providerState()
     return GetResourceState(providerName)
 end
 
+-- FXServer's export dispatch has a known bug (citizenfx/fivem#2408): calling
+-- an export via dot-style dispatch -- `t[k](t, ...)` or `t.k(...)` -- can
+-- shift/drop arguments, while genuine colon-call syntax (`t:k(...)`) works
+-- correctly. Colon sugar only exists for a LITERAL method name at the call
+-- site, which is impossible here since `name` is a dynamically computed
+-- provider export -- `load()` works around that the same way qblib/init.lua's
+-- own makeColonCall does: compile a fresh chunk from a source STRING
+-- containing a literal `lib:name(...)` call, memoized per name so it's only
+-- compiled once.
+local colonCallCache = {}
+
+local function providerColonCall(name)
+    local cached = colonCallCache[name]
+    if cached then return cached end
+    local chunk = assert(load(("return (select(1, ...)):%s(select(2, ...))"):format(name)))
+    colonCallCache[name] = chunk
+    return chunk
+end
+
 local function callProvider(name, ...)
     local resourceExports = exports[providerName]
     local fn = resourceExports and resourceExports[name]
@@ -33,7 +52,7 @@ local function callProvider(name, ...)
         return nil, ("qbinventory is started but is missing required qbcore gateway export '%s'"):format(name)
     end
 
-    local results = table.pack(pcall(fn, resourceExports, ...))
+    local results = table.pack(pcall(providerColonCall(name), resourceExports, ...))
     if not results[1] then
         return nil, ("qbinventory gateway export '%s' failed: %s"):format(name, tostring(results[2]))
     end

@@ -44,7 +44,10 @@ function Core.garage.createVehicle(citizenid, model, plate, job, extra)
         'INSERT INTO `player_vehicles` (`plate`,`model`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
         .. 'VALUES (?,?,?,?,?,?,?)',
         {
-            plate, modelName, citizenid, job,
+            -- Exactly one of citizenid/job is set; the other is a real SQL NULL.
+            -- Writing it as a bare nil would leave a hole in this array and the
+            -- driver would reject the whole statement.
+            plate, modelName, citizenid or QB.sql.NULL, job or QB.sql.NULL,
             extra.fuel or Config.garage.defaultFuel,
             extra.engineHealth or Config.garage.defaultEngineHealth,
             extra.bodyHealth or Config.garage.defaultBodyHealth,
@@ -200,9 +203,13 @@ function Core.garage.updateState(plate, patch)
         .. '`body_health` = COALESCE(?, `body_health`), `mods` = COALESCE(?, `mods`), '
         .. '`last_position` = COALESCE(?, `last_position`) WHERE `plate` = ?',
         {
-            patch.fuel, patch.engineHealth, patch.bodyHealth,
-            patch.mods and json.encode(patch.mods) or nil,
-            patch.position and json.encode(patch.position) or nil,
+            -- Every patch field is optional and COALESCE'd in SQL, so an absent
+            -- one must bind as NULL rather than leaving a hole in this array.
+            patch.fuel or QB.sql.NULL,
+            patch.engineHealth or QB.sql.NULL,
+            patch.bodyHealth or QB.sql.NULL,
+            patch.mods and json.encode(patch.mods) or QB.sql.NULL,
+            patch.position and json.encode(patch.position) or QB.sql.NULL,
             plate,
         }
     )
