@@ -25,6 +25,17 @@ RegisterNetEvent('QBCore:Server:Logout', function()
     Core.player.logout(source)
 end)
 
+-- Real qb-core's server/events.lua: a chat resource (e.g. [gameplay]/chat)
+-- fires 'chatMessage' for every line a player sends BEFORE it knows whether
+-- the line was actually a command; a leading '/' means it's a command
+-- attempt, not a chat line, so cancel the event to stop the chat resource
+-- from also displaying it as a message.
+AddEventHandler('chatMessage', function(_, _, message)
+    if string.sub(message, 1, 1) == '/' then
+        CancelEvent()
+    end
+end)
+
 -- Registered so the name is dispatchable at all -- FXServer silently drops a
 -- client TriggerServerEvent for a net event name no resource has
 -- RegisterNetEvent'd server-side, so real qb-spawn/qb-multicharacter's own
@@ -48,13 +59,48 @@ end)
 -- (that would double-tick); we honor the event's other duties -- refresh the
 -- stock HUD with the current values and persist -- so a stock qb-hud keeps
 -- working without fighting our decay loop.
+--
+-- This is a CLIENT-INBOUND event (any connected client can trigger it) with
+-- no rate limit upstream would otherwise provide, and an unconditional
+-- Core.persistence.saveNow is a spam/DB-write hole. Real qb-core enforces a
+-- 10-second per-source cooldown on this exact handler; mirror it here.
+local updateCooldowns = {}
 RegisterNetEvent('QBCore:UpdatePlayer', function()
     local src = source
+    local now = GetGameTimer()
+    if updateCooldowns[src] and (now - updateCooldowns[src]) < 10000 then return end
+    updateCooldowns[src] = now
+
     local handle = PI.handle(src)
     if not handle then return end
     local md = handle.PlayerData.metadata or {}
     TriggerClientEvent('hud:client:UpdateNeeds', src, md.hunger or 100, md.thirst or 100)
     Core.persistence.saveNow(handle)
+end)
+
+-- QBCore:DebugSomething -- real qb-core exposes QBCore.Debug (a recursive
+-- table-printer, compat/shared/coreobject.lua) to CLIENTS via this net event.
+-- This is CLIENT-INBOUND (any connected client can trigger it) and upstream
+-- has ZERO rate limiting on it, which is a print-spam hole -- mirror the same
+-- per-source cooldown pattern QBCore:UpdatePlayer above uses (a plain
+-- GetGameTimer() cooldown table), just with a tighter ~1/second window since
+-- this has no persistence cost to justify UpdatePlayer's longer one. Excess
+-- calls are silently dropped -- no notify, no log, matching how a rate limit
+-- with no upstream equivalent should stay invisible to a legitimate caller.
+local debugCooldowns = {}
+RegisterNetEvent('QBCore:DebugSomething', function(...)
+    local src = source
+    local now = GetGameTimer()
+    if debugCooldowns[src] and (now - debugCooldowns[src]) < 1000 then return end
+    debugCooldowns[src] = now
+
+    QBCore.Debug(...)
+end)
+
+-- Prevent an unbounded table leak across server uptime.
+AddEventHandler('qbcore:server:playerDropped', function(src)
+    updateCooldowns[src] = nil
+    debugCooldowns[src] = nil
 end)
 
 -- Server open/close (admin menus). Guarded by the same 'admin' permission real
@@ -85,37 +131,123 @@ RegisterNetEvent('QBCore:Server:OpenServer', function()
     QBCore.Config.Server.Closed = false
 end)
 
+-- baseevents vehicle enter/exit relay ----------------------------------------
+-- baseevents (resources/[system]/baseevents) fires these 4 SERVER events from
+-- its own already-optimised edge-triggered client detection loop. Real
+-- qb-core relays them into its legacy QBCore:Client:VehicleInfo /
+-- AbortVehicleEntering family, which vehiclekeys/fuel/seatbelt/garage scripts
+-- hook -- so this is pure edge-triggered fan-out, never a poll of our own.
+-- baseevents targets these with TriggerServerEvent, which is RegisterServerEvent's
+-- convention (distinct from RegisterNetEvent, which the rest of this file uses
+-- for events *we* expect other resources to trigger on us via QBCore:* names).
+local function relayVehicleInfo(event)
+    return function(vehicle, seat, modelName, netId)
+        local src = source
+        TriggerClientEvent('QBCore:Client:VehicleInfo', src, {
+            vehicle = vehicle,
+            seat = seat,
+            -- Both keys deliberately sent: upstream's own client reads
+            -- info.modelName while its own server sends `name` (a known
+            -- upstream bug where its vehicle-name field is silently nil) --
+            -- this is a superset so scripts written against either shape work.
+            name = modelName,
+            modelName = modelName,
+            netId = netId,
+            event = event,
+        })
+    end
+end
+
+RegisterServerEvent('baseevents:enteringVehicle')
+AddEventHandler('baseevents:enteringVehicle', relayVehicleInfo('Entering'))
+
+RegisterServerEvent('baseevents:enteredVehicle')
+AddEventHandler('baseevents:enteredVehicle', relayVehicleInfo('Entered'))
+
+RegisterServerEvent('baseevents:leftVehicle')
+AddEventHandler('baseevents:leftVehicle', relayVehicleInfo('Left'))
+
+RegisterServerEvent('baseevents:enteringAborted')
+AddEventHandler('baseevents:enteringAborted', function()
+    TriggerClientEvent('QBCore:Client:AbortVehicleEntering', source)
+end)
+
+-- QBCore:Server:OnPlayerUpdated -- server-LOCAL (AddEventHandler, not a net
+-- event, matching upstream: this is never triggered directly by a client).
+-- Real qb-core, when called with key == 'all' (or key == nil), re-fires both
+-- OnJobUpdate and OnGangUpdate for that player using their CURRENT job/gang.
+-- Payloads must be legacy-shaped (zero-based grade.level) -- same guarded-call
+-- idiom Core.jobs.setJob/setGang use (modules/jobs/server.lua) when firing
+-- these same event names.
+AddEventHandler('QBCore:Server:OnPlayerUpdated', function(src, key)
+    if key ~= nil and key ~= 'all' then return end
+
+    local job = Core.jobs.getJob(src)
+    if job then
+        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job) or job
+        TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
+    end
+
+    local gang = Core.jobs.getGang(src)
+    if gang then
+        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
+        TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
+    end
+end)
+
 -- Admin command relays (teleport / spawn) that legacy admin menus fire.
 RegisterNetEvent('QBCore:Command:TeleportToCoords', function(x, y, z)
     TriggerClientEvent('QBCore:Command:TeleportToCoords', source, x, y, z)
 end)
+-- QBCore:CallCommand -- real qb-core looks the command up in QBCore.Commands.List
+-- and, if found, invokes its callback DIRECTLY (never ExecuteCommand, which
+-- would run in server-console context and bypass every per-player ACE check a
+-- command handler would normally get). Ported to match that exactly:
+--   1. Unknown command -> return silently (no error, no notify -- upstream
+--      behaviour).
+--   2. `command.<name>` ACE permission required of the INVOKING player. No
+--      blanket-ACE or Core.permissions fallback -- upstream has neither; a
+--      caller either holds the specific per-command ACE or the call is denied.
+--   3. If the definition declares argsrequired and the caller didn't supply
+--      enough (fewer than #params), notify and stop -- never runs the callback.
+--   4. Otherwise call List[name].callback(src, args) in-process.
 RegisterNetEvent('QBCore:CallCommand', function(name, args)
     local src = source
     if type(name) ~= 'string' or name == '' then return end
 
-    -- ExecuteCommand runs in server-console context (source 0), which bypasses
-    -- every per-player ACE check a command's own handler would normally do --
-    -- so the permission check has to happen here, against the *invoking*
-    -- player, before we ever call it.
-    local allowed = false
-    for _, cmd in ipairs(Core.commands.listCommands()) do
-        if cmd.name == name then
-            -- Same check qbcore's own command wrapper uses (Core.commands.addCommand).
-            allowed = Core.permissions.hasPermission(src, cmd.permission)
-            break
-        end
-    end
-    if not allowed then
-        -- Not a command registered through the qbcore/qblib wrapper (a raw
-        -- native or another resource's RegisterCommand) -- fall back to
-        -- FiveM's own command-ACE convention rather than defaulting to allow.
-        allowed = IsPlayerAceAllowed(src, 'command.' .. name)
-    end
+    local cmd = QBCore.Commands.List[name]
+    if not cmd then return end
 
-    if not allowed then
-        print(("^3[qbcore]^7 QBCore:CallCommand denied: src=%s has no permission to run '%s'"):format(src, name))
+    if not IsPlayerAceAllowed(src, 'command.' .. name) then
         return
     end
 
-    ExecuteCommand(('%s %s'):format(name, table.concat(args or {}, ' ')))
+    args = args or {}
+    if cmd.argsrequired and cmd.params and #args < #cmd.params then
+        TriggerClientEvent('QBCore:Notify', src, 'Missing arguments for this command!', 'error')
+        return
+    end
+
+    if type(cmd.callback) == 'function' then
+        cmd.callback(src, args)
+    end
 end)
+
+-- QBCore:Client:SharedUpdate (opt-in) -- real qb-core fires this ONCE per
+-- player, right after playerConnecting, with the ENTIRE QBCore.Shared table --
+-- a full push at connect time, distinct from the incremental
+-- QBCore:Client:OnSharedUpdate(Multiple) delta events those handle separately
+-- (compat/client/qb-core-events.lua). Our registry snapshot mechanism already
+-- gets a joining client Items/Jobs/Gangs/etc (modules/registry/client.lua's
+-- snapshot-request-on-load), so this is OFF by default (Config.compat.
+-- fireSharedUpdateAtLogin) -- it exists only for the rare third-party script
+-- that hooks the EVENT NAME itself rather than reading the data it carries.
+-- Hooked off the same modern 'qbcore:server:playerLoaded' event
+-- modules/player/server.lua fires immediately alongside (same tick as)
+-- TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src), rather than adding
+-- compat-specific logic to that Core.* module directly.
+if Config.compat.fireSharedUpdateAtLogin then
+    AddEventHandler('qbcore:server:playerLoaded', function(src)
+        TriggerClientEvent('QBCore:Client:SharedUpdate', src, QBCore.Shared)
+    end)
+end

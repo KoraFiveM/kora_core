@@ -108,6 +108,17 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
     QBCore.Functions.Notify('Teleported to waypoint', 'success', 5000)
 end)
 
+-- PVP toggle ------------------------------------------------------------------
+
+-- Ported verbatim from real qb-core's client/events.lua. Real qb-core admin
+-- commands fire this after flipping the server-side PVP flag so this client's
+-- ped stops (or resumes) taking friendly-fire damage in step with everyone
+-- else's.
+RegisterNetEvent('QBCore:Client:PvpHasToggled', function(enabled)
+    SetCanAttackFriendly(PlayerPedId(), enabled, false)
+    NetworkSetFriendlyFireOption(enabled)
+end)
+
 -- Vehicle Commands -----------------------------------------------------------
 
 RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
@@ -184,6 +195,52 @@ end)
 -- TriggerClientEvent during character logout.
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
 
+-- QBCore:Client:OnPlayerUpdated -- upstream applies the pushed `val` directly
+-- into its plain QBCore.PlayerData global for the given `key` (or the whole
+-- blob when key is 'all'/nil). We deliberately do NOT do that here: this
+-- qbcore is server-authoritative via its own seq-tracked delta-replication
+-- protocol (modules/replication/client.lua), and accepting an arbitrary
+-- externally-pushed blob would let a foreign resource desync the mirror
+-- (TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'all', garbage)
+-- is exactly as reachable from a hostile resource as from a legitimate one).
+-- So this handler ONLY re-announces the mirror's CURRENT, correct,
+-- server-authoritative data via the same derived local legacy events
+-- modules/replication/client.lua's fireLegacy fires on every delta -- `val`
+-- is never read.
+--
+-- The key=='all'/nil case goes through Core.replication.reannounceFull()
+-- rather than a bare TriggerEvent('QBCore:Player:SetPlayerData', ...) here:
+-- that event is RegisterNetEvent'd in modules/replication/client.lua with its
+-- own foreign-write acceptor (any resource's raw trigger of the full-blob
+-- event gets MERGED into the live mirror, since a genuine legacy resource is
+-- expected to write it that way). Firing it locally without that module's
+-- private REFIRE_TOKEN would be indistinguishable from a foreign write, so
+-- our own re-announcement -- built from toLegacyPlayerData's translated
+-- (zero-based) view -- would get merged straight back into the internal
+-- (one-based) mirror, corrupting it. reannounceFull() reuses the exact same
+-- REFIRE_TOKEN'd path fireLegacy already uses on every delta, so this is
+-- correctly recognised as our own re-fire. The job/gang branches below have
+-- no such acceptor (OnJobUpdate/OnGangUpdate are plain fan-out events, not
+-- merged into anything), so a direct translate-and-fire is safe there and
+-- kept local, guarded on the specific Core.compat function since Core is an
+-- auto-vivifying proxy (build/initiate.lua).
+RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key)
+    local data = Core.replication.getData()
+    if not data then return end
+
+    if key == nil or key == 'all' then
+        Core.replication.reannounceFull()
+    elseif key == 'job' then
+        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.job) or data.job
+        TriggerEvent('QBCore:Client:OnJobUpdate', legacyJob)
+    elseif key == 'gang' then
+        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.gang) or data.gang
+        TriggerEvent('QBCore:Client:OnGangUpdate', legacyGang)
+    end
+    -- Any other key: no-op. Divergence from upstream, which would apply an
+    -- arbitrary key/val pair directly -- see the comment above this handler.
+end)
+
 -- Legacy QBCore:Notify -- real qb-core registers this on the client so any
 -- resource (and qbcore's own admin commands / compat GetCoreObject:Notify) can
 -- fire TriggerClientEvent('QBCore:Notify', src, text, type, length) and have it
@@ -255,4 +312,23 @@ RegisterNetEvent('QBCore:Client:OnSharedUpdateMultiple', function(tableName, val
         end
     end
     TriggerEvent('QBCore:Client:UpdateObject')
+end)
+
+-- QBCore:Client:SharedUpdate -- a DIFFERENT real qb-core event from the two
+-- above (singular 'SharedUpdate', not 'OnSharedUpdate'/'OnSharedUpdateMultiple'):
+-- upstream fires it ONCE per player, right after playerConnecting, carrying the
+-- ENTIRE QBCore.Shared table as one payload -- a full push at connect time, not
+-- an incremental delta. Upstream's own client handler for it just merges that
+-- payload into its plain QBCore.Shared global. We deliberately do NOT do that
+-- here: QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are already the LIVE
+-- materialised registry tables (compat/shared/coreobject.lua's metatable), kept
+-- current by the registry snapshot every joining client already requests
+-- (modules/registry/client.lua) -- overwriting them with a one-shot snapshot
+-- payload would be a stale, one-time regression, not an update. So this handler
+-- is an effective no-op; it exists only so a third-party script that hooks the
+-- EVENT NAME itself (rather than reading QBCore.Shared) still observes it fire.
+-- Only emitted server-side at all when Config.compat.fireSharedUpdateAtLogin is
+-- on (compat/server/qb-core-events.lua) -- off by default.
+RegisterNetEvent('QBCore:Client:SharedUpdate', function(_sharedTable)
+    -- Intentional no-op -- see comment above.
 end)

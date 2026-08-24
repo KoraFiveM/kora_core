@@ -50,6 +50,30 @@ h.test('onResourceStart for qbinventory registers the hook', function()
     h.assertTrue(registeredHookCallback ~= nil)
 end)
 
+h.test('a second onResourceStart for qbinventory (a restart) re-registers the hook, not skipped by a stale latch', function()
+    -- This is the regression test for the latch bug: register() must not
+    -- permanently no-op after its first success. Fire onResourceStart a
+    -- SECOND time (simulating qbinventory restarting mid-session, having
+    -- already been registered once) and assert RegisterHook is actually
+    -- called again -- a stale `if registered then return end` guard would
+    -- make this a silent no-op and leave qbinventory's own (fresh,
+    -- post-restart) hook table without our hook.
+    h.assertTrue(Core.consumables.isRegistered(), 'precondition: already registered from the prior onResourceStart')
+
+    local hookCallCount = 0
+    _G.exports.qbinventory.RegisterHook = function(_, eventName, callback)
+        h.assertEqual(eventName, 'usingItem')
+        hookCallCount = hookCallCount + 1
+        registeredHookCallback = callback
+    end
+
+    handle.fireEvent('onResourceStart', nil, 'qbinventory')
+
+    h.assertEqual(hookCallCount, 1, 'register() must re-run RegisterHook on a qbinventory restart, not be skipped by a permanent latch')
+    h.assertTrue(Core.consumables.isRegistered())
+    h.assertTrue(registeredHookCallback ~= nil)
+end)
+
 h.test('onResourceStart for an unrelated resource does not re-trigger anything', function()
     local before = registeredHookCallback
     handle.fireEvent('onResourceStart', nil, 'some_other_resource')

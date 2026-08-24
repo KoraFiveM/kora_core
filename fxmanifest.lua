@@ -25,6 +25,7 @@ shared_script '@qbsql/init.lua'
 
 files {
     'init.lua' -- '@qbcore/init.lua' -- shared registry mirror for consumers
+    , 'shared/locale.lua' -- '@qb-core/shared/locale.lua' -- real qb-core's Locale class, for compat consumers
 }
 
 -- Explicit, never globbed. A `modules/**/shared.lua` glob expands in
@@ -40,6 +41,7 @@ files {
 shared_scripts {
     'config.lua',
     'build/initiate.lua',
+    'shared/locale.lua',
     'shared/items.lua',
     'shared/vehicles.lua',
     'shared/jobs.lua',
@@ -73,6 +75,8 @@ shared_scripts {
 --                       loaded above; grouped here rather than earlier
 --   jail                needs Core.commands (registers /jail, /unjail) and
 --                       Core.permissions (via addCommand's permission check)
+--   dependencySupervisor  reactive-only (onResourceStart), no dependency on
+--                         anything above; OFF by default via Config
 --   compat/*     LAST (before finalise) so it calls Core.* directly and
 --                GetInvokingResource() resolves to the real external consumer
 --   build/finalise.lua  absolutely last -- flattens Core.<module>.<fn> to exports
@@ -99,6 +103,7 @@ server_scripts {
     'modules/garage/server.lua',
     'modules/consumables/server.lua',
     'modules/jail/server.lua',
+    'modules/dependencySupervisor/server.lua',
     'compat/server/qb-core.lua',
     'compat/server/qb-core-events.lua',
     'compat/server/qb-multicharacter.lua',
@@ -110,6 +115,7 @@ client_scripts {
     'modules/registry/client.lua',
     'modules/replication/client.lua',
     'modules/player/client.lua',
+    'modules/needs/client.lua',
     'modules/jail/client.lua',
     'modules/jobs/client.lua',
     'modules/inventory/client.lua',

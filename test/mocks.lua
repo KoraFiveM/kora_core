@@ -8,7 +8,11 @@ local M = {}
 
 M.SOURCE = 1
 
-function M.install()
+---@param opts { client?: boolean }|nil pass { client = true } to mock the
+---client realm (IsDuplicityVersion() returns false); default is server.
+function M.install(opts)
+    opts = opts or {}
+    local isClient = opts.client == true
     -- --- FiveM natives ---
     local eventHandlers = {}
     local netHandlers = {}
@@ -35,6 +39,11 @@ function M.install()
 
     function _G.AddEventHandler(name, cb) eventHandlers[name] = eventHandlers[name] or {}; table.insert(eventHandlers[name], cb) end
     function _G.RegisterNetEvent(name, cb) if cb then netHandlers[name] = netHandlers[name] or {}; table.insert(netHandlers[name], cb) end end
+    -- RegisterServerEvent: the FXServer native baseevents (and other client-fired
+    -- server events) use to mark an event name net-safe. Real semantics are just
+    -- a security registration -- the actual listening still goes through
+    -- AddEventHandler, which is already mocked above -- so this is a no-op here.
+    function _G.RegisterServerEvent(_) end
     function _G.TriggerEvent(name, ...)
         for _, fn in ipairs(eventHandlers[name] or {}) do fn(...) end
         for _, fn in ipairs(netHandlers[name] or {}) do
@@ -64,9 +73,74 @@ function M.install()
     function _G.GetCurrentResourceName() return 'qbcore' end
     local resourceStates = { qbinventory = 'missing' }
     function _G.GetResourceState(name) return resourceStates[name] or 'missing' end
+    local executeCommandCalls = {}     -- recorded ExecuteCommand invocations, e.g. dependencySupervisor's restarts
+    function _G.ExecuteCommand(command) table.insert(executeCommandCalls, command) end
     function _G.GetConvar(_, d) return d end
     function _G.GetConvarInt(_, d) return d end
     function _G.vector4(x, y, z, w) return { x = x, y = y, z = z, w = w } end
+
+    -- CancelEvent -- recorder for the 'chatMessage' '/'-suppression handler
+    -- (compat/server/qb-core-events.lua). Reset per-install, exposed as a
+    -- counter accessor since the native itself takes/returns nothing.
+    local cancelEventCount = 0
+    function _G.CancelEvent() cancelEventCount = cancelEventCount + 1 end
+
+    -- IsPlayerAceAllowed -- QBCore:CallCommand's permission gate. Controllable
+    -- per (source, permission) pair via the returned handle's setAce, default
+    -- disallowed (matching a real server where a fresh player has no ACE grants).
+    local aceGrants = {}
+    function _G.IsPlayerAceAllowed(src, permission)
+        return (aceGrants[src] or {})[permission] == true
+    end
+
+    -- SetCanAttackFriendly / NetworkSetFriendlyFireOption -- recorders for
+    -- QBCore:Client:PvpHasToggled (compat/client/qb-core-events.lua).
+    local pvpNativeCalls = {}
+    function _G.SetCanAttackFriendly(ped, toggle, arg3)
+        table.insert(pvpNativeCalls, { fn = 'SetCanAttackFriendly', ped = ped, toggle = toggle, arg3 = arg3 })
+    end
+    function _G.NetworkSetFriendlyFireOption(toggle)
+        table.insert(pvpNativeCalls, { fn = 'NetworkSetFriendlyFireOption', toggle = toggle })
+    end
+
+    -- Realm switch. coreobject.lua's client-only vehicle-extra helpers
+    -- (QBCore.Shared.ChangeVehicleExtra/SetDefaultVehicleExtras) are guarded
+    -- by `if not IsDuplicityVersion() then`, so this must exist for ANY test
+    -- that dofiles coreobject.lua, not just client-realm ones. Only set it when
+    -- the caller passed an explicit `opts.client`, OR nothing has defined it
+    -- yet -- some test files set `_G.IsDuplicityVersion` themselves BEFORE
+    -- calling mocks.install() (see test/smoke/player_updated_client.lua), and
+    -- unconditionally overwriting that here would silently flip their realm
+    -- back to the server default.
+    if opts.client ~= nil or _G.IsDuplicityVersion == nil then
+        function _G.IsDuplicityVersion() return not isClient end
+    end
+
+    -- Client-only natives touched by compat/client/qb-core.lua and
+    -- coreobject.lua's vehicle-extra helpers. A simple, deterministic (not
+    -- CFX-accurate) hash is enough here -- tests only need the SAME string to
+    -- always produce the SAME hash, and different strings to (almost always)
+    -- differ.
+    function _G.GetHashKey(str)
+        str = tostring(str or '')
+        local hash = 0
+        for i = 1, #str do
+            hash = (hash * 33 + str:byte(i)) % 4294967296
+        end
+        return hash
+    end
+    local vehicleExtras = {}   -- [vehicle][extra] = enabled (boolean)
+    function _G.DoesExtraExist(_, _) return true end
+    function _G.SetVehicleExtra(vehicle, extra, disable)
+        vehicleExtras[vehicle] = vehicleExtras[vehicle] or {}
+        vehicleExtras[vehicle][extra] = not disable
+    end
+    function _G.IsVehicleExtraTurnedOn(vehicle, extra)
+        return (vehicleExtras[vehicle] or {})[extra] == true
+    end
+    function _G.PlayerPedId() return 100 end
+    function _G.GetEntityModel(_) return 0 end
+    function _G.GetPedDrawableVariation(_, _) return 0 end
 
     -- Server-side Player(source).state, including the colon form used by the
     -- lifecycle module. This is deliberately small but records replication so
@@ -149,7 +223,27 @@ function M.install()
     QB.drawing = { text3d = function() end }
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }
-    QB.commands = { add = function() end, remove = function() end, refresh = function() end, list = function() return {} end }
+    -- QB.commands -- a minimal but REAL implementation (previously all no-ops,
+    -- so QBCore.Commands.Add/List never actually populated anything under
+    -- test). Only tracks what QBCore:CallCommand's tests need: name, help,
+    -- permission out of list(), matching QBCore.commands/server.lua's own
+    -- {name, help, permission} shape.
+    local cmdDefs = {}
+    QB.commands = {
+        add = function(name, help, args, argsRequired, handler, opts)
+            opts = opts or {}
+            cmdDefs[name] = { help = help, args = args, argsRequired = argsRequired, handler = handler, permission = opts.permission or 'user' }
+        end,
+        remove = function(name) cmdDefs[name] = nil end,
+        refresh = function() end,
+        list = function()
+            local out = {}
+            for name, def in pairs(cmdDefs) do
+                out[#out + 1] = { name = name, help = def.help, permission = def.permission }
+            end
+            return out
+        end,
+    }
     QB.status = { apply = function() return true end, remove = function() return true end }
     QB.zones = { sphere = function() return { remove = function() end } end }
 
@@ -193,6 +287,13 @@ function M.install()
         sqlResponses = sqlResponses,
         QB = QB,
         resourceStates = resourceStates,
+        executeCommandCalls = executeCommandCalls,
+        cancelEventCount = function() return cancelEventCount end,
+        setAce = function(src, permission, allowed)
+            aceGrants[src] = aceGrants[src] or {}
+            aceGrants[src][permission] = allowed
+        end,
+        pvpNativeCalls = pvpNativeCalls,
         setCloneLocalNetPayloads = function(value) cloneLocalNetPayloads = value == true end,
         -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).
         drainTimeouts = function()

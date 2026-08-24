@@ -51,9 +51,19 @@ function Core.jobs.setJob(src, name, grade)
     Core.player.setPath(src, { 'job' }, job)
     indexAdd(src, name, job.onduty)
 
-    TriggerEvent('QBCore:Server:OnJobUpdate', src, job)
+    -- QBCore:*:OnJobUpdate are the legacy-compat event NAMES (real qb-core's
+    -- own protocol) -- their payload must be legacy-shaped (zero-based
+    -- grade.level), same translation as QBCore.Shared.Jobs/the compat
+    -- PlayerData view. Guarded on the specific FUNCTION rather than on
+    -- `Core.compat` itself: Core is an auto-vivifying proxy (build/
+    -- initiate.lua), so merely referencing `Core.compat` always returns a
+    -- table (real gameplay boot always loads compat/shared/coreobject.lua,
+    -- which fills it in; a test dofiling only this module would otherwise
+    -- error on a truthy-but-empty `Core.compat`).
+    local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job) or job
+    TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
     if Config.compat.jobUpdateEventSource ~= 'client' then
-        TriggerClientEvent('QBCore:Client:OnJobUpdate', src, job)
+        TriggerClientEvent('QBCore:Client:OnJobUpdate', src, legacyJob)
     end
     return true
 end
@@ -69,9 +79,10 @@ function Core.jobs.setGang(src, name, grade)
     grade = math.max(1, math.floor(tonumber(grade) or 1))
     local gang = CoreInternal.player.buildGang(name, grade)
     Core.player.setPath(src, { 'gang' }, gang)
-    TriggerEvent('QBCore:Server:OnGangUpdate', src, gang)
+    local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
+    TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
     if Config.compat.jobUpdateEventSource ~= 'client' then
-        TriggerClientEvent('QBCore:Client:OnGangUpdate', src, gang)
+        TriggerClientEvent('QBCore:Client:OnGangUpdate', src, legacyGang)
     end
     return true
 end

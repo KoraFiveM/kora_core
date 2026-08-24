@@ -34,6 +34,16 @@ local function emitMoneyChange(src, account, amount, action, reason)
     if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
+    -- Legacy third-party hook: stock qb-hud's money popup (and other old
+    -- resources) listen ONLY to this event, not the two above. Our own qbhud
+    -- uses the statebag mirror above instead (see qbhud/client/bridge/qbcore.lua),
+    -- so this emission is purely for drop-in legacy resources.
+    local isRemove = action == 'remove'
+    TriggerClientEvent('hud:client:OnMoneyChange', src, account, amount, isRemove)
+    -- Legacy qb-phone hook: fired specifically on a bank-account removal.
+    if account == 'bank' and isRemove then
+        TriggerClientEvent('qb-phone:client:RemoveBankMoney', src, amount)
+    end
 end
 
 ---Publish authoritative balances for state-bag consumers such as qbhud.

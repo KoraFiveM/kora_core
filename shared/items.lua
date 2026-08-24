@@ -186,6 +186,21 @@ QBCoreSeed.items = {
     { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
     { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
+    -- Recycling plant rewards. qb-recyclejob is a public civilian activity,
+    -- but its server-side payout still travels through qbcore's shared item
+    -- registry and qbinventory's authoritative add/remove path. Keeping these
+    -- here means a completed package can be received, displayed, and sold
+    -- instead of failing as an unknown item.
+    { name = 'metalscrap', label = 'Metal Scrap', weight = 100, type = 'item', image = 'metalscrap.png', imageUrl = QBCoreSeed.imageUrl('metalscrap'), unique = false, useable = false, shouldClose = true, description = 'Salvaged mixed metal.' },
+    { name = 'plastic',    label = 'Plastic',     weight = 100, type = 'item', image = 'plastic.png',    imageUrl = QBCoreSeed.imageUrl('plastic'),    unique = false, useable = false, shouldClose = true, description = 'Sorted recyclable plastic.' },
+    { name = 'copper',     label = 'Copper',      weight = 100, type = 'item', image = 'copper.png',     imageUrl = QBCoreSeed.imageUrl('copper'),     unique = false, useable = false, shouldClose = true, description = 'Recovered copper.' },
+    { name = 'rubber',     label = 'Rubber',      weight = 100, type = 'item', image = 'rubber.png',     imageUrl = QBCoreSeed.imageUrl('rubber'),     unique = false, useable = false, shouldClose = true, description = 'Reclaimed rubber.' },
+    { name = 'iron',       label = 'Iron',        weight = 100, type = 'item', image = 'iron.png',       imageUrl = QBCoreSeed.imageUrl('iron'),       unique = false, useable = false, shouldClose = true, description = 'Recovered iron.' },
+    { name = 'aluminum',   label = 'Aluminum',    weight = 100, type = 'item', image = 'aluminum.png',   imageUrl = QBCoreSeed.imageUrl('aluminum'),   unique = false, useable = false, shouldClose = true, description = 'Recovered aluminum.' },
+    { name = 'steel',      label = 'Steel',       weight = 100, type = 'item', image = 'steel.png',      imageUrl = QBCoreSeed.imageUrl('steel'),      unique = false, useable = false, shouldClose = true, description = 'Recovered steel.' },
+    { name = 'glass',      label = 'Glass',       weight = 100, type = 'item', image = 'glass.png',      imageUrl = QBCoreSeed.imageUrl('glass'),      unique = false, useable = false, shouldClose = true, description = 'Sorted glass.' },
+    { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = QBCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
+
     -- Standard Ammu-Nation ammunition. These are ordinary stackable inventory
     -- items, allowing shops and a future weapon system to move them through the
     -- same authoritative qbinventory transfer path as every other item.

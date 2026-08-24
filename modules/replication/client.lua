@@ -66,17 +66,61 @@ local REFIRE_TOKEN = 'qbcore:rep:refire'
 
 -- Fire the legacy full-blob events LOCALLY from the mirror. Every legacy
 -- resource listening for QBCore:Player:SetPlayerData keeps working unchanged.
+--
+-- QBCore:*-named events are the legacy-compat protocol (real qb-core's own
+-- event names) -- their payload must be legacy-shaped, i.e. job/gang
+-- grade.level translated to zero-based (see Core.compat.toLegacyPlayerData's
+-- comment; qbcore's internal model stays one-based throughout, including
+-- `mirror` here -- this builds a translated VIEW for the event payload only,
+-- never mutates `mirror` itself). Guarded on the specific FUNCTION (not
+-- `Core.compat` itself -- Core is an auto-vivifying proxy, see build/
+-- initiate.lua, so merely referencing `Core.compat` always returns a table).
 local function fireLegacy(changedRoots)
+    local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
+
+    -- Real qb-core keeps a plain global `QBCore.PlayerData` table, updated on
+    -- every player-data change -- plenty of legacy scripts read it directly
+    -- instead of calling GetPlayerData(). We don't maintain one anywhere
+    -- else, so this is the one place both the data AND the "something
+    -- changed" signal already exist. Guarded: this module (unlike compat/)
+    -- has no hard dependency on the QBCore global existing (e.g. a test that
+    -- dofiles only replication/client.lua in isolation).
+    if QBCore then QBCore.PlayerData = legacyData end
+
     if Config.compat.fireLegacyPlayerDataEvent then
-        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', mirror, REFIRE_TOKEN)
+        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', legacyData, REFIRE_TOKEN)
         if not ok then error(err, 0) end
     end
     if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
-        TriggerEvent('QBCore:Client:OnJobUpdate', mirror.job)
+        TriggerEvent('QBCore:Client:OnJobUpdate', legacyData.job)
     end
     if changedRoots.gang and (Config.compat.jobUpdateEventSource ~= 'server') then
-        TriggerEvent('QBCore:Client:OnGangUpdate', mirror.gang)
+        TriggerEvent('QBCore:Client:OnGangUpdate', legacyData.gang)
     end
+end
+
+---Re-fire the full-blob legacy event from the mirror's CURRENT data, without
+---touching the mirror. Used by compat/client/qb-core-events.lua's
+---QBCore:Client:OnPlayerUpdated handler (key == 'all'/nil case) so it never
+---has to TriggerEvent('QBCore:Player:SetPlayerData', ...) itself -- doing so
+---directly WITHOUT REFIRE_TOKEN would be caught by this module's own
+---foreign-write acceptor below (the "an unknown resource wrote PlayerData
+---directly" handler), which merges the payload INTO the live mirror -- and
+---that payload is legacy-shaped (zero-based grade.level), so it would corrupt
+---the internal one-based mirror. Going through this function instead reuses
+---the exact same REFIRE_TOKEN'd path fireLegacy already uses on every delta,
+---so the resulting local TriggerEvent is safely recognised as our own re-fire
+---and ignored by the acceptor.
+---@return boolean  -- false if there is no mirror yet (nothing to announce)
+function Core.replication.reannounceFull()
+    if not mirror then return false end
+    local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
+    if QBCore then QBCore.PlayerData = legacyData end
+    if Config.compat.fireLegacyPlayerDataEvent then
+        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', legacyData, REFIRE_TOKEN)
+        if not ok then error(err, 0) end
+    end
+    return true
 end
 
 -- Full snapshot: replace the mirror wholesale and reset the expected seq.

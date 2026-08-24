@@ -25,15 +25,22 @@ local function buildQBPlayer(src)
     local handle = PI.handle(src)
     if not handle then return nil end
 
-    local self = { PlayerData = handle.PlayerData, Offline = false }
+    -- PlayerData is a legacy-shaped VIEW (job/gang grade.level translated to
+    -- real qb-core's zero-based numbering), NOT `handle.PlayerData` itself --
+    -- see Core.compat.toLegacyPlayerData's comment for why a live metatable
+    -- proxy can't be used here. Kept in sync incrementally by
+    -- Core.compat.onPlayerDataChanged (registered below), which
+    -- Core.player.setPath calls on every write, so this never goes stale --
+    -- including root-level replacements like SetJob/SetGang/SetInventory.
+    local self = { PlayerData = Core.compat.toLegacyPlayerData(handle.PlayerData), Offline = false }
     local F = {}
     self.Functions = F
 
     function F.GetName() return handle.PlayerData.name end
-    function F.GetPlayerData() return Core.util.deepClone(handle.PlayerData) end
+    function F.GetPlayerData() return Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData)) end
 
-    function F.SetJob(name, grade) return Core.jobs.setJob(src, name, grade) end
-    function F.SetGang(name, grade) return Core.jobs.setGang(src, name, grade) end
+    function F.SetJob(name, grade) return Core.jobs.setJob(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
+    function F.SetGang(name, grade) return Core.jobs.setGang(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetJobDuty(onDuty) return Core.jobs.setJobDuty(src, onDuty) end
     function F.SetJobData(k, v) return Core.player.setPath(src, { 'job', k }, v) end
     function F.SetGangData(k, v) return Core.player.setPath(src, { 'gang', k }, v) end
@@ -122,6 +129,27 @@ AddEventHandler('qbcore:server:playerDropped', function(src)
     QBCore.Players[src] = nil
 end)
 
+-- Keeps QBCore.Players[src].PlayerData incrementally in sync with EVERY write
+-- Core.player.setPath makes (it calls this on every successful write -- see
+-- modules/player/server.lua). Mirrors the exact same setPath operation onto
+-- the legacy view, translating job/gang grade.level on the way through --
+-- this is what lets a wholesale root replacement (SetJob/SetGang/
+-- SetInventory/ClearInventory) AND a single-field patch (SetJobDuty's
+-- onduty, F.SetJobData/SetGangData below) both stay correct without
+-- enumerating call sites: every one of them routes through setPath, and this
+-- hook covers setPath itself.
+Core.compat.onPlayerDataChanged = function(src, path, value)
+    local player = QBCore.Players[src]
+    if not player then return end
+
+    local root = path[1]
+    if root == 'job' or root == 'gang' then
+        Core.util.pathSet(player.PlayerData, path, #path == 1 and Core.compat.toLegacyJobOrGang(value) or value)
+    else
+        Core.util.pathSet(player.PlayerData, path, value)
+    end
+end
+
 -- --- QBCore.Functions.* ------------------------------------------------------
 
 local F = QBCore.Functions
@@ -173,9 +201,55 @@ function F.GetSource(identifier)
     return 0
 end
 
--- Callbacks -> qblib's QB.callback.
-function F.CreateCallback(name, cb)
-    QB.callback.register(name, function(src, ...) return cb(src, ...) end)
+-- Callbacks -> qblib's QB.callback, PLUS real qb-core's raw net-event wire
+-- protocol (QBCore:Server:TriggerCallback / QBCore:Client:TriggerCallback).
+-- Some legacy scripts skip QBCore.Functions.TriggerCallback entirely and
+-- fire the raw event themselves, so a handler registered via CreateCallback
+-- must be reachable through BOTH transports without ever running twice for
+-- one incoming request.
+--
+-- legacyCallbacks is the single source of truth: CreateCallback stores the
+-- handler here (keyed by name), and BOTH the qblib-registered wrapper below
+-- and the raw net event handler look the current handler up from this table
+-- at dispatch time rather than closing over it -- so a later CreateCallback
+-- call for the same name (a legitimate resource restart) updates what both
+-- transports invoke, without re-registering either transport.
+local legacyCallbacks = {}
+
+-- Real QBCore hands the legacy handler a RESPONDER function as its second
+-- argument -- function(source, cb, ...) ... cb(result) end -- and the handler
+-- is expected to call that responder, not `return` its result. qblib's
+-- QB.callback.register instead ships back whatever the registered function
+-- RETURNS. Bridging one onto the other means giving the legacy handler a
+-- `cb` that resolves a promise, then awaiting that promise for the actual
+-- return. A handler that never calls `cb` (a legitimate early-return, e.g.
+-- qb-banking's card-missing checks) would otherwise leak the awaiting
+-- coroutine and qblib's pending request forever -- the timeout guards that.
+function F.CreateCallback(name, handler)
+    legacyCallbacks[name] = handler
+    QB.callback.register(name, function(src, ...)
+        local p = promise.new()
+        local settled = false
+
+        local function respond(...)
+            if settled then return end
+            settled = true
+            p:resolve(table.pack(...))
+        end
+
+        -- Dispatch through legacyCallbacks[name], NOT the `handler` upvalue
+        -- above -- see the table's comment: this is what makes a later
+        -- re-registration for the same name take effect here too.
+        legacyCallbacks[name](src, respond, ...)
+
+        CreateThread(function()
+            Wait(Config.compat.callbackTimeoutMs or 5000)
+            respond()
+        end)
+
+        local results = Citizen.Await(p)
+        return table.unpack(results, 1, results.n)
+    end)
 end
 -- Real QBCore's TriggerCallback forwards EVERY value the client handler
 -- returned to `cb`, not just the first -- qblib's QB.callback.trigger (called
@@ -188,6 +262,26 @@ function F.TriggerCallback(name, src, cb, ...)
         cb(table.unpack(results, 1, results.n))
     end)
 end
+
+-- Raw wire, client->server leg: a legacy script that skips
+-- QBCore.Functions.TriggerCallback and fires the event directly. `name` gets
+-- no validation in upstream either, but upstream also never crashes on
+-- garbage input from the network -- guard the type instead of erroring.
+RegisterNetEvent('QBCore:Server:TriggerCallback', function(name, ...)
+    local src = source
+    if type(name) ~= 'string' then return end
+    local handler = legacyCallbacks[name]
+    if not handler then return end
+
+    local function respond(...)
+        TriggerClientEvent('QBCore:Client:TriggerCallback', src, name, ...)
+    end
+
+    local ok, err = pcall(handler, src, respond, ...)
+    if not ok then
+        print(('^1[qbcore:qb-core-bridge]^7 legacy callback %q raised an error: %s'):format(tostring(name), tostring(err)))
+    end
+end)
 
 -- Useable items.
 function F.CreateUseableItem(name, cb) Core.inventory.createUseable(name, cb) end
@@ -381,20 +475,57 @@ function F.CreateVehicle(source, model, vehtype, coords, warp)
     return veh
 end
 
--- Client callbacks: real qb-core has its own wire protocol; we route through
--- qblib's callback system (the client compat maps CreateClientCallback ->
--- QB.callback.register to match), which keeps one tested implementation.
+-- Client callbacks: real qb-core's own raw wire protocol
+-- (QBCore:Client:TriggerClientCallback / QBCore:Server:TriggerClientCallback).
+-- This used to route through qblib's callback system instead, but that meant
+-- TriggerClientCallback would deliver over ONE transport (qblib) while a
+-- handler registered via the client's CreateClientCallback is reachable over
+-- TWO (qblib AND the raw net event, since CreateClientCallback now also
+-- stores into legacyClientCallbacks -- see compat/client/qb-core.lua). Firing
+-- both transports for a single TriggerClientCallback call would invoke the
+-- client's handler twice for one logical request, so this now speaks the raw
+-- wire exclusively (matching real qb-core's own implementation), and the
+-- qblib path is left for cross-resource callers that talk to QB.callback
+-- directly rather than through this function.
+QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
+
 function F.TriggerClientCallback(name, source, ...)
     if not source then return end
     local args = { ... }
     local cb
     if isCallable(args[1]) then cb = table.remove(args, 1) end
+
     if cb then
-        CreateThread(function() cb(QB.callback.trigger(source, name, table.unpack(args))) end)
+        QBCore.ClientCallbacks[name .. source] = cb
+        TriggerClientEvent('QBCore:Client:TriggerClientCallback', source, name, table.unpack(args))
     else
-        return QB.callback.trigger(source, name, table.unpack(args))
+        -- Sync form (no cb passed): store the awaiting promise instead, same
+        -- shape server/qb-core.lua's CreateCallback bridge uses.
+        local p = promise.new()
+        QBCore.ClientCallbacks[name .. source] = p
+        TriggerClientEvent('QBCore:Client:TriggerClientCallback', source, name, table.unpack(args))
+        local results = Citizen.Await(p)
+        return table.unpack(results, 1, results.n)
     end
 end
+
+-- Raw wire, client->server REPLY leg for the above: the client's handler
+-- (registered via CreateClientCallback, invoked through its own raw
+-- QBCore:Client:TriggerClientCallback listener) calls its responder, which
+-- sends this event back. Clear the entry after use so a stray duplicate
+-- reply can't resolve/call it a second time.
+RegisterNetEvent('QBCore:Server:TriggerClientCallback', function(name, ...)
+    local src = source
+    if type(name) ~= 'string' then return end
+    local key = name .. src
+    local entry = QBCore.ClientCallbacks[key]
+    QBCore.ClientCallbacks[key] = nil
+    if type(entry) == 'function' then
+        entry(...)
+    elseif type(entry) == 'table' and type(entry.resolve) == 'function' then
+        entry:resolve(table.pack(...))
+    end
+end)
 
 -- Permissions: add the Remove counterpart (upstream ExecuteCommand form; the
 -- no-arg case strips every configured permission group).
@@ -554,9 +685,14 @@ function F.RemoveGang(name) return sharedRemove('gang', name) end
 -- GetShared is a top-level export in real qb-core (shared/main.lua), not a
 -- Functions entry. It reads QBCore.Shared[namespace], which our coreobject.lua
 -- metatable resolves to the live materialised registry table -- so this body is
--- identical to upstream's.
+-- identical to upstream's, except for the canonical-casing fallback (see
+-- Core.compat.canonicalSharedNamespace's comment -- real-world legacy scripts
+-- don't reliably call this with PascalCase, e.g. qb-recyclejob's GetShared('items')).
 local function GetShared(namespace, item)
     local ns = QBCore.Shared[namespace]
+    if not ns and Core.compat.canonicalSharedNamespace then
+        ns = QBCore.Shared[Core.compat.canonicalSharedNamespace(namespace)]
+    end
     if not ns then return nil end
     return item and ns[item] or ns
 end
@@ -619,6 +755,17 @@ function P.CreateSerialNumber() return randomId(9, false) end
 -- table rebuilt whenever a command is added/refreshed through the compat.
 -- (Commands another resource registers straight through QB.commands aren't
 -- reflected until the next Add/Refresh -- documented in AGENTS.md.)
+--
+-- Real qb-core's List entries also carry `params`/`argsrequired`/`callback`
+-- (not just name/help/permission) -- QBCore:CallCommand (qb-core-events.lua)
+-- invokes .callback directly, and checks .argsrequired/.params before doing
+-- so. Core.commands.listCommands() (QB.commands.list()) only ever returns
+-- {name, help, permission} -- it has no reason to leak a raw handler function
+-- to every caller -- so those three extra fields are captured HERE, at
+-- QBCore.Commands.Add time, in a side table keyed by name and merged into the
+-- List entry on rebuild. Same "only reflects Add/Refresh" limitation as the
+-- rest of this table.
+local commandExtras = {}
 QBCore.Commands.List = {}
 local function rebuildCommandList()
     -- Defensive: in production commands/server.lua loads before this file (see
@@ -626,10 +773,19 @@ local function rebuildCommandList()
     if not (Core.commands and Core.commands.listCommands) then return end
     for k in pairs(QBCore.Commands.List) do QBCore.Commands.List[k] = nil end
     for _, c in ipairs(Core.commands.listCommands()) do
-        QBCore.Commands.List[c.name] = { name = c.name, help = c.help, permission = c.permission }
+        local extra = commandExtras[c.name]
+        QBCore.Commands.List[c.name] = {
+            name = c.name,
+            help = c.help,
+            permission = c.permission,
+            params = extra and extra.params,
+            argsrequired = extra and extra.argsrequired,
+            callback = extra and extra.callback,
+        }
     end
 end
 QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
+    commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb }
     Core.commands.addCommand(name, help, args, argsRequired, cb, permission)
     rebuildCommandList()
 end
@@ -651,6 +807,26 @@ QBCore.Config.Server = {
     Closed = false,
     ClosedReason = 'Server Closed',
 }
+-- Upstream constants some legacy scripts read directly (real qb-core's
+-- shared/config.lua). Informational-only here -- they don't drive our own
+-- needs-decay loop, which is server-owned on a different cadence -- so these
+-- are just hardcoded to match upstream's documented defaults for any legacy
+-- script that reads them directly.
+QBCore.Config.UpdateInterval = 5
+QBCore.Config.StatusInterval = 5000
+
+-- Force the lazy QBCore.Shared data views to materialise as REAL keys now.
+-- A consumer's GetCoreObject() result crosses the export boundary as a
+-- msgpack copy: the metatable (and therefore coreobject.lua's lazy __index)
+-- does not survive the crossing, so any key not rawset by this point simply
+-- does not exist in the consumer's copy of Shared -- which is how
+-- `for job in pairs(QBCore.Shared.Jobs)` in an external resource ends up
+-- iterating nil even though the same read works fine inside this VM. The
+-- registries are guaranteed created AND seed-ingested here: both happen
+-- synchronously in modules/registry/server.lua, which loads before this file.
+for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
+    local _ = QBCore.Shared[k]
+end
 
 -- --- Exports -----------------------------------------------------------------
 -- GetCoreObject supports upstream's optional `filters` array (return a subset of
@@ -667,6 +843,16 @@ end
 if Config.compat.coreObjectExport then
     provideExport('qb-core', 'GetCoreObject', getCoreObject)
     provideExport('qb-core', 'GetShared', GetShared)
+    -- Thin per-namespace wrappers around GetShared -- real qb-core exposes
+    -- these as their own top-level exports too. GetSharedJobs/Gangs go through
+    -- the SAME GetShared('Jobs'/'Gangs') call, so they resolve to the
+    -- legacy zero-based grade view (QBCore.Shared.Jobs/Gangs), not the raw
+    -- internal registry.
+    provideExport('qb-core', 'GetSharedItems', function() return GetShared('Items') end)
+    provideExport('qb-core', 'GetSharedVehicles', function() return GetShared('Vehicles') end)
+    provideExport('qb-core', 'GetSharedJobs', function() return GetShared('Jobs') end)
+    provideExport('qb-core', 'GetSharedGangs', function() return GetShared('Gangs') end)
+    provideExport('qb-core', 'GetSharedWeapons', function() return GetShared('Weapons') end)
     for name, fn in pairs(QBCore.Functions) do
         if type(fn) == 'function' then provideExport('qb-core', name, fn) end
     end

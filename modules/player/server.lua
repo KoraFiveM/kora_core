@@ -64,6 +64,21 @@ function Core.player.setPath(src, path, value, opts)
 
     Core.util.pathSet(player.PlayerData, path, value)
 
+    -- Optional compat hook: keeps a legacy-shaped PlayerData table (returned
+    -- to third-party resources across the export boundary, so it must be a
+    -- real table, never a live metatable proxy -- those don't survive
+    -- msgpack marshaling) incrementally in sync with every write this funnel
+    -- makes, without qbcore's own modules knowing compat exists. nil unless
+    -- compat/shared/coreobject.lua has registered it. See its own comment for
+    -- why this is the single correct hook point (every mutation, including
+    -- job/gang, routes through here).
+    -- Core is an auto-vivifying proxy (build/initiate.lua) -- merely
+    -- REFERENCING Core.compat materialises it as {}, so the presence check
+    -- must be on the specific function, not the module table.
+    if Core.compat.onPlayerDataChanged then
+        Core.compat.onPlayerDataChanged(src, path, value)
+    end
+
     local column = COLUMN_FOR[path[1]]
     if column then
         Core.persistence._markDirty(player, column)
@@ -345,6 +360,11 @@ function Core.player.dropPlayer(src, reason)
     Core.replication._forget(player)
     Core.persistence._forget(player)
     TriggerEvent('qbcore:server:playerDropped', src, player.citizenid, reason)
+    -- Legacy-named events on the SAME disconnect path (verified against real
+    -- qb-core v1.3.0 source). Both are server-LOCAL only -- upstream sends
+    -- nothing to the disconnecting client either, since it's already gone.
+    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
+    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
 end
 
 AddEventHandler('playerDropped', function(reason)

@@ -42,9 +42,18 @@ local function onUsingItem(payload, src)
 end
 
 local function register()
-    if registered or not Config.consumables.enabled then return end
+    if not Config.consumables.enabled then return end
     if GetResourceState('qbinventory') ~= 'started' then return end
 
+    -- Deliberately NOT gated on `registered` -- this must re-run every time
+    -- qbinventory (re)starts. A qbinventory restart wipes ITS hook table
+    -- (fresh resource instance), so the hook we registered before the
+    -- restart is gone from qbinventory's side even though `registered`
+    -- would still say true on our side. Re-registering here is always
+    -- correct: either qbinventory has no hook yet (fresh boot / just
+    -- restarted) and this adds it, or it's a duplicate onResourceStart
+    -- fire for an instance we already registered against, which is a
+    -- harmless no-op re-add (qbinventory's registerHook just appends).
     local ok = pcall(function() exports.qbinventory:registerHook('usingItem', onUsingItem) end)
     if not ok then
         -- Native qbinventory compatibility before the ox-style lowercase
@@ -58,6 +67,14 @@ register() -- covers qbinventory already running when qbcore starts (a restart, 
 
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName == 'qbinventory' then register() end
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    -- qbinventory stopping tears down its own hook table with it, so our
+    -- last registration no longer exists on the other side. Reflect that
+    -- in isRegistered() and let the onResourceStart handler above put it
+    -- back the moment qbinventory comes back up.
+    if resourceName == 'qbinventory' then registered = false end
 end)
 
 ---@return boolean

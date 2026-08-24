@@ -141,4 +141,36 @@ h.test('the replicated login state bag follows the initial player snapshot and c
     h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], false, 'logout should replicate qbcore:loggedIn=false')
 end)
 
+h.test('a hard disconnect fires the modern event plus BOTH legacy-named events', function()
+    local data = CoreInternal.player.freshData('CID-drop', LICENSE, 1, { firstname = 'Drop', lastname = 'Path' })
+    h.assertTrue(Core.player.login(43, 'CID-drop', data))
+
+    local modernFired, legacyDropped, legacyUnload
+    local modernArgs, legacyDroppedArgs
+    AddEventHandler('qbcore:server:playerDropped', function(src, citizenid, reason)
+        modernFired = true
+        modernArgs = { src = src, citizenid = citizenid, reason = reason }
+    end)
+    AddEventHandler('QBCore:Server:PlayerDropped', function(src, reason)
+        legacyDropped = true
+        legacyDroppedArgs = { src = src, reason = reason }
+    end)
+    AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
+        legacyUnload = true
+    end)
+
+    handle.fireEvent('playerDropped', 43, 'reason text')
+
+    h.assertTrue(modernFired, 'the modern qbcore:server:playerDropped event must fire')
+    h.assertEqual(modernArgs.src, 43)
+    h.assertEqual(modernArgs.citizenid, 'CID-drop')
+    h.assertEqual(modernArgs.reason, 'reason text')
+
+    h.assertTrue(legacyDropped, 'QBCore:Server:PlayerDropped must fire on the same disconnect path')
+    h.assertEqual(legacyDroppedArgs.src, 43)
+    h.assertEqual(legacyDroppedArgs.reason, 'reason text', 'the disconnect reason must be forwarded')
+
+    h.assertTrue(legacyUnload, 'QBCore:Server:OnPlayerUnload must fire on the same disconnect path')
+end)
+
 h.report('player_create')

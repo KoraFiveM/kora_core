@@ -51,9 +51,11 @@ Config.dispatch = {
 }
 
 Config.needs = {
-    tickInterval = 60000,            -- ms between hunger/thirst decay ticks
+    tickInterval = 60000,            -- ms between server-authoritative hunger/thirst decay ticks
     hungerDecay = 1,                 -- hunger lost per tick
     thirstDecay = 1,                 -- thirst lost per tick
+    hungerDamage = 5,                -- client ped damage on each server update while hunger is zero
+    thirstDamage = 5,                -- client ped damage on each server update while thirst is zero (stacks with hunger damage)
 }
 
 Config.jail = {
@@ -81,8 +83,27 @@ Config.compat = {
     coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
     clientMetadataKeys = {},              -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes; empty is secure by default
+    callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
+    fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 
 Config.replication = {
     resyncRateLimit = 5000,          -- ms; a client may request at most one resync per this window
+}
+
+Config.dependencySupervisor = {
+    -- OFF by default -- new behavior with no existing convention; opt in
+    -- per-server once server.cfg's ensure order and restart blast radius have
+    -- been reviewed. See modules/dependencySupervisor/AGENTS.md.
+    enabled = false,
+    -- provider resource name -> list of resources to restart once the
+    -- provider (re)starts. Exists for legacy scripts that can't re-register
+    -- themselves against a dependency that restarted mid-session.
+    map = {
+        qbinventory = { 'qb-banking' },
+        qbtarget = { 'qb-banking', 'qb-recyclejob' },
+        PolyZone = { 'qb-recyclejob' },
+        qbcore = { 'qb-banking', 'qb-recyclejob' },
+    },
+    cooldownMs = 15000,               -- a resource won't be restarted again within this many ms of its own last restart
 }

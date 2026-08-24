@@ -33,36 +33,118 @@ local NOTIFY_TYPE_MAP = {
 
 -- Callbacks ------------------------------------------------------------------
 
--- Real qb-core stores this in QBCore.ClientCallbacks and fires it from the
--- QBCore:Client:TriggerClientCallback net event. We route client callbacks
--- through qblib instead: QB.callback.register is the client registrar the
--- SERVER reaches via QB.callback.trigger(target, ...), and the server compat
--- maps QBCore's TriggerClientCallback onto exactly that -- so this makes
--- server->client callbacks work end to end through qblib.
-function F.CreateClientCallback(name, cb) QB.callback.register(name, cb) end
+QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
+
+-- legacyClientCallbacks is CreateClientCallback's single source of truth --
+-- mirrors legacyCallbacks in compat/server/qb-core.lua. CreateClientCallback
+-- stores the handler here (keyed by name); both the qblib-registered wrapper
+-- below AND the raw QBCore:Client:TriggerClientCallback net event handler
+-- look the CURRENT handler up from this table at dispatch time instead of
+-- closing over it, so a later CreateClientCallback call for the same name (a
+-- legitimate resource restart) updates what both transports invoke.
+local legacyClientCallbacks = {}
+
+-- Real qb-core stores this in QBCore.ClientCallbacks (server-side) and fires
+-- it from the QBCore:Client:TriggerClientCallback net event -- the raw wire
+-- handled below. We ALSO keep registering with qblib's QB.callback so a
+-- cross-resource caller that talks to QB.callback.trigger directly (rather
+-- than through QBCore.Functions.TriggerClientCallback) still reaches this
+-- handler; see compat/server/qb-core.lua's TriggerClientCallback comment for
+-- why the SERVER trigger itself now speaks the raw wire exclusively instead
+-- of also going through qblib (it would double-invoke this handler otherwise).
+--
+-- Real QBCore hands the legacy handler a RESPONDER as its first argument --
+-- function(cb, ...) ... cb(result) end -- not a value to return. qblib's
+-- QB.callback.register instead ships back whatever the registered function
+-- RETURNS, same mismatch (and same fix: bridge via a promise + timeout) as
+-- the server's CreateCallback above.
+function F.CreateClientCallback(name, handler)
+    legacyClientCallbacks[name] = handler
+    QB.callback.register(name, function(...)
+        local p = promise.new()
+        local settled = false
+
+        local function respond(...)
+            if settled then return end
+            settled = true
+            p:resolve(table.pack(...))
+        end
+
+        -- Dispatch through legacyClientCallbacks[name], NOT the `handler`
+        -- upvalue -- see the table's comment above.
+        legacyClientCallbacks[name](respond, ...)
+
+        CreateThread(function()
+            Wait(Config.compat.callbackTimeoutMs or 5000)
+            respond()
+        end)
+
+        local results = Citizen.Await(p)
+        return table.unpack(results, 1, results.n)
+    end)
+end
+
+-- Raw wire, server->client leg: the server's TriggerClientCallback (raw wire
+-- exclusively -- see compat/server/qb-core.lua) delivers the request here.
+-- Looks up the handler CreateClientCallback registered and invokes it with a
+-- responder that replies over the matching raw event.
+RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
+    if type(name) ~= 'string' then return end
+    local handler = legacyClientCallbacks[name]
+    if not handler then return end
+
+    local function respond(...)
+        TriggerServerEvent('QBCore:Server:TriggerClientCallback', name, ...)
+    end
+
+    local ok, err = pcall(handler, respond, ...)
+    if not ok then
+        print(('^1[qbcore:qb-core-bridge]^7 legacy client callback %q raised an error: %s'):format(tostring(name), tostring(err)))
+    end
+end)
 
 -- Real QBCore's TriggerCallback (client->server) forwards EVERY value the
 -- server handler returned to `cb`, not just the first -- qblib's
 -- QB.callback.trigger (called here cross-resource, qbcore -> qblib) now
 -- supports that end to end, so table.pack/unpack is all that's needed to match
 -- it faithfully. Arg shape matches real: (name, cb, ...).
+--
+-- ALSO stores into QBCore.ServerCallbacks[name], matching upstream's own
+-- side effect of TriggerCallback, so a script that pokes ServerCallbacks
+-- directly (or a raw QBCore:Client:TriggerCallback reply -- see below) can
+-- still find it. This is purely additive: the qblib round trip above is what
+-- normally answers `cb`, since this function never fires the raw
+-- QBCore:Server:TriggerCallback event itself.
 function F.TriggerCallback(name, cb, ...)
+    if cb then QBCore.ServerCallbacks[name] = cb end
     local results = table.pack(QB.callback.trigger(name, ...))
     if cb then cb(table.unpack(results, 1, results.n)) end
 end
 
+-- Raw wire, client->server REPLY leg: a legacy script that fired
+-- QBCore:Server:TriggerCallback directly (skipping our TriggerCallback) gets
+-- its answer here. Pop-then-clear so a stray duplicate reply can't invoke a
+-- stale entry a second time.
+RegisterNetEvent('QBCore:Client:TriggerCallback', function(name, ...)
+    if type(name) ~= 'string' then return end
+    local cb = QBCore.ServerCallbacks[name]
+    QBCore.ServerCallbacks[name] = nil
+    if cb then cb(...) end
+end)
+
 -- Not part of real qb-core's CLIENT surface, but kept as a harmless alias some
 -- of our resources already call; it registers the same way CreateClientCallback
--- does.
-function F.CreateCallback(name, cb) QB.callback.register(name, cb) end
+-- does, so it needs the same responder/promise bridge.
+function F.CreateCallback(name, handler) F.CreateClientCallback(name, handler) end
 
 -- Player ---------------------------------------------------------------------
 
--- Real returns QBCore.PlayerData; if cb is supplied it calls cb(data) too. We
--- source the data from the replicated client mirror rather than a locally
--- maintained PlayerData table.
+-- Real returns QBCore.PlayerData; if cb is supplied it calls cb(data) too.
+-- QBCore.PlayerData itself is kept in sync by modules/replication/client.lua
+-- (the same place the legacy QBCore:Player:SetPlayerData event fires from --
+-- see its comment), already legacy-shaped (zero-based job/gang grade.level).
 function F.GetPlayerData(cb)
-    local data = Core.replication.getData()
+    local data = QBCore.PlayerData
     if cb then cb(data) end
     return data
 end
@@ -1158,6 +1240,44 @@ function F.GetGroundHash(entity)
     return materialHash, entityHit, surfaceNormal, endCoords, success, retval
 end
 
+-- --- QBCore.Config -----------------------------------------------------------
+-- config.lua is a shared_script (loaded identically into both realms -- see
+-- fxmanifest.lua), so this is the exact same mapping compat/server/qb-core.lua
+-- builds from the same shared `Config` global, at zero network cost. Previously
+-- QBCore.Config was populated server-side only, leaving it an empty `{}` here.
+QBCore.Config.Money = { MoneyTypes = Config.money.default, PayCheckTimeOut = 10 }
+QBCore.Config.Player = { MaxWeight = Config.inventory.maxWeight, MaxInvSlots = Config.inventory.slots }
+QBCore.Config.MaxPlayers = GetConvarInt('sv_maxclients', 32)
+QBCore.Config.Server = {
+    Discord = GetConvar('qb_discord', ''),
+    Whitelist = false,
+    WhitelistPermission = 'admin',
+    Permissions = { 'god', 'admin', 'mod' },
+    Closed = false,
+    ClosedReason = 'Server Closed',
+}
+-- Upstream constants some legacy scripts read directly (real qb-core's
+-- shared/config.lua). Informational-only here -- they don't drive our own
+-- needs-decay loop, which is server-owned on a different cadence -- so these
+-- are just hardcoded to match upstream's documented defaults for any legacy
+-- script that reads them directly.
+QBCore.Config.UpdateInterval = 5
+QBCore.Config.StatusInterval = 5000
+
+-- Force the lazy QBCore.Shared data views to materialise as REAL keys, same
+-- as the server compat does: a consumer's GetCoreObject() result crosses the
+-- export boundary as a msgpack copy that drops the metatable, so a key still
+-- hiding behind coreobject.lua's lazy __index would be absent from the copy.
+-- The client registries exist by now (RI.create in modules/registry/client.lua,
+-- loaded before this file) but may still be EMPTY until the async snapshot
+-- arrives -- that's fine: Items/Vehicles/Weapons cache the registry's live
+-- `materialised` tables (reseed clears them IN PLACE, references stay stable),
+-- and the Jobs/Gangs legacy views re-fill via their 'qbcore:registry:synced'
+-- refresh hook when the snapshot lands.
+for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
+    local _ = QBCore.Shared[k]
+end
+
 -- Direct client exports ------------------------------------------------------
 -- Real qb-core ends client/functions.lua with `for fn, func in pairs(QBCore.Functions) do exports(fn, func) end`,
 -- exposing every function as exports['qb-core']:Fn(...). We can't call exports()
@@ -1171,3 +1291,88 @@ for functionName, func in pairs(QBCore.Functions) do
 end
 
 provideExport('qb-core', 'GetCoreObject', function() return QBCore end)
+
+-- GetShared is a top-level export in real qb-core (shared/main.lua), not a
+-- Functions entry, on BOTH realms -- it was previously only registered
+-- server-side (compat/server/qb-core.lua), which is why a client script
+-- (@qb-recyclejob/client.lua) calling exports['qb-core']:GetShared('Items')
+-- got "No such export". Reads QBCore.Shared[namespace], which coreobject.lua's
+-- metatable resolves to the live materialised registry table -- identical
+-- body to the server compat's copy, including the canonical-casing fallback
+-- (real-world legacy scripts don't reliably call this with PascalCase, e.g.
+-- qb-recyclejob's OWN client.lua calls GetShared('items')).
+local function getShared(namespace, item)
+    local ns = QBCore.Shared[namespace]
+    if not ns and Core.compat.canonicalSharedNamespace then
+        ns = QBCore.Shared[Core.compat.canonicalSharedNamespace(namespace)]
+    end
+    if not ns then return nil end
+    return item and ns[item] or ns
+end
+provideExport('qb-core', 'GetShared', getShared)
+
+-- Thin per-namespace wrappers around GetShared, mirroring the server compat's
+-- copies -- real qb-core exposes these as their own top-level exports too.
+-- GetSharedJobs/Gangs go through the SAME getShared('Jobs'/'Gangs') call, so
+-- they resolve to the legacy zero-based grade view, not the raw internal one.
+provideExport('qb-core', 'GetSharedItems', function() return getShared('Items') end)
+provideExport('qb-core', 'GetSharedVehicles', function() return getShared('Vehicles') end)
+provideExport('qb-core', 'GetSharedJobs', function() return getShared('Jobs') end)
+provideExport('qb-core', 'GetSharedGangs', function() return getShared('Gangs') end)
+provideExport('qb-core', 'GetSharedWeapons', function() return getShared('Weapons') end)
+
+-- Upstream qb-core's client/drawtext.lua exports a persistent on-screen prompt
+-- family -- exports['qb-core']:DrawText(text, position) / ChangeText /
+-- HideText / KeyPressed -- that legacy resources (qb-banking's 'Open Bank'
+-- prompt) drive around their own key-press loops. That is a DIFFERENT function
+-- from QBCore.Functions.DrawText(x, y, width, height, scale, r, g, b, a, text)
+-- above: upstream registers both under the same export name and drawtext.lua
+-- loads last, so its 2-arg version wins resolution. Mirror that shadowing by
+-- registering AFTER the Functions loop (the last __cfx_export handler's setCB
+-- runs last and wins). Rendered as a native per-frame draw rather than
+-- upstream's NUI page -- same contract, no UI dependency.
+local drawTextState = nil
+local drawTextGen = 0
+
+local DRAWTEXT_ANCHORS = {
+    left = { x = 0.10, y = 0.50 },
+    right = { x = 0.90, y = 0.50 },
+    top = { x = 0.50, y = 0.05 },
+}
+
+local function compatDrawText(text, position)
+    local wasActive = drawTextState ~= nil
+    drawTextState = { text = tostring(text or ''), position = position }
+    if wasActive then return end
+
+    drawTextGen = drawTextGen + 1
+    local gen = drawTextGen
+    CreateThread(function()
+        while drawTextState and drawTextGen == gen do
+            local state = drawTextState
+            local anchor = DRAWTEXT_ANCHORS[state.position] or DRAWTEXT_ANCHORS.left
+            SetTextFont(4)
+            SetTextScale(0.40, 0.40)
+            SetTextColour(255, 255, 255, 255)
+            SetTextCentre(true)
+            BeginTextCommandDisplayText('STRING')
+            AddTextComponentSubstringPlayerName(state.text)
+            EndTextCommandDisplayText(anchor.x, anchor.y)
+            DrawRect(anchor.x, anchor.y + 0.0125, 0.017 + #state.text / 370, 0.03, 0, 0, 0, 100)
+            Wait(0)
+        end
+    end)
+end
+
+local function compatHideText()
+    drawTextState = nil
+    -- Bump the generation so a draw thread mid-iteration exits even if a new
+    -- DrawText immediately restarts the prompt (prevents doubled draw threads).
+    drawTextGen = drawTextGen + 1
+end
+
+provideExport('qb-core', 'DrawText', compatDrawText)
+provideExport('qb-core', 'ChangeText', compatDrawText)
+provideExport('qb-core', 'HideText', compatHideText)
+-- Upstream's KeyPressed plays a brief NUI press animation, then hides.
+provideExport('qb-core', 'KeyPressed', compatHideText)

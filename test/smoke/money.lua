@@ -38,4 +38,48 @@ h.test('negative amount rejected', function()
     local ok = Core.money.addMoney(1, 'cash', -5)
     h.assertFalse(ok)
 end)
+h.test('addMoney fires hud:client:OnMoneyChange(account, amount, isRemove=false)', function()
+    Core.money.addMoney(1, 'cash', 50, 'test')
+    local evt = handle.lastClient('hud:client:OnMoneyChange')
+    h.assertTrue(evt ~= nil, 'hud:client:OnMoneyChange should have fired')
+    h.assertEqual(evt.args[1], 'cash')
+    h.assertEqual(evt.args[2], 50)
+    h.assertEqual(evt.args[3], false, 'isRemove should be false on an add')
+end)
+h.test('removeMoney fires hud:client:OnMoneyChange(account, amount, isRemove=true)', function()
+    Core.money.setMoney(1, 'cash', 100)
+    Core.money.removeMoney(1, 'cash', 40, 'test')
+    local evt = handle.lastClient('hud:client:OnMoneyChange')
+    h.assertTrue(evt ~= nil, 'hud:client:OnMoneyChange should have fired')
+    h.assertEqual(evt.args[1], 'cash')
+    h.assertEqual(evt.args[2], 40)
+    h.assertEqual(evt.args[3], true, 'isRemove should be true on a remove')
+end)
+h.test('qb-phone:client:RemoveBankMoney fires only on a bank removal', function()
+    Core.money.setMoney(1, 'bank', 500)
+
+    local function countSince(before)
+        local n = 0
+        for i = before + 1, #handle.clientEvents do
+            if handle.clientEvents[i].name == 'qb-phone:client:RemoveBankMoney' then n = n + 1 end
+        end
+        return n
+    end
+
+    local before = #handle.clientEvents
+    Core.money.removeMoney(1, 'cash', 10, 'test')
+    h.assertEqual(countSince(before), 0, 'cash removal must not fire it')
+
+    before = #handle.clientEvents
+    Core.money.addMoney(1, 'bank', 10, 'test')
+    h.assertEqual(countSince(before), 0, 'bank addition must not fire it')
+
+    before = #handle.clientEvents
+    Core.money.removeMoney(1, 'bank', 25, 'test')
+    h.assertEqual(countSince(before), 1, 'bank removal should fire qb-phone:client:RemoveBankMoney exactly once')
+    local evt = handle.lastClient('qb-phone:client:RemoveBankMoney')
+    h.assertTrue(evt ~= nil, 'bank removal should fire qb-phone:client:RemoveBankMoney')
+    h.assertEqual(evt.target, 1)
+    h.assertEqual(evt.args[1], 25)
+end)
 h.report('money')
