@@ -51,6 +51,19 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
             jailed = 0, injail = 0, -- injail mirrors jailed for legacy readers, see modules/jail/server.lua
             licences = { driver = true, weapon = false },
             phone = {}, bloodtype = 'O+',
+            -- Real qb-core seeds both on every new character (config.lua's
+            -- PlayerDefaults.metadata) -- fingerprint feeds qb-policejob's
+            -- fingerprint-scan feature, walletid feeds any wallet/banking
+            -- script that reads it. Real qb-core pre-checks uniqueness
+            -- against the DB before accepting a candidate; this rebuild
+            -- follows Core.identity.generateCitizenId's own established
+            -- convention instead (a plain random candidate, no async
+            -- pre-check -- a JSON metadata field has no DB unique index to
+            -- collide against here anyway, unlike citizenid's real column).
+            fingerprint = ('%s%s%s%s%s%s'):format(
+                Core.util.randomStr(2), Core.util.randomInt(3), Core.util.randomStr(1),
+                Core.util.randomInt(2), Core.util.randomStr(3), Core.util.randomInt(4)),
+            walletid = ('QB-%s'):format(Core.util.randomInt(8)),
         },
         items = {},
         phone = charinfo.phone,

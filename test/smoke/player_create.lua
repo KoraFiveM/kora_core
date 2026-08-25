@@ -121,6 +121,24 @@ h.test('setMaxCharacters issues an upsert with the license and value', function(
     h.assertEqual(call.params[2], 8)
 end)
 
+h.test('freshData seeds metadata.fingerprint and metadata.walletid, matching real qb-core\'s PlayerDefaults', function()
+    -- Real qb-core's config.lua seeds both on every new character
+    -- (fingerprint = QBCore.Player.CreateFingerId(), walletid =
+    -- QBCore.Player.CreateWalletId()) -- confirmed missing entirely from
+    -- this rebuild while auditing real qb-policejob's fingerprint-scan
+    -- feature, which reads metadata.fingerprint directly.
+    local data = CoreInternal.player.freshData('CID-finger', LICENSE, 1, { firstname = 'Finger', lastname = 'Print' })
+
+    h.assertTrue(type(data.metadata.fingerprint) == 'string' and #data.metadata.fingerprint > 0,
+        'metadata.fingerprint must be a non-empty string')
+    h.assertTrue(type(data.metadata.walletid) == 'string' and data.metadata.walletid:find('^QB%-'),
+        'metadata.walletid must be a non-empty string in the QB-###... shape')
+
+    local other = CoreInternal.player.freshData('CID-finger2', LICENSE, 2, { firstname = 'Finger', lastname = 'Print' })
+    h.assertTrue(data.metadata.fingerprint ~= other.metadata.fingerprint,
+        'two freshly generated fingerprints should not collide in practice (random, not a hard guarantee)')
+end)
+
 h.test('the replicated login state bag follows the initial player snapshot and clears on logout', function()
     local start = #handle.lifecycleTrace
     local data = CoreInternal.player.freshData('CID-state', LICENSE, 1, { firstname = 'State', lastname = 'Bag' })
