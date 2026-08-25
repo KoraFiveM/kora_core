@@ -224,16 +224,31 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
 -- merged into anything), so a direct translate-and-fire is safe there and
 -- kept local, guarded on the specific Core.compat function since Core is an
 -- auto-vivifying proxy (build/initiate.lua).
-RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key)
+--
+-- `token`: modules/replication/client.lua's fireLegacy fires THIS event
+-- itself (real qb-core's actual protocol name) with the same
+-- 'qbcore:rep:refire' token it uses for QBCore:Player:SetPlayerData, since it
+-- already fired OnJobUpdate/OnGangUpdate directly for that same delta a few
+-- lines above -- re-deriving and firing them again here would double them.
+-- Duplicated string literal rather than a shared import: same "small enough
+-- to duplicate per compat file" idiom as provideExport in the qblib compat/
+-- files (modules/replication/client.lua's own copy is intentionally private).
+-- A genuine external TriggerClientEvent (the real qb-core wire shape,
+-- `(key, val)`) never supplies a 3rd argument, so `token` is simply nil there
+-- and this guard never fires -- the translate-and-fire path below still runs
+-- exactly as before for a real external trigger.
+RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key, _, token)
     local data = Core.replication.getData()
     if not data then return end
 
     if key == nil or key == 'all' then
         Core.replication.reannounceFull()
     elseif key == 'job' then
+        if token == 'qbcore:rep:refire' then return end
         local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.job) or data.job
         TriggerEvent('QBCore:Client:OnJobUpdate', legacyJob)
     elseif key == 'gang' then
+        if token == 'qbcore:rep:refire' then return end
         local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.gang) or data.gang
         TriggerEvent('QBCore:Client:OnGangUpdate', legacyGang)
     end

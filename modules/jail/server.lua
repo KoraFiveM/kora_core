@@ -9,6 +9,13 @@
 -- Persisted via the already-existing metadata.jailed field, storing a UNIX
 -- release timestamp (not a duration) -- surviving relog for free, no schema
 -- change. jailed = 0 means "not jailed" (its existing default).
+--
+-- metadata.injail is mirrored alongside it: real qb-core's metadata key is
+-- `injail`, not `jailed`, and legacy scripts read it directly (real
+-- qb-ambulancejob checks `metadata['injail'] > 0` on hospital respawn and on
+-- leaving a hospital bed) rather than through any Core.jail accessor. Same
+-- "legacy view alongside the modern shape" pattern already used for the
+-- isLoggedIn state bag -- see qbcore/modules/player/server.lua.
 
 local PI = CoreInternal.player
 
@@ -39,6 +46,7 @@ function Core.jail.jailPlayer(src, minutes, reason)
 
     local releaseAt = os.time() + math.floor(minutes * 60)
     Core.player.setPath(src, { 'metadata', 'jailed' }, releaseAt)
+    Core.player.setPath(src, { 'metadata', 'injail' }, releaseAt) -- legacy mirror, see header comment
     TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, minutes * 60)
     TriggerEvent('qbcore:server:playerJailed', src, minutes, reason)
 
@@ -56,6 +64,7 @@ function Core.jail.release(src)
     if (p.PlayerData.metadata.jailed or 0) == 0 then return false end
 
     Core.player.setPath(src, { 'metadata', 'jailed' }, 0)
+    Core.player.setPath(src, { 'metadata', 'injail' }, 0) -- legacy mirror, see header comment
     TriggerClientEvent('qbcore:client:jailRelease', src)
     TriggerEvent('qbcore:server:playerReleased', src)
 

@@ -51,10 +51,18 @@ function Core.jobs.setJob(src, name, grade)
     Core.player.setPath(src, { 'job' }, job)
     indexAdd(src, name, job.onduty)
 
-    -- QBCore:*:OnJobUpdate are the legacy-compat event NAMES (real qb-core's
-    -- own protocol) -- their payload must be legacy-shaped (zero-based
-    -- grade.level), same translation as QBCore.Shared.Jobs/the compat
-    -- PlayerData view. Guarded on the specific FUNCTION rather than on
+    -- QBCore:*:OnJobUpdate are NOT real qb-core's own event names (verified
+    -- against qbcore-fivem/qb-core's server/player.lua: it has no
+    -- OnJobUpdate/OnGangUpdate at all) -- they're this rebuild's own,
+    -- additional fan-out events. Real qb-core instead funnels every
+    -- job/gang/duty change through Player:UpdateClient(key, val), which fires
+    -- QBCore:Server:OnPlayerUpdated / QBCore:Client:OnPlayerUpdated -- the
+    -- event name legacy scripts actually listen for (confirmed:
+    -- qb-ambulancejob's job.lua, qb-policejob's client/main.lua both key off
+    -- OnPlayerUpdated directly, never OnJobUpdate). Both are fired below so
+    -- either listening style keeps working. Payload must be legacy-shaped
+    -- (zero-based grade.level), same translation as QBCore.Shared.Jobs/the
+    -- compat PlayerData view. Guarded on the specific FUNCTION rather than on
     -- `Core.compat` itself: Core is an auto-vivifying proxy (build/
     -- initiate.lua), so merely referencing `Core.compat` always returns a
     -- table (real gameplay boot always loads compat/shared/coreobject.lua,
@@ -62,8 +70,10 @@ function Core.jobs.setJob(src, name, grade)
     -- error on a truthy-but-empty `Core.compat`).
     local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job) or job
     TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
+    TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'job', legacyJob)
     if Config.compat.jobUpdateEventSource ~= 'client' then
         TriggerClientEvent('QBCore:Client:OnJobUpdate', src, legacyJob)
+        TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'job', legacyJob)
     end
     return true
 end
@@ -81,8 +91,10 @@ function Core.jobs.setGang(src, name, grade)
     Core.player.setPath(src, { 'gang' }, gang)
     local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
     TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
+    TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'gang', legacyGang)
     if Config.compat.jobUpdateEventSource ~= 'client' then
         TriggerClientEvent('QBCore:Client:OnGangUpdate', src, legacyGang)
+        TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'gang', legacyGang)
     end
     return true
 end

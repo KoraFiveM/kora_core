@@ -251,3 +251,24 @@ if Config.compat.fireSharedUpdateAtLogin then
         TriggerClientEvent('QBCore:Client:SharedUpdate', src, QBCore.Shared)
     end)
 end
+
+-- QBCore:Server:SpawnVehicle / QBCore:Server:CreateVehicle -- real qb-core's
+-- own two standard vehicle-spawn callbacks (server/events.lua), used
+-- pervasively by legacy job scripts (confirmed: real qb-ambulancejob's
+-- job.lua spawns the ambulance and helicopter through SpawnVehicle; real
+-- qb-policejob's job.lua spawns patrol cars, impound retrieval, and its
+-- helicopter through the same). compat/server/qb-core.lua already has the
+-- underlying QBCore.Functions.SpawnVehicle/CreateAutomobile (ported
+-- verbatim), but nothing wired them up under these callback NAMES -- without
+-- this, TriggerCallback('QBCore:Server:SpawnVehicle', ...) times out after
+-- Config.compat.callbackTimeoutMs and invokes cb with no args, so the
+-- caller's NetToVeh(nil) breaks every vehicle-spawn path in both jobs.
+QBCore.Functions.CreateCallback('QBCore:Server:SpawnVehicle', function(source, cb, model, coords, warp)
+    local veh = QBCore.Functions.SpawnVehicle(source, model, coords, warp)
+    cb(DoesEntityExist(veh) and NetworkGetNetworkIdFromEntity(veh) or nil)
+end)
+
+QBCore.Functions.CreateCallback('QBCore:Server:CreateVehicle', function(source, cb, model, coords, warp)
+    local veh = QBCore.Functions.CreateAutomobile(source, model, coords, warp)
+    cb(DoesEntityExist(veh) and NetworkGetNetworkIdFromEntity(veh) or nil)
+end)

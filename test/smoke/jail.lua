@@ -32,6 +32,13 @@ h.test('jailPlayer teleports and sets a future release timestamp', function()
     local hits = eventsFor('qbcore:client:jailTeleport')
     h.assertEqual(#hits, 1, 'exactly one jailTeleport push should have been sent')
     h.assertEqual(hits[1].target, 1)
+
+    -- Legacy mirror: real qb-core's metadata key is `injail`, not `jailed` --
+    -- real qb-ambulancejob reads it directly (metadata['injail'] > 0) rather
+    -- than through any Core.jail accessor.
+    local p = CoreInternal.player.handle(1)
+    h.assertTrue(p.PlayerData.metadata.injail > 0, 'metadata.injail should mirror the release timestamp')
+    h.assertEqual(p.PlayerData.metadata.injail, p.PlayerData.metadata.jailed, 'injail and jailed should always agree')
 end)
 
 h.test('release clears jailed state and notifies the client', function()
@@ -40,6 +47,9 @@ h.test('release clears jailed state and notifies the client', function()
     h.assertFalse(Core.jail.isJailed(1))
     h.assertEqual(Core.jail.getRemaining(1), 0)
     h.assertTrue(#eventsFor('qbcore:client:jailRelease') >= 1)
+
+    local p = CoreInternal.player.handle(1)
+    h.assertEqual(p.PlayerData.metadata.injail, 0, 'release should also clear the legacy injail mirror')
 end)
 
 h.test('release on a player who is not jailed reports false', function()

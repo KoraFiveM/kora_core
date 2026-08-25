@@ -48,7 +48,8 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
         metadata = {
             hunger = 100, thirst = 100, stress = 0, armor = 0,
             isdead = false, inlaststand = false, ishandcuffed = false,
-            jailed = 0, licences = { driver = true, weapon = false },
+            jailed = 0, injail = 0, -- injail mirrors jailed for legacy readers, see modules/jail/server.lua
+            licences = { driver = true, weapon = false },
             phone = {}, bloodtype = 'O+',
         },
         items = {},

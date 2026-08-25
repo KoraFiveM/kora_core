@@ -76,6 +76,28 @@ h.test('QBCore:Server:OnJobUpdate fires with a legacy-shaped (zero-based) payloa
     h.assertEqual(captured.grade.name, 'Officer')
 end)
 
+h.test('setJob also fires QBCore:Server:OnPlayerUpdated -- real qb-core\'s actual event name', function()
+    -- Real qb-core has no OnJobUpdate/OnGangUpdate at all (verified against
+    -- qbcore-fivem/qb-core's server/player.lua) -- every job/gang/duty change
+    -- funnels through Player:UpdateClient(key, val), which fires
+    -- QBCore:Server:OnPlayerUpdated / QBCore:Client:OnPlayerUpdated. Real
+    -- qb-ambulancejob/qb-policejob listen for OnPlayerUpdated directly, so
+    -- OnJobUpdate alone (pinned above) is not enough for real legacy scripts.
+    -- The CLIENT-side half of this (TriggerClientEvent, or the client-derived
+    -- equivalent from a replication delta) is config-gated by
+    -- Config.compat.jobUpdateEventSource (default 'client' -- the replicated
+    -- delta path, not this direct server trigger) and pinned separately in
+    -- test/smoke/replication.lua where that default path actually lives.
+    local serverCaptured
+    AddEventHandler('QBCore:Server:OnPlayerUpdated', function(src, key, val)
+        if key == 'job' then serverCaptured = val end
+    end)
+    Core.jobs.setJob(1, 'police', 1) -- internal grade 1 = Cadet = legacy level 0
+
+    h.assertTrue(serverCaptured ~= nil, 'QBCore:Server:OnPlayerUpdated must fire with key = "job"')
+    h.assertEqual(serverCaptured.grade.level, 0, 'the payload must already be legacy-shaped')
+end)
+
 h.test('the legacy view stays live for non-job fields (money) after job changes', function()
     local Player = QBCore.Functions.GetPlayer(1)
     local before = Player.PlayerData.money.cash

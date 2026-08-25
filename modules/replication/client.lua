@@ -97,6 +97,26 @@ local function fireLegacy(changedRoots)
     if changedRoots.gang and (Config.compat.jobUpdateEventSource ~= 'server') then
         TriggerEvent('QBCore:Client:OnGangUpdate', legacyData.gang)
     end
+
+    -- Real qb-core's Player:SetJob/SetJobDuty/SetGang all funnel through
+    -- Player:UpdateClient(key, val), which fires QBCore:Client:OnPlayerUpdated
+    -- (NOT OnJobUpdate/OnGangUpdate -- those don't exist in real qb-core at
+    -- all, see server/player.lua). Legacy scripts written against real qb-core
+    -- (confirmed: qb-ambulancejob's job.lua, qb-policejob's main.lua) listen
+    -- for OnPlayerUpdated directly, keying off `key`/reading `val` themselves
+    -- -- OnJobUpdate/OnGangUpdate above are this rebuild's own invented event
+    -- names, not real qb-core's, so they alone leave those listeners dead.
+    -- REFIRE_TOKEN as a 3rd arg (invisible to a legacy handler's `(key, val)`
+    -- signature) tells the handler in compat/client/qb-core-events.lua that
+    -- this specific delta already fired OnJobUpdate/OnGangUpdate directly
+    -- above -- without it, that handler's own translate-and-fire would fire
+    -- the same event a second time for the same change.
+    if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
+        TriggerEvent('QBCore:Client:OnPlayerUpdated', 'job', legacyData.job, REFIRE_TOKEN)
+    end
+    if changedRoots.gang and (Config.compat.jobUpdateEventSource ~= 'server') then
+        TriggerEvent('QBCore:Client:OnPlayerUpdated', 'gang', legacyData.gang, REFIRE_TOKEN)
+    end
 end
 
 ---Re-fire the full-blob legacy event from the mirror's CURRENT data, without

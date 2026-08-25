@@ -118,4 +118,42 @@ h.test('the local legacy re-fire never warns when CFX copies a net-event payload
         'the local compatibility event must not replace the replication mirror')
 end)
 
+-- compat/client/qb-core-events.lua's QBCore:Client:OnPlayerUpdated handler
+-- re-derives OnJobUpdate/OnGangUpdate from a GENUINE external trigger (no
+-- REFIRE_TOKEN) -- loaded here specifically to prove fireLegacy's own
+-- REFIRE_TOKEN'd trigger of that same event does NOT cause a double-fire.
+dofile('compat/client/qb-core-events.lua')
+
+h.test('a job-changing delta fires QBCore:Client:OnPlayerUpdated exactly once, and OnJobUpdate does not double-fire', function()
+    -- Real qb-core has no OnJobUpdate at all -- every job change funnels
+    -- through Player:UpdateClient('job', job), which fires
+    -- QBCore:Client:OnPlayerUpdated. Real qb-ambulancejob/qb-policejob listen
+    -- for THAT event directly (see modules/jobs/server.lua's comment).
+    TriggerEvent('qbcore:rep:snapshot', 50, { job = { name = 'unemployed', grade = { level = 0 } } })
+
+    local playerUpdatedCount, jobUpdateCount = 0, 0
+    AddEventHandler('QBCore:Client:OnPlayerUpdated', function(key) if key == 'job' then playerUpdatedCount = playerUpdatedCount + 1 end end)
+    AddEventHandler('QBCore:Client:OnJobUpdate', function() jobUpdateCount = jobUpdateCount + 1 end)
+
+    TriggerEvent('qbcore:rep:delta', 51, { { p = { 'job' }, v = { name = 'police', grade = { level = 1 } } } })
+
+    h.assertEqual(playerUpdatedCount, 1, 'QBCore:Client:OnPlayerUpdated must fire exactly once per job-changing delta')
+    -- fireLegacy fires OnJobUpdate directly AND (via the REFIRE_TOKEN'd
+    -- OnPlayerUpdated trigger above) reaches the compat handler that would
+    -- otherwise re-derive and fire OnJobUpdate a second time for the same
+    -- change -- the token must suppress that second fire.
+    h.assertEqual(jobUpdateCount, 1, 'OnJobUpdate must not double-fire once OnPlayerUpdated also fires for the same change')
+end)
+
+h.test('a genuine external OnPlayerUpdated trigger (no token) still re-derives OnJobUpdate as before', function()
+    local jobUpdateCount = 0
+    AddEventHandler('QBCore:Client:OnJobUpdate', function() jobUpdateCount = jobUpdateCount + 1 end)
+
+    -- No 3rd (token) argument -- indistinguishable from a real TriggerClientEvent
+    -- sent by an external resource over the network.
+    TriggerEvent('QBCore:Client:OnPlayerUpdated', 'job', clientRep.getData({ 'job' }))
+
+    h.assertEqual(jobUpdateCount, 1, 'a genuine external trigger must still re-derive and fire OnJobUpdate')
+end)
+
 h.report('replication')
