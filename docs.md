@@ -204,3 +204,41 @@ free and in bounds, never trusted to gate the limit.
 `Config.inventory.maxWeight/slots`, `Config.compat.fireLegacyPlayerDataEvent`
 (default true), `Config.persistence.generatedColumns` (opt into SQL-queryable
 cash/bank/job virtual columns).
+
+## Portability (reuse beyond GTA5/FiveM)
+
+qbcore/qblib target FiveM today; this section is a status snapshot for anyone
+weighing whether the "core" (permissions, player data/callback plumbing,
+money, jobs/gangs, commands, registry) could realistically be reused on
+RedM — Cfx.re's other platform, same Lua/`fxmanifest`/`exports`/`TriggerEvent`
+runtime, different game natives. **This is an assessment, not a promise or a
+plan in progress** — nothing here has been built toward RedM, and none of it
+should be, until RedM support is an actual, scoped ask with a real second
+platform to validate an abstraction against. Recorded here so the answer
+doesn't have to be re-derived from scratch if that ask ever comes.
+
+**Bottom line: almost the entire "core" cluster is already platform-agnostic.**
+Every module in it — `commands`, `permissions`, `player`, `money`, `jobs`,
+`metadata`, `replication`, `identity`, `registry`, `users`, `multichar` — uses
+only Cfx-generic runtime primitives (`TriggerEvent`/`RegisterNetEvent`,
+`RegisterCommand`, `IsPlayerAceAllowed`, `GetPlayerIdentifier`, `GetGameTimer`,
+SQL) that are byte-identical on RedM, or no natives at all. That wasn't a
+deliberate RedM-readiness effort — it's a side effect of the funnel/event
+architecture keeping game-world state out of the core's own bookkeeping.
+
+The one place in that cluster that touches a game native directly:
+**`modules/persistence`**'s `samplePosition` reads `GetPlayerPed`/
+`GetEntityCoords`/`GetEntityHeading` to sample a player's position at save
+time. Those three natives exist with the same signature on RedM, so this
+isn't even a hard port — it's flagged only because it's the sole native call
+in an otherwise-native-free module.
+
+Modules genuinely coupled to GTA5-specific game content, not just FiveM-vs-RedM
+API differences: `garage` (fuel/engine/body-health natives model a car's
+damage system that has no RedM equivalent — horses/wagons work completely
+differently) and the external `qbinventory` resource's weapon/item models
+(not audited here, but almost certainly where GTA5-specific content actually
+concentrates, since qbcore's own `inventory` module is a thin gateway with no
+item logic of its own). `qblib`'s `zones`/`world`/`stream`/etc. modules use
+natives that exist on RedM but weren't audited for this specific question —
+see `qblib`'s own docs for its module-by-module native surface.
