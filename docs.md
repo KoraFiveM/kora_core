@@ -154,7 +154,10 @@ For client UI visibility, prefer the server-owned replicated player state bag
 `LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
 legacy load/unload events. qbcore sets it true only after the initial PlayerData
 snapshot and clears it before logout teardown; legacy lifecycle events remain
-for compatibility.
+for compatibility. A bare `LocalPlayer.state['isLoggedIn']` is mirrored
+alongside it for legacy consumers — real qb-core uses that unnamespaced key and
+untouchable scripts (real qb-doorlock's client loop) read it directly. New code
+should use the namespaced key.
 
 ### Known compat caveats
 - A `Player` object returned to ANOTHER resource carries a `PlayerData` SNAPSHOT

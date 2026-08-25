@@ -219,7 +219,10 @@ world / drawing / anim-and-particle set (`GetVehicleProperties`,
 
 For client UI visibility, prefer the server-owned replicated player state bag
 `LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
-legacy load/unload events.
+legacy load/unload events. A bare `LocalPlayer.state['isLoggedIn']` is set
+alongside it as a legacy mirror (real qb-core uses that unnamespaced key, and
+untouchable consumers such as real qb-doorlock read it directly) — new code
+should use the namespaced key.
 
 ### Known compat caveats
 - A `Player` object returned to ANOTHER resource carries a `PlayerData` SNAPSHOT
