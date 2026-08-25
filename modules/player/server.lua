@@ -226,6 +226,13 @@ local function adopt(src, player)
     -- signal. It intentionally follows the snapshot so state-bag consumers
     -- can show UI only after the local PlayerData mirror is usable.
     Player(src).state:set('qbcore:loggedIn', true, true)
+    -- Legacy mirror. Real qb-core sets a bare 'isLoggedIn' key, which legacy
+    -- consumers read directly as LocalPlayer.state['isLoggedIn'] (real
+    -- qb-doorlock's client.lua gates its whole main loop on it). The
+    -- namespaced key above stays the one qbcore's own resources use; this is
+    -- purely the legacy-facing alias, same "rebuilt legacy view alongside the
+    -- modern shape" pattern compat/shared/coreobject.lua uses for grades.
+    Player(src).state:set('isLoggedIn', true, true)
     -- Preserve the legacy client event, but dispatch it only after the
     -- snapshot has reached the client.  Legacy consumers now observe usable
     -- PlayerData rather than having to race the replication channel.
@@ -339,6 +346,7 @@ function Core.player.logout(src)
     -- Clear this before any legacy unload notifications or cache teardown so
     -- state-bag consumers immediately stop rendering character-only UI.
     Player(src).state:set('qbcore:loggedIn', false, true)
+    Player(src).state:set('isLoggedIn', false, true) -- legacy mirror, see login()
     TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
     byCitizenId[player.citizenid] = nil

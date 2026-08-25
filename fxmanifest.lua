@@ -13,6 +13,14 @@ dependency 'qbsql'
 -- Only identities this resource actually implements. Deliberately NOT providing
 -- 'qb-multicharacter' -- that compat is event-level only, and hijacking the name
 -- would silently disable a real character-select UI a server wants to keep.
+--
+-- NOTE: `provide` covers exactly two things -- another resource's
+-- `dependency 'qb-core'` check, and (together with the __cfx_export_ identity
+-- hijack in compat/*) `exports['qb-core']:Fn()` calls. It does NOT make a
+-- legacy consumer's `'@qb-core/shared/locale.lua'` FILE include resolve:
+-- FiveM resolves an '@name/path' include against a real resource literally
+-- named `name`, via a loader that never consults provide/exports. That is what
+-- [compat]/qb-core exists for -- see its fxmanifest.lua and [compat]/README.md.
 provide 'qb-core'
 
 -- Both are shared_script (not shared_scripts) so they resolve BEFORE the table

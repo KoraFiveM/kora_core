@@ -136,9 +136,16 @@ h.test('the replicated login state bag follows the initial player snapshot and c
     h.assertTrue(loginStateIndex ~= nil, 'login should replicate qbcore:loggedIn=true')
     h.assertTrue(loginStateIndex > snapshotIndex, 'login state must follow the initial snapshot')
     h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], true, 'Player state should expose logged-in status')
+    -- Legacy mirror: real qb-core sets a bare 'isLoggedIn' key, and legacy
+    -- consumers (real qb-doorlock's client.lua gates its entire main loop on
+    -- it) read LocalPlayer.state['isLoggedIn'] directly rather than the
+    -- namespaced key above. Without this alias they permanently read nil and
+    -- behave as though the player never logged in.
+    h.assertEqual(handle.playerStates[42]['isLoggedIn'], true, 'login should also replicate the legacy bare isLoggedIn key')
 
     h.assertTrue(Core.player.logout(42))
     h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], false, 'logout should replicate qbcore:loggedIn=false')
+    h.assertEqual(handle.playerStates[42]['isLoggedIn'], false, 'logout should also clear the legacy bare isLoggedIn key')
 end)
 
 h.test('a hard disconnect fires the modern event plus BOTH legacy-named events', function()
