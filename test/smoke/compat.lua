@@ -253,6 +253,40 @@ h.test('per-player Player.Functions.* is complete after login', function()
     h.assertEqual(Player.PlayerData.citizenid, 'CID1', 'PlayerData wired through')
 end)
 
+h.test('every Player.Functions.* method is also directly callable on Player itself, matching real qb-core', function()
+    -- Real qb-core's Player class defines these as direct colon methods
+    -- (`function Player:SetMetaData(...)`), a SEPARATE thing from
+    -- Player.Functions (buildMethodTable) -- both exist simultaneously on a
+    -- real Player object. Confirmed live: real qb-policejob and
+    -- qb-ambulancejob both dot-call Player.SetMetaData(...)/Player.AddMoney(...)
+    -- directly (not through .Functions.) in their own server/main.lua, and
+    -- crashed with "attempt to call a nil value" on every player connect
+    -- before this mirror existed.
+    local data = CoreInternal.player.freshData('CID-mirror', 'license:mirror', 2, { firstname = 'M', lastname = 'Irror' })
+    Core.player.login(2, 'CID-mirror', data)
+    local Player = QBCore.Functions.GetPlayer(2)
+
+    assertCallableFields(Player, {
+        'SetJob', 'SetGang', 'SetJobDuty', 'SetJobData', 'SetGangData',
+        'AddMoney', 'RemoveMoney', 'SetMoney', 'GetMoney',
+        'AddItem', 'RemoveItem', 'GetItemByName', 'GetItemsByName', 'GetItemBySlot',
+        'ClearInventory', 'SetInventory', 'SetCreditCard',
+        'SetMetaData', 'GetMetaData', 'SetCharInfo', 'SetPlayerData', 'UpdatePlayerData',
+        'Save', 'Logout', 'GetName',
+        'Notify', 'HasItem', 'AddRep', 'RemoveRep', 'GetRep', 'AddMethod', 'AddField', 'UpdateClient',
+    }, 'Player (direct, no .Functions.)')
+
+    -- The mirrored methods are pre-bound closures over this player's own
+    -- `src` (from the F.* definitions), so a dot-call with no `self` argument
+    -- actually works correctly here -- not just "doesn't crash".
+    local before = Player.GetMoney('cash')
+    Player.AddMoney('cash', 250, 'mirror-test')
+    h.assertEqual(Player.GetMoney('cash'), before + 250, 'a direct dot-call must route through the same funnel as Player.Functions.AddMoney')
+
+    Player.SetMetaData('bloodtype', 'AB-')
+    h.assertEqual(Player.GetMetaData('bloodtype'), 'AB-', 'a direct dot-call SetMetaData must actually persist')
+end)
+
 h.test('a Player.Functions call routes through the funnel (AddMoney changes balance)', function()
     local Player = QBCore.Functions.GetPlayer(1)
     local before = Player.Functions.GetMoney('cash')

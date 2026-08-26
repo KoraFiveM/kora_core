@@ -118,6 +118,29 @@ local function buildQBPlayer(src)
     function F.AddMethod(name, method) F[name] = method; return true end
     function F.AddField(name, data) self[name] = data; return true end
 
+    -- Real qb-core's Player class defines these as DIRECT colon methods on the
+    -- player object (`function Player:SetMetaData(meta, val)` etc, server/
+    -- player.lua) -- self.Functions is a SEPARATE table built alongside them
+    -- (buildMethodTable), not the only place they live. A script that calls
+    -- `Player.SetMetaData(meta, val)` (a dot-call, missing `self` -- itself a
+    -- bug even against real qb-core, which would silently misalign the
+    -- arguments rather than crash) still reaches a real function either way
+    -- there. Here, before this mirror, `Player.SetMetaData` didn't exist as a
+    -- top-level field at all -- only `Player.Functions.SetMetaData` did -- so
+    -- the same call hit a hard "attempt to call a nil value" instead.
+    -- Confirmed live against real qb-policejob/qb-ambulancejob: both dot-call
+    -- Player.SetMetaData(...) in their own server/main.lua and crashed on
+    -- every player connect. Mirroring every Functions method directly onto
+    -- `self` (pre-bound via the F.* closures above, so no `self` argument is
+    -- even needed) matches real qb-core's actual dual-exposure shape and
+    -- makes the dot-call work correctly, not just avoid crashing.
+    -- AddMethod added AFTER this point lands in F but not automatically here
+    -- too -- acceptable: this is qb-core's rarely-used dynamic-extension path,
+    -- not the reported bug, which used the fixed methods below.
+    for name, fn in pairs(F) do
+        if self[name] == nil then self[name] = fn end
+    end
+
     return self
 end
 
