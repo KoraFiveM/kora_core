@@ -1,8 +1,6 @@
--- baseevents vehicle enter/exit relay smoke test -- baseevents (a stock CFX
--- resource) fires 4 SERVER events from its own edge-triggered client
--- detection loop; compat/server/qb-core-events.lua relays them into real
--- qb-core's legacy QBCore:Client:VehicleInfo / AbortVehicleEntering family
--- that vehiclekeys/fuel/seatbelt/garage scripts hook.
+-- Server-side legacy vehicle spawn callback smoke tests. Vehicle lifecycle
+-- compatibility moved to vehicle_cache_events.lua, where qblib cache changes
+-- re-fire the local QBCore client events without an extra poll or server relay.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -38,43 +36,6 @@ dofile('modules/consumables/server.lua')
 dofile('modules/jail/server.lua')
 dofile('compat/server/qb-core.lua')
 dofile('compat/server/qb-core-events.lua')
-
-h.test('baseevents:enteredVehicle relays into QBCore:Client:VehicleInfo with both name keys', function()
-    handle.fireEvent('baseevents:enteredVehicle', 7, 123, 1, 'police', 456)
-
-    local evt = handle.lastClient('QBCore:Client:VehicleInfo')
-    h.assertTrue(evt ~= nil, 'QBCore:Client:VehicleInfo should have fired')
-    h.assertEqual(evt.target, 7, 'should be addressed to the entering player')
-
-    local data = evt.args[1]
-    h.assertEqual(data.vehicle, 123, 'vehicle should be forwarded')
-    h.assertEqual(data.seat, 1, 'seat should be forwarded')
-    h.assertEqual(data.name, 'police', 'name key should carry the model name')
-    h.assertEqual(data.modelName, 'police', 'modelName key should also carry the model name')
-    h.assertEqual(data.netId, 456, 'netId should be forwarded')
-    h.assertEqual(data.event, 'Entered', 'event should be Entered')
-end)
-
-h.test('baseevents:enteringVehicle relays with event = Entering', function()
-    handle.fireEvent('baseevents:enteringVehicle', 8, 200, -1, 'taxi', 999)
-    local evt = handle.lastClient('QBCore:Client:VehicleInfo')
-    h.assertEqual(evt.target, 8)
-    h.assertEqual(evt.args[1].event, 'Entering')
-end)
-
-h.test('baseevents:leftVehicle relays with event = Left', function()
-    handle.fireEvent('baseevents:leftVehicle', 9, 300, 0, 'sultan', 111)
-    local evt = handle.lastClient('QBCore:Client:VehicleInfo')
-    h.assertEqual(evt.target, 9)
-    h.assertEqual(evt.args[1].event, 'Left')
-end)
-
-h.test('baseevents:enteringAborted relays into QBCore:Client:AbortVehicleEntering', function()
-    handle.fireEvent('baseevents:enteringAborted', 10)
-    local evt = handle.lastClient('QBCore:Client:AbortVehicleEntering')
-    h.assertTrue(evt ~= nil, 'QBCore:Client:AbortVehicleEntering should have fired')
-    h.assertEqual(evt.target, 10)
-end)
 
 -- QBCore:Server:SpawnVehicle / CreateVehicle -- real qb-core's own two
 -- standard vehicle-spawn callbacks (server/events.lua), wired up in

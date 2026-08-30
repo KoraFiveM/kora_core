@@ -39,7 +39,7 @@ function M.install(opts)
 
     function _G.AddEventHandler(name, cb) eventHandlers[name] = eventHandlers[name] or {}; table.insert(eventHandlers[name], cb) end
     function _G.RegisterNetEvent(name, cb) if cb then netHandlers[name] = netHandlers[name] or {}; table.insert(netHandlers[name], cb) end end
-    -- RegisterServerEvent: the FXServer native baseevents (and other client-fired
+    -- RegisterServerEvent: client-fired
     -- server events) use to mark an event name net-safe. Real semantics are just
     -- a security registration -- the actual listening still goes through
     -- AddEventHandler, which is already mocked above -- so this is a no-op here.
@@ -223,6 +223,21 @@ function M.install(opts)
     QB.drawing = { text3d = function() end }
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }
+    -- Small local-player cache facade for client compatibility tests. Tests
+    -- can drive an edge with setCache(key, value), which mirrors qblib's
+    -- onChange(newValue, oldValue) contract without loading another resource.
+    local cacheValues = { vehicle = false, seat = false, enteringVehicle = false, enteringSeat = false }
+    local cacheListeners = {}
+    QB.cache = {
+        onChange = function(key, handler)
+            cacheListeners[key] = cacheListeners[key] or {}
+            table.insert(cacheListeners[key], handler)
+        end,
+        vehicle = function() return cacheValues.vehicle end,
+        seat = function() return cacheValues.seat end,
+        enteringVehicle = function() return cacheValues.enteringVehicle end,
+        enteringSeat = function() return cacheValues.enteringSeat end,
+    }
     -- QB.commands -- a minimal but REAL implementation (previously all no-ops,
     -- so QBCore.Commands.Add/List never actually populated anything under
     -- test). Only tracks what QBCore:CallCommand's tests need: name, help,
@@ -294,6 +309,12 @@ function M.install(opts)
             aceGrants[src][permission] = allowed
         end,
         pvpNativeCalls = pvpNativeCalls,
+        setCache = function(key, value)
+            local previous = cacheValues[key]
+            if previous == value then return end
+            cacheValues[key] = value
+            for _, handler in ipairs(cacheListeners[key] or {}) do handler(value, previous) end
+        end,
         setCloneLocalNetPayloads = function(value) cloneLocalNetPayloads = value == true end,
         -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).
         drainTimeouts = function()

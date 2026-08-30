@@ -183,6 +183,61 @@ RegisterNetEvent('QBCore:Client:VehicleInfo', function(info)
     TriggerEvent('QBCore:Client:' .. info.event .. 'Vehicle', data)
 end)
 
+-- Vehicle lifecycle compatibility -------------------------------------------
+-- qblib's shared cache already owns the bounded local-player telemetry poll.
+-- Subscribe to its edge changes rather than keeping a separate
+-- client loop and server relay alive just to re-fire these local QBCore events.
+-- The legacy event names and payload shape remain unchanged for vehiclekeys,
+-- fuel, seatbelt, garage, and other QBCore-era consumers.
+local lastVehicleSeat = QB.cache.seat()
+
+local function emitVehicleInfo(event, vehicle, seat)
+    local modelName = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
+    TriggerEvent('QBCore:Client:VehicleInfo', {
+        vehicle = vehicle,
+        seat = seat,
+        -- Preserve both keys: old qb-core server code supplied `name`, while
+        -- its client compatibility handler reads `modelName`.
+        name = modelName,
+        modelName = modelName,
+        netId = VehToNet(vehicle),
+        event = event,
+    })
+end
+
+QB.cache.onChange('seat', function(seat)
+    -- On exit the cache intentionally updates seat before vehicle, so retain
+    -- the last occupied seat for the forthcoming LeftVehicle payload.
+    if seat ~= false then lastVehicleSeat = seat end
+end)
+
+QB.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
+    if vehicle then
+        emitVehicleInfo('Entering', vehicle, QB.cache.enteringSeat())
+        return
+    end
+
+    if previousVehicle then
+        -- enteringVehicle clears in the same cache refresh that may set the
+        -- actual vehicle. Deferring one scheduler turn distinguishes a
+        -- completed entry from an aborted animation without a second poll.
+        SetTimeout(0, function()
+            if not QB.cache.vehicle() then
+                TriggerEvent('QBCore:Client:AbortVehicleEntering')
+            end
+        end)
+    end
+end)
+
+QB.cache.onChange('vehicle', function(vehicle, previousVehicle)
+    if vehicle then
+        emitVehicleInfo('Entered', vehicle, QB.cache.seat())
+    elseif previousVehicle then
+        emitVehicleInfo('Left', previousVehicle, lastVehicleSeat)
+        lastVehicleSeat = false
+    end
+end)
+
 -- Lifecycle ------------------------------------------------------------------
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
