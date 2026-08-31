@@ -3,7 +3,7 @@
 -- metadata authority; this file only reacts to its replicated need updates.
 
 local function playerCanTakeNeedsDamage()
-    local ped = PlayerPedId()
+    local ped = QB.cache.ped()
     if not ped or ped == 0 or IsEntityDead(ped) then return nil end
 
     -- Ambulance flows can mark a player dead/last-stand before GTA reports the

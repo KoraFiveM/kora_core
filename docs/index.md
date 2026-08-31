@@ -240,8 +240,8 @@ should use the namespaced key.
 - `QBCore.Player.CreatePlayer(PlayerData, Offline)` (the raw-blob form) is not
   supported — create characters via the multichar events /
   `exports.qbcore:createCharacter`.
-- Client `QBCore.Functions.Progressbar` accepts `prop`/`propTwo` for signature
-  parity but qblib's progressbar renders no props; `IsWearingGloves` returns
+- Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`
+  descriptors into qblib's networked progress props. `IsWearingGloves` returns
   `true` for unknown arm indices.
 
 ## Character selection

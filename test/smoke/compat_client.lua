@@ -108,4 +108,50 @@ h.test('GetSharedItems/Vehicles/Jobs/Gangs/Weapons exports are registered client
         'GetSharedGangs must return the legacy zero-based grade view')
 end)
 
+h.test('Progressbar forwards legacy prop and propTwo descriptors to qblib', function()
+    local captured
+    local finished = false
+    QB.progressbar.start = function(payload)
+        captured = payload
+        return true
+    end
+
+    QBCore.Functions.Progressbar('repair', 'Repairing', 1500, false, true,
+        { disableMovement = true, disableCarMovement = true, disableCombat = true },
+        { animDict = 'anim@test', anim = 'loop', flags = 49 },
+        {
+            model = 'prop_one',
+            bone = 60309,
+            coords = { x = 1, y = 2, z = 3 },
+            rotation = { x = 4, y = 5, z = 6 },
+        },
+        {
+            model = 'prop_two',
+            bone = 28422,
+            coords = { x = 7, y = 8, z = 9 },
+            rotation = { x = 10, y = 11, z = 12 },
+        },
+        function() finished = true end)
+
+    handle.step()
+
+    h.assertTrue(captured ~= nil, 'the qblib progressbar should be invoked from the compatibility thread')
+    h.assertEqual(#captured.props, 2, 'prop and propTwo should become two qblib props')
+    h.assertEqual(captured.props[1].model, 'prop_one')
+    h.assertEqual(captured.props[1].offset.x, 1, 'legacy coords should map to offset')
+    h.assertEqual(captured.props[2].rotation.z, 12, 'legacy rotation should pass through')
+    h.assertTrue(captured.props[1].collision, 'legacy props should retain qb-progressbar collision behavior')
+    h.assertTrue(captured.props[1].softPinning and captured.props[1].syncRotation,
+        'legacy attachment defaults should be explicit')
+    h.assertEqual(captured.props[1].rotationOrder, 0)
+    h.assertTrue(finished, 'a successful qblib result should still invoke onFinish')
+
+    captured = nil
+    QBCore.Functions.Progressbar('second-only', 'Working', 500, false, false, nil, nil, nil,
+        { model = 'prop_second_only', bone = 28422 })
+    handle.step()
+    h.assertEqual(#captured.props, 1, 'propTwo should still forward when prop is nil')
+    h.assertEqual(captured.props[1].model, 'prop_second_only')
+end)
+
 h.report('compat_client')

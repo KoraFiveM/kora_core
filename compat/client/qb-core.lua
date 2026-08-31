@@ -322,11 +322,10 @@ end
 
 -- Real qb-core defers to the standalone `progressbar` resource. We forward to
 -- qblib's progressbar instead. The full real arg list is accepted; the
--- disableControls and animation tables are translated to qblib's shapes.
--- NOTE: qblib's progressbar has no prop/propTwo support, so `prop`/`propTwo`
--- are accepted for signature parity but not rendered. QB.progressbar.start is
--- blocking, so it's run in a thread to keep Progressbar non-blocking like real
--- qb-core, with onFinish/onCancel driven off its completion result.
+-- disableControls, animation, prop and propTwo tables are translated to
+-- qblib's shapes. QB.progressbar.start is blocking, so it's run in a thread
+-- to keep Progressbar non-blocking like real qb-core, with onFinish/onCancel
+-- driven off its completion result.
 function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableControls, animation, prop, propTwo, onFinish, onCancel)
     local payload = {
         label = label,
@@ -347,6 +346,26 @@ function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableCo
             flag = animation.flags,
         }
     end
+
+    local props = {}
+    local function addLegacyProp(legacyProp)
+        if type(legacyProp) == 'table' and legacyProp.model ~= nil then
+            props[#props + 1] = {
+                model = legacyProp.model,
+                bone = legacyProp.bone,
+                offset = legacyProp.coords,
+                rotation = legacyProp.rotation,
+                softPinning = true,
+                collision = true,
+                rotationOrder = 0,
+                syncRotation = true,
+            }
+        end
+    end
+    addLegacyProp(prop)
+    addLegacyProp(propTwo)
+    if #props > 0 then payload.props = props end
+
     CreateThread(function()
         local completed = QB.progressbar.start(payload)
         if completed then
