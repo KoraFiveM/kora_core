@@ -173,23 +173,37 @@ end
 -- --- wire up the delta stream ---
 -- Both realms receive 'qbcore:registry:delta' (server: a plain local
 -- TriggerEvent from qbcore's registry/server.lua; client: TriggerClientEvent).
+--
+-- The net registrations below are CLIENT-ONLY, on purpose. On the client both
+-- events arrive over the wire, so without RegisterNetEvent every consumer VM
+-- logs "event qbcore:registry:delta was not safe for net" and drops the delta.
+-- On the SERVER both arrive as same-VM TriggerEvent from qbcore's registry, so
+-- they need no net registration -- and registering them there would let any
+-- client TriggerServerEvent poisoned records straight into every consumer's
+-- server-side mirror.
+local isServerRealm = IsDuplicityVersion and IsDuplicityVersion()
+
+if not isServerRealm then
+    RegisterNetEvent('qbcore:registry:delta')
+end
 AddEventHandler('qbcore:registry:delta', function(name, action, key, record, epoch)
     applyDelta(name, action, key, record, epoch)
 end)
 
 -- Full-snapshot handler (initial seed + epoch-gap resync). Works in both realms.
+if not isServerRealm then
+    RegisterNetEvent('qbcore:registry:snapshotAll')   -- client path (server->client)
+end
 AddEventHandler('qbcore:registry:snapshotAll', function(all)
     for name, payload in pairs(all) do
         reseed(name, payload.keyField, payload.records, payload.epoch)
     end
 end)
-RegisterNetEvent('qbcore:registry:snapshotAll')   -- client path (server->client)
 
 -- Seed the mirror as soon as qbcore is available. On the server this is a direct
 -- export call (same process); on the client it asks the server for a snapshot.
 CreateThread(function()
-    local isServer = IsDuplicityVersion and IsDuplicityVersion()
-    if isServer then
+    if isServerRealm then
         -- Same process: pull the authoritative snapshot directly, retrying until
         -- qbcore's exports are up.
         for _ = 1, 200 do
