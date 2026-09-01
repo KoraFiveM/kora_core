@@ -44,7 +44,7 @@ h.test('QBCore.Config is populated client-side (previously an empty {} table)', 
     h.assertEqual(QBCore.Config.Player.MaxWeight, Config.inventory.maxWeight)
     h.assertEqual(QBCore.Config.Player.MaxInvSlots, Config.inventory.slots)
 
-    h.assertEqual(QBCore.Config.MaxPlayers, 32, 'MaxPlayers defaults from GetConvarInt(sv_maxclients, 32)')
+    h.assertEqual(QBCore.Config.MaxPlayers, 48, 'MaxPlayers matches current qb-core default')
 
     h.assertTrue(QBCore.Config.Server ~= nil, 'Config.Server must be populated')
     h.assertEqual(QBCore.Config.Server.WhitelistPermission, 'admin')
@@ -106,6 +106,16 @@ h.test('GetSharedItems/Vehicles/Jobs/Gangs/Weapons exports are registered client
     local gangs = exportHandlers.GetSharedGangs()
     h.assertTrue(gangs.ballas ~= nil and gangs.ballas.grades['0'] ~= nil,
         'GetSharedGangs must return the legacy zero-based grade view')
+end)
+
+h.test('GetCoreObject filters the client object exactly like the server export', function()
+    local getCoreObject
+    TriggerEvent('__cfx_export_qb-core_GetCoreObject', function(fn) getCoreObject = fn end)
+    h.assertTrue(type(getCoreObject) == 'function', 'GetCoreObject export must be registered client-side')
+    local filtered = getCoreObject({ 'Functions', 'Shared' })
+    h.assertEqual(filtered.Functions, QBCore.Functions)
+    h.assertEqual(filtered.Shared, QBCore.Shared)
+    h.assertTrue(filtered.Config == nil, 'unrequested namespaces must not be returned')
 end)
 
 h.test('Progressbar forwards legacy prop and propTwo descriptors to qblib', function()

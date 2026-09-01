@@ -65,6 +65,16 @@ exports.qbcore:setMetaData(src, key, value)
 exports.qbcore:incrementMetaData(src, key, delta, min, max)
 ```
 
+### Development mode
+```lua
+exports.qbcore:setDevMode(src, true)   -- server: god mode, frozen passive needs, fast walk
+exports.qbcore:isDevMode(src)          -- server: one player's current state
+exports.qbcore:isDevMode()             -- client: local state
+```
+Development mode is per-player, ephemeral, and disabled again with
+`setDevMode(src, false)`. Permission-gate the server export in the calling
+resource.
+
 ### Inventory
 ```lua
 exports.qbcore:addItem(src, name, amount, slot, info)     -- true | false, err
@@ -150,6 +160,12 @@ Server helpers present: identity/player lookups (`GetPlayerBy*`), job/duty
 world / drawing / anim-and-particle set (`GetVehicleProperties`,
 `SetVehicleProperties`, `GetClosest*`, `DrawText3D`, `StartParticle*`, ...).
 
+Current upstream behavior also includes the complete `QBCore.Config` shape,
+`PlayersByCitizenId`, phone/account generators, runtime player method/field
+extensions, and full offline player lookup/create/check/save objects. The
+legacy draw-text events (`qb-core:client:drawText`, `changeText`, and
+`hideText`) forward to qblib's text UI.
+
 For client UI visibility, prefer the server-owned replicated player state bag
 `LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
 legacy load/unload events. qbcore sets it true only after the initial PlayerData
@@ -176,15 +192,12 @@ should use the namespaced key.
   it reflects commands registered THROUGH the compat (`QBCore.Commands.Add`) or
   present at the last `Refresh`; commands added by another resource straight
   through `QB.commands` appear only after the next `Add`/`Refresh`.
-- `QBCore.Player.CreatePlayer(PlayerData, Offline)` (the raw-blob form) is not
-  supported — create characters via the multichar events /
-  `exports.qbcore:createCharacter`. It refuses loudly rather than corrupting state.
 - `QBCore:UpdatePlayer` does NOT decrement hunger/thirst here (the `needs` module
   owns decay on its own timer); the handler refreshes the stock HUD and persists,
   so a stock qb-hud keeps working without double-ticking.
-- Client `QBCore.Functions.Progressbar` accepts `prop`/`propTwo` for signature
-  parity but qblib's progressbar renders no props; `IsWearingGloves` returns
-  `true` for unknown arm indices (our `QBCore.Shared` seeds no NoGloves tables).
+- Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`
+  descriptors into qblib's networked progress props. `IsWearingGloves` uses
+  upstream's freemode no-glove tables and returns `true` for unknown indices.
 
 ## Character selection
 No NUI ships. A bare server auto-selects character slot 1 (creating a default
@@ -203,7 +216,8 @@ free and in bounds, never trusted to gate the limit.
 `Config.persistence.interval` (60s save window), `Config.money.types/default`,
 `Config.inventory.maxWeight/slots`, `Config.compat.fireLegacyPlayerDataEvent`
 (default true), `Config.persistence.generatedColumns` (opt into SQL-queryable
-cash/bank/job virtual columns).
+cash/bank/job virtual columns), and `Config.development.walkSpeed` (`1.75` by
+default while per-player development mode is active).
 
 ## Portability (reuse beyond GTA5/FiveM)
 

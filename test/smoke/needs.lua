@@ -11,6 +11,7 @@ dofile('modules/player/shared.lua')
 dofile('modules/replication/server.lua'); dofile('modules/persistence/server.lua')
 dofile('modules/player/server.lua')
 dofile('modules/metadata/server.lua')
+dofile('modules/development/server.lua')
 dofile('modules/needs/server.lua')
 
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
@@ -22,6 +23,35 @@ h.test('_tick decays hunger and thirst by the configured amount', function()
     Core.needs._tick()
     h.assertEqual(Core.metadata.getMetaData(1, 'hunger'), 50 - Config.needs.hungerDecay)
     h.assertEqual(Core.metadata.getMetaData(1, 'thirst'), 50 - Config.needs.thirstDecay)
+end)
+
+h.test('development mode suppresses needs only for the activated player', function()
+    local second = CoreInternal.player.freshData('CID2', 'license:def', 1, { firstname = 'C', lastname = 'D' })
+    Core.player.login(2, 'CID2', second)
+    Core.metadata.setMetaData(1, 'hunger', 50)
+    Core.metadata.setMetaData(1, 'thirst', 60)
+    Core.metadata.setMetaData(2, 'hunger', 70)
+    Core.metadata.setMetaData(2, 'thirst', 80)
+    Core.development.setDevMode(1, true)
+    local before = #handle.clientEvents
+
+    Core.needs._tick()
+
+    h.assertEqual(Core.metadata.getMetaData(1, 'hunger'), 50)
+    h.assertEqual(Core.metadata.getMetaData(1, 'thirst'), 60)
+    h.assertEqual(Core.metadata.getMetaData(2, 'hunger'), 70 - Config.needs.hungerDecay)
+    h.assertEqual(Core.metadata.getMetaData(2, 'thirst'), 80 - Config.needs.thirstDecay)
+
+    local updates = {}
+    for i = before + 1, #handle.clientEvents do
+        local event = handle.clientEvents[i]
+        if event.name == 'hud:client:UpdateNeeds' then updates[#updates + 1] = event end
+    end
+    h.assertEqual(#updates, 1, 'only the ordinary player should receive a HUD needs update')
+    h.assertEqual(updates[1].target, 2)
+
+    Core.development.setDevMode(1, false)
+    Core.player.logout(2)
 end)
 
 h.test('_tick does not decay stress', function()
@@ -84,11 +114,13 @@ local needHandlers = {}
 local metadata = { hunger = 100, thirst = 100, isdead = false, inlaststand = false }
 local pedDead = false
 local damageCalls = {}
+local devMode = false
 
 Core.player.onPlayerDataChange = function(path, handler)
     needHandlers[path[2]] = handler
 end
 Core.player.getPlayerData = function() return metadata end
+Core.development.isDevMode = function() return devMode end
 _G.PlayerPedId = function() return 42 end
 _G.QB = { cache = { ped = function() return 42 end } }
 _G.IsEntityDead = function() return pedDead end
@@ -125,6 +157,15 @@ h.test('positive needs and dead/last-stand players do not take needs damage', fu
     needHandlers.hunger({ 'metadata', 'hunger' }, 0)
     metadata.isdead = false
     h.assertEqual(#damageCalls, 0, 'dead and last-stand states should suppress needs damage')
+end)
+
+h.test('development mode suppresses zero-need damage', function()
+    damageCalls = {}
+    devMode = true
+    needHandlers.hunger({ 'metadata', 'hunger' }, 0)
+    needHandlers.thirst({ 'metadata', 'thirst' }, 0)
+    devMode = false
+    h.assertEqual(#damageCalls, 0, 'development mode should ignore needs damage')
 end)
 
 h.report('needs')

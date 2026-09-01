@@ -325,6 +325,23 @@ RegisterNetEvent('QBCore:Notify', function(text, type_, length, icon)
     QBCore.Functions.Notify(text, type_, length, icon)
 end)
 
+-- qb-core's drawtext event aliases target the same exported prompt family.
+-- Resolve through the provided identity so these keep the drawtext.lua
+-- two-argument semantics rather than QBCore.Functions.DrawText's world-text
+-- signature.
+RegisterNetEvent('qb-core:client:DrawText', function(text, position)
+    exports['qb-core']:DrawText(text, position)
+end)
+RegisterNetEvent('qb-core:client:ChangeText', function(text, position)
+    exports['qb-core']:ChangeText(text, position)
+end)
+RegisterNetEvent('qb-core:client:HideText', function()
+    exports['qb-core']:HideText()
+end)
+RegisterNetEvent('qb-core:client:KeyPressed', function()
+    exports['qb-core']:KeyPressed()
+end)
+
 -- /me command 3D text --------------------------------------------------------
 
 local function Draw3DText(coords, str)

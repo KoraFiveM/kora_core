@@ -278,8 +278,66 @@ end
 ---@return string|nil, string|nil
 local creatingCharacter = {}
 
+local function trim(value)
+    return type(value) == 'string' and value:match('^%s*(.-)%s*$') or nil
+end
+
+local function boundedText(value, field, minimum, maximum)
+    value = trim(value)
+    if not value or value:find('[%z\1-\31\127]') then return nil, ('invalid %s'):format(field) end
+    local ok, length = pcall(utf8.len, value)
+    if not ok or not length or length < minimum or length > maximum then
+        return nil, ('%s must be between %d and %d characters'):format(field, minimum, maximum)
+    end
+    return value
+end
+
+local function validBirthdate(value)
+    if type(value) ~= 'string' then return false end
+    local year, month, day = value:match('^(%d%d%d%d)%-(%d%d)%-(%d%d)$')
+    year, month, day = tonumber(year), tonumber(month), tonumber(day)
+    if not year or month < 1 or month > 12 then return false end
+    local days = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+    if year % 400 == 0 or (year % 4 == 0 and year % 100 ~= 0) then days[2] = 29 end
+    if day < 1 or day > days[month] then return false end
+    return value <= os.date('!%Y-%m-%d')
+end
+
+local function normalizeCharinfo(raw)
+    raw = type(raw) == 'table' and raw or {}
+    local firstname, err = boundedText(raw.firstname, 'first name', 1, 24)
+    if not firstname then return nil, err end
+    local lastname
+    lastname, err = boundedText(raw.lastname, 'last name', 1, 24)
+    if not lastname then return nil, err end
+
+    local birthdate = raw.birthdate or '1990-01-01'
+    if not validBirthdate(birthdate) then return nil, 'birth date must be a valid non-future YYYY-MM-DD date' end
+
+    local gender = tonumber(raw.gender == nil and 0 or raw.gender)
+    if gender ~= 0 and gender ~= 1 then return nil, 'gender must be 0 or 1' end
+
+    local nationality
+    nationality, err = boundedText(raw.nationality or 'USA', 'nationality', 2, 32)
+    if not nationality then return nil, err end
+
+    return {
+        firstname = firstname,
+        lastname = lastname,
+        birthdate = birthdate,
+        gender = gender,
+        nationality = nationality,
+        -- Never accept a client-supplied phone. There is no phone allocation
+        -- service in this core yet, so generate the same seven-digit shape the
+        -- legacy UI used, but on the authoritative side of the boundary.
+        phone = tostring(math.random(1000000, 9999999)),
+    }
+end
+
 local function createCharacterUnlocked(src, charinfo, cid)
     if bySource[src] then return nil, 'source already logged in' end
+    local normalizedCharinfo, validationErr = normalizeCharinfo(charinfo)
+    if not normalizedCharinfo then return nil, validationErr end
     local license = Core.identity.primary(src)
     if not license then return nil, 'could not resolve primary identifier' end
 
@@ -310,7 +368,7 @@ local function createCharacterUnlocked(src, charinfo, cid)
     assert(cid ~= nil, 'createCharacter: failed to compute a free slot')
 
     local citizenid = Core.identity.generateCitizenId()
-    local data = PI.freshData(citizenid, license, cid, charinfo or {})
+    local data = PI.freshData(citizenid, license, cid, normalizedCharinfo)
 
     local ok, err = Core.persistence._insertNew(citizenid, license, cid, data)
     if not ok then return nil, err end

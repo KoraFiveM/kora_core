@@ -28,14 +28,14 @@ dofile('modules/persistence/server.lua')
 dofile('modules/player/server.lua')
 
 local LICENSE = 'test-license'
-local LIST_SQL = 'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`'
+local LIST_SQL = 'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`'
 local MAXCHAR_SQL = 'SELECT `max_characters` FROM `users` WHERE `license` = ?'
 
 ---Fakes N existing character rows (cid 1..n) for the next _listCharacters call.
 local function withExistingCount(n)
     local rows = {}
     for cid = 1, n do
-        rows[cid] = { citizenid = 'CID' .. cid, cid = cid, name = 'X', charinfo = '{}', money = '{}', job = '{}' }
+        rows[cid] = { citizenid = 'CID' .. cid, cid = cid, name = 'X', charinfo = '{}', money = '{}', job = '{}', gang = '{}' }
     end
     handle.sqlResponses.query[LIST_SQL] = rows
 end
@@ -57,6 +57,47 @@ h.test('new-character insert binds SQL NULL when phone allocation is unavailable
     local ok, err = Core.persistence._insertNew('CID-no-phone', LICENSE, 1, data)
     h.assertTrue(ok, err)
     h.assertEqual(lastInsertParams()[12], QB.sql.NULL, 'the final placeholder must not be dropped by a trailing Lua nil')
+end)
+
+h.test('normalizes identity fields and generates phone server-side', function()
+    withExistingCount(0)
+    local citizenid, err = Core.player.createCharacter(21, {
+        firstname = '  Jane  ', lastname = ' Doe ', birthdate = '2000-02-29',
+        gender = 1, nationality = '  Canada ', phone = 'client-controlled', job = 'police',
+    })
+    h.assertTrue(citizenid ~= nil, err)
+    local params = lastInsertParams()
+    local charinfo = json.decode(params[6])
+    h.assertEqual(charinfo.firstname, 'Jane')
+    h.assertEqual(charinfo.lastname, 'Doe')
+    h.assertEqual(charinfo.gender, 1)
+    h.assertEqual(charinfo.nationality, 'Canada')
+    h.assertTrue(charinfo.phone ~= 'client-controlled')
+    h.assertEqual(charinfo.job, nil)
+end)
+
+h.test('rejects invalid or future birth dates', function()
+    withExistingCount(0)
+    local citizenid, err = Core.player.createCharacter(22, {
+        firstname = 'Jane', lastname = 'Doe', birthdate = '2001-02-29',
+    })
+    h.assertEqual(citizenid, nil)
+    h.assertTrue(type(err) == 'string' and err:find('birth date', 1, true) ~= nil)
+    citizenid, err = Core.player.createCharacter(23, {
+        firstname = 'Jane', lastname = 'Doe', birthdate = '2099-01-01',
+    })
+    h.assertEqual(citizenid, nil)
+    h.assertTrue(type(err) == 'string' and err:find('birth date', 1, true) ~= nil)
+end)
+
+h.test('rejects control characters, unsupported gender, and unbounded nationality', function()
+    withExistingCount(0)
+    local citizenid = Core.player.createCharacter(24, { firstname = 'Jane\nAdmin', lastname = 'Doe' })
+    h.assertEqual(citizenid, nil)
+    citizenid = Core.player.createCharacter(25, { firstname = 'Jane', lastname = 'Doe', gender = 9 })
+    h.assertEqual(citizenid, nil)
+    citizenid = Core.player.createCharacter(26, { firstname = 'Jane', lastname = 'Doe', nationality = 'X' })
+    h.assertEqual(citizenid, nil)
 end)
 
 h.test('assigns the next free slot when slot 1 is already taken', function()

@@ -8,13 +8,18 @@ The character-select lifecycle: list, select, delete. **No NUI is shipped.** A c
 ## API
 
 ### `Core.multichar.getCharacters(src)` — server
-Lists a source's characters (by their primary identifier), with `charinfo`/`money`/`job` decoded. **Yields.**
+Lists a source's characters (by their primary identifier), with `charinfo`/`money`/`job`/`gang` decoded. **Yields.**
 
 #### Parameters
 - `src: integer`
 
 #### Returns
-- `table[]` — Summaries: `{ citizenid, cid, name, charinfo, money, job }`.
+- `table[]` — Summaries: `{ citizenid, cid, name, charinfo, money, job, gang }`.
+
+### `Core.multichar.ownsCharacter(src, citizenid)` — server
+Performs an ownership check without logging the character in. This is intended
+for pre-login integrations such as a character preview fetching appearance.
+Soft-deleted or foreign characters return `false`.
 
 ### `Core.multichar.selectCharacter(src, citizenid)` — server
 Loads and logs in an existing character, after verifying it belongs to this source's identifier. **Yields.**

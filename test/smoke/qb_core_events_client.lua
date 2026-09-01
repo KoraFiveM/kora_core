@@ -50,4 +50,23 @@ h.test('QBCore:Client:SharedUpdate is registered and does not error (no-op body)
     h.assertTrue(ok, 'firing the event must not error even though the body is a no-op')
 end)
 
+h.test('qb-core drawtext event aliases forward to the matching prompt exports', function()
+    local calls = {}
+    exports['qb-core'] = {
+        DrawText = function(_, text, position) calls[#calls + 1] = { 'DrawText', text, position } end,
+        ChangeText = function(_, text, position) calls[#calls + 1] = { 'ChangeText', text, position } end,
+        HideText = function() calls[#calls + 1] = { 'HideText' } end,
+        KeyPressed = function() calls[#calls + 1] = { 'KeyPressed' } end,
+    }
+    TriggerEvent('qb-core:client:DrawText', 'Open bank', 'left')
+    TriggerEvent('qb-core:client:ChangeText', 'Close bank', 'right')
+    TriggerEvent('qb-core:client:HideText')
+    TriggerEvent('qb-core:client:KeyPressed')
+    h.assertEqual(calls[1][1], 'DrawText')
+    h.assertEqual(calls[1][2], 'Open bank')
+    h.assertEqual(calls[2][1], 'ChangeText')
+    h.assertEqual(calls[3][1], 'HideText')
+    h.assertEqual(calls[4][1], 'KeyPressed')
+end)
+
 h.report('qb_core_events_client')

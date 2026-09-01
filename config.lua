@@ -58,6 +58,10 @@ Config.needs = {
     thirstDamage = 5,                -- client ped damage on each server update while thirst is zero (stacks with hunger damage)
 }
 
+Config.development = {
+    walkSpeed = 1.75,                -- per-frame SetPedMoveRateOverride value while a player's development mode is active
+}
+
 Config.jail = {
     -- Resources checked (in order) via GetResourceState before Core.jail
     -- applies its own teleport/timer -- if one of these is running, Core.jail

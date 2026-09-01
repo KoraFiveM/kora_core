@@ -13,14 +13,16 @@ local threadGeneration = 0
 -- comment for why the tick logic can't be reached through the loop itself.
 function Core.needs._tick()
     for _, src in ipairs(Core.player.getPlayers()) do
-        local hunger = Core.metadata.incrementMetaData(src, 'hunger', -Config.needs.hungerDecay, 0, 100)
-        local thirst = Core.metadata.incrementMetaData(src, 'thirst', -Config.needs.thirstDecay, 0, 100)
-        -- Legacy qb-hud only ever updates hunger/thirst via this client event,
-        -- driven upstream by a client heartbeat we deliberately don't replicate
-        -- (our decay is server-owned). Emit it here, alongside the resulting
-        -- (post-decay) values, so a legacy qb-hud dropped into this server
-        -- doesn't show frozen bars.
-        TriggerClientEvent('hud:client:UpdateNeeds', src, hunger, thirst)
+        if not Core.development.isDevMode(src) then
+            local hunger = Core.metadata.incrementMetaData(src, 'hunger', -Config.needs.hungerDecay, 0, 100)
+            local thirst = Core.metadata.incrementMetaData(src, 'thirst', -Config.needs.thirstDecay, 0, 100)
+            -- Legacy qb-hud only ever updates hunger/thirst via this client event,
+            -- driven upstream by a client heartbeat we deliberately don't replicate
+            -- (our decay is server-owned). Emit it here, alongside the resulting
+            -- (post-decay) values, so a legacy qb-hud dropped into this server
+            -- doesn't show frozen bars.
+            TriggerClientEvent('hud:client:UpdateNeeds', src, hunger, thirst)
+        end
     end
 end
 

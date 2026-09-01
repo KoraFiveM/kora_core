@@ -104,12 +104,18 @@ Logs a source in with already-loaded `data` (from `Core.persistence.load`). Buil
 - `boolean`, `string | nil`
 
 ### `Core.player.createCharacter(src, charinfo, cid)` — server
-Creates a brand-new character: resolves the primary identifier, builds a fresh `PlayerData`, inserts the row, records identifiers, and adopts the player. **Yields** (DB insert). Returns the new `citizenid`, or `(nil, err)`.
+Creates a brand-new character: validates and normalizes identity data, resolves
+the primary identifier, computes an available slot, generates the phone
+number server-side, builds a fresh `PlayerData`, inserts the row, records
+identifiers, and adopts the player. Names are trimmed and bounded visible
+UTF-8 text; birth date is a real non-future `YYYY-MM-DD`; gender is `0` or
+`1`; nationality is bounded. **Yields** (DB insert). Returns the new
+`citizenid`, or `(nil, err)`.
 
 #### Parameters
 - `src: integer`
-- `charinfo: table` — `{ firstname, lastname, birthdate, gender, nationality, phone, … }`.
-- `cid: integer | nil` — Character slot (default `1`).
+- `charinfo: table` — `{ firstname, lastname, birthdate, gender, nationality }`. Client-supplied phone/job/gang/money fields are ignored.
+- `cid: integer | nil` — Optional trusted/admin slot; self-service callers omit it so the server chooses the next free slot.
 
 #### Returns
 - `string | nil` — The citizenid.

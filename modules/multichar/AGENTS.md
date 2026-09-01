@@ -6,6 +6,7 @@ The character-select lifecycle (list/select/delete), server-authoritative, with 
 ## Public API
 Server:
 - `Core.multichar.getCharacters(src)` — decoded character summaries (yields).
+- `Core.multichar.ownsCharacter(src, citizenid)` — pre-login ownership check (yields).
 - `Core.multichar.selectCharacter(src, citizenid)` — ownership-checked load + login (yields). `(true)`/`(false, err)`.
 - `Core.multichar.deleteCharacter(src, citizenid)` — ownership-checked soft-delete, logs out if active (yields).
 

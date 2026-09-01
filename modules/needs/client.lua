@@ -3,6 +3,8 @@
 -- metadata authority; this file only reacts to its replicated need updates.
 
 local function playerCanTakeNeedsDamage()
+    if Core.development.isDevMode() then return nil end
+
     local ped = QB.cache.ped()
     if not ped or ped == 0 or IsEntityDead(ped) then return nil end
 

@@ -11,6 +11,7 @@ QBCore = QBCore or {}
 QBCore.Functions = QBCore.Functions or {}
 QBCore.Player = QBCore.Player or {}
 QBCore.Players = QBCore.Players or {}        -- src -> QBPlayer (kept in sync by the server compat)
+QBCore.PlayersByCitizenId = QBCore.PlayersByCitizenId or {}
 QBCore.Shared = QBCore.Shared or {}
 QBCore.Commands = QBCore.Commands or {}
 QBCore.Config = QBCore.Config or {}
@@ -86,6 +87,11 @@ QBCore.Shared.FemaleNoGloves = {
     [129] = true, [130] = true, [131] = true, [135] = true, [142] = true,
     [149] = true, [153] = true, [157] = true, [161] = true, [165] = true,
 }
+
+-- Current qb-core forces a job's configured default duty state on login.
+-- Expose the same switch for scripts that inspect it directly; qbcore's own
+-- internal login policy remains Config.jobs.defaultDuty.
+QBCore.Shared.ForceJobDefaultDutyAtLogin = true
 
 -- Client-only vehicle-extra helpers (real qb-core shared/functions.lua). Ported
 -- near-verbatim -- these touch client-only natives (SetVehicleExtra etc), so
@@ -296,6 +302,18 @@ local function toLegacyPlayerData(playerData)
     return view
 end
 
+local function fromLegacyPlayerData(playerData)
+    if type(playerData) ~= 'table' then return playerData end
+    local internal = Core.util.deepClone(playerData)
+    for _, key in ipairs({ 'job', 'gang' }) do
+        local value = internal[key]
+        if type(value) == 'table' and type(value.grade) == 'table' then
+            value.grade.level = fromLegacyGradeLevel(value.grade.level)
+        end
+    end
+    return internal
+end
+
 -- GetShared's namespace parameter is a Lua table key -- case-sensitive by
 -- construction, since QBCore.Shared.Items/.Vehicles/etc. are PascalCase.
 -- Real-world legacy scripts don't reliably match that casing (e.g.
@@ -323,7 +341,96 @@ Core.compat.toLegacyGradeLevel = toLegacyGradeLevel
 Core.compat.fromLegacyGradeLevel = fromLegacyGradeLevel
 Core.compat.toLegacyJobOrGang = toLegacyJobOrGang
 Core.compat.toLegacyPlayerData = toLegacyPlayerData
+Core.compat.fromLegacyPlayerData = fromLegacyPlayerData
 Core.compat.canonicalSharedNamespace = canonicalSharedNamespace
+
+-- Materialise the complete public qb-core configuration shape in both realms.
+-- Values that drive this framework use the local Config equivalents; display-
+-- only/UI defaults match upstream so legacy resources never encounter a
+-- missing intermediate table or field.
+function Core.compat.populateLegacyConfig()
+    local defaultSpawn = vector4(-1035.71, -2731.87, 12.86, 0.0)
+    local dontAllowMinus = {}
+    for _, moneyType in ipairs(Config.money.types or {}) do
+        if not Config.money.allowNegative[moneyType] then dontAllowMinus[#dontAllowMinus + 1] = moneyType end
+    end
+
+    QBCore.Config.MaxPlayers = GetConvarInt('sv_maxclients', 48)
+    QBCore.Config.DefaultSpawn = defaultSpawn
+    QBCore.Config.UpdateInterval = 5
+    QBCore.Config.StatusInterval = 5000
+    QBCore.Config.Money = {
+        MoneyTypes = Config.money.default,
+        DontAllowMinus = dontAllowMinus,
+        MinusLimit = Config.money.minusLimit,
+        PayCheckTimeOut = 10,
+        PayCheckSociety = false,
+    }
+
+    local bloodtypes = { 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-' }
+    QBCore.Config.Player = {
+        HungerRate = 4.2,
+        ThirstRate = 3.8,
+        Bloodtypes = bloodtypes,
+        MaxWeight = Config.inventory.maxWeight,
+        MaxInvSlots = Config.inventory.slots,
+    }
+    QBCore.Config.Player.PlayerDefaults = {
+        citizenid = function() return QBCore.Player.CreateCitizenId() end,
+        cid = 1,
+        money = function() return Core.util.deepClone(QBCore.Config.Money.MoneyTypes) end,
+        optin = true,
+        charinfo = {
+            firstname = 'Firstname', lastname = 'Lastname', birthdate = '00-00-0000', gender = 0,
+            nationality = 'USA',
+            phone = function() return QBCore.Functions.CreatePhoneNumber() end,
+            account = function() return QBCore.Functions.CreateAccountNumber() end,
+        },
+        job = {
+            name = 'unemployed', label = 'Civilian', payment = 10, type = 'none', onduty = false,
+            isboss = false, grade = { name = 'Freelancer', level = 0 },
+        },
+        gang = {
+            name = 'none', label = 'No Gang Affiliation', isboss = false,
+            grade = { name = 'none', level = 0 },
+        },
+        metadata = {
+            hunger = 100, thirst = 100, stress = 0, isdead = false, inlaststand = false, armor = 0,
+            ishandcuffed = false, tracker = false, injail = 0, jailitems = {}, status = {}, phone = {},
+            rep = {}, callsign = 'NO CALLSIGN',
+            bloodtype = function() return bloodtypes[math.random(1, #bloodtypes)] end,
+            fingerprint = function() return QBCore.Player.CreateFingerId() end,
+            walletid = function() return QBCore.Player.CreateWalletId() end,
+            criminalrecord = { hasRecord = false },
+            licences = { driver = true, business = false, weapon = false },
+            inside = { apartment = {} },
+            phonedata = {
+                SerialNumber = function() return QBCore.Player.CreateSerialNumber() end,
+                InstalledApps = {},
+            },
+        },
+        position = defaultSpawn,
+        items = {},
+    }
+
+    QBCore.Config.Server = {
+        Closed = false, ClosedReason = 'Server Closed', Uptime = 0, Whitelist = false,
+        WhitelistPermission = 'admin', PVP = true, Discord = GetConvar('qb_discord', ''),
+        CheckDuplicateLicense = true, Permissions = { 'god', 'admin', 'mod' },
+    }
+    QBCore.Config.Commands = { OOCColor = { 255, 151, 133 } }
+    QBCore.Config.Notify = {
+        NotificationStyling = { group = false, position = 'right', progress = true },
+        VariantDefinitions = {
+            success = { classes = 'success', icon = 'check_circle' },
+            primary = { classes = 'primary', icon = 'notifications' },
+            warning = { classes = 'warning', icon = 'warning' },
+            error = { classes = 'error', icon = 'error' },
+            police = { classes = 'police', icon = 'local_police' },
+            ambulance = { classes = 'ambulance', icon = 'fas fa-ambulance' },
+        },
+    }
+end
 
 -- Debug helper (legacy QBCore.Debug prints a table).
 function QBCore.Debug(tbl, indent)

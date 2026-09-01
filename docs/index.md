@@ -31,6 +31,14 @@ manual schema import needed.
 
 ## Usage examples
 
+### Activate development mode for one player
+```lua
+-- server; permission-gate this in the calling resource
+exports.qbcore:setDevMode(source, true)
+```
+This grants ped invincibility, pauses that player's passive hunger/thirst, and
+applies the configured fast walk rate until disabled or disconnected.
+
 ### Give a player money and an item
 ```lua
 -- server
@@ -217,6 +225,12 @@ Server helpers present: identity/player lookups (`GetPlayerBy*`), job/duty
 world / drawing / anim-and-particle set (`GetVehicleProperties`,
 `SetVehicleProperties`, `GetClosest*`, `DrawText3D`, `StartParticle*`, ...).
 
+Current upstream behavior also includes the complete `QBCore.Config` shape,
+`PlayersByCitizenId`, phone/account generators, runtime player method/field
+extensions, and full offline player lookup/create/check/save objects. The
+legacy draw-text events (`qb-core:client:drawText`, `changeText`, and
+`hideText`) forward to qblib's text UI.
+
 For client UI visibility, prefer the server-owned replicated player state bag
 `LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
 legacy load/unload events. A bare `LocalPlayer.state['isLoggedIn']` is set
@@ -237,9 +251,6 @@ should use the namespaced key.
   `QBCore.Functions.AddItem`) instead.
 - `QBCore.Commands.List` reflects commands registered THROUGH the compat
   (`QBCore.Commands.Add`) or present at the last `Refresh`.
-- `QBCore.Player.CreatePlayer(PlayerData, Offline)` (the raw-blob form) is not
-  supported — create characters via the multichar events /
-  `exports.qbcore:createCharacter`.
 - Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`
   descriptors into qblib's networked progress props. `IsWearingGloves` returns
   `true` for unknown arm indices.

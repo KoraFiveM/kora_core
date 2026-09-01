@@ -33,6 +33,7 @@ Because all of `Core.money`/`jobs`/`metadata`/`inventory` are wrappers that end 
 - **Subscriptions match by path prefix.** `pathMatchesPrefix(path, prefix)` compares element-by-element. A bare-string prefix is normalised to a one-element array. The handler receives the *full* changed path so it can discriminate leaves.
 - **Lifecycle fires both legacy and modern events.** `adopt` triggers `QBCore:Server:PlayerLoaded` + `QBCore:Client:OnPlayerLoaded` (legacy, both realms) *and* `qbcore:server:playerLoaded` (modern), then primes the client mirror with a snapshot. `logout`/`drop` mirror this with unload/drop events. `drop` is wired to FiveM's `playerDropped`.
 - **`createCharacter` seeds the encoded baseline** (`Core.persistence.seedEncoded`) right after insert so the very first flush is a no-op — nothing changed since the row was written.
+- **Character identity is normalized before slot/insert work.** Names and nationality are bounded visible UTF-8, birth dates are real/non-future `YYYY-MM-DD`, gender is restricted to the two supported freemode models, and phone is generated server-side. Never pass arbitrary client `charinfo` through to `freshData`.
 - **`_dirty`/`_encoded`/`_pendingOps`/`_seq`** on the handle are owned by persistence and replication respectively; the player module only initialises them.
 - **Internals on `CoreInternal.player`** — `COLUMN_FOR`, `bySource`, `byCitizenId`, `handle`, `freshData`, `buildJob`, `buildGang`. Never exported: `build/finalise.lua` walks only `Core.<module>` and skips `_`-prefixed functions.
 

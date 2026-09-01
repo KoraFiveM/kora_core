@@ -7,7 +7,7 @@ local PI = CoreInternal.player
 
 ---List a source's characters (by their primary identifier). Yields.
 ---@param src integer
----@return table[]  -- decoded summaries {citizenid, cid, name, charinfo, money, job}
+---@return table[]  -- decoded summaries {citizenid, cid, name, charinfo, money, job, gang}
 function Core.multichar.getCharacters(src)
     local license = Core.identity.primary(src)
     if not license then return {} end
@@ -17,8 +17,23 @@ function Core.multichar.getCharacters(src)
         row.charinfo = dec(row.charinfo)
         row.money = dec(row.money)
         row.job = dec(row.job)
+        row.gang = dec(row.gang)
     end
     return rows
+end
+
+---Whether a citizen belongs to the source's primary identifier. Yields.
+---Kept as a dedicated public check for pre-login integrations such as a
+---character selector fetching saved appearance without adopting the player.
+---@param src integer
+---@param citizenid string
+---@return boolean
+function Core.multichar.ownsCharacter(src, citizenid)
+    if type(citizenid) ~= 'string' or citizenid == '' then return false end
+    local license = Core.identity.primary(src)
+    if not license then return false end
+    local data = Core.persistence._load(citizenid)
+    return data ~= nil and data.license == license
 end
 
 ---Select (load + log in) an existing character. Yields. Returns (true) or (nil, err).

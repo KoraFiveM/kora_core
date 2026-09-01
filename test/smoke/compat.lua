@@ -50,10 +50,25 @@ h.test('QBCore.Functions.* surface is complete', function()
         'SpawnVehicle', 'CreateAutomobile', 'CreateVehicle', 'TriggerClientCallback',
         'RemovePermission', 'ToggleOptin', 'IsWhitelisted', 'IsPlayerBanned', 'IsLicenseInUse',
         'GetDatabaseInfo', 'GetCoreVersion', 'ExploitBan', 'SetMethod', 'SetField',
+        'CreatePhoneNumber', 'CreateAccountNumber', 'AddPlayerMethod', 'AddPlayerField',
+        'GetOfflinePlayerByLicense',
         'AddItem', 'UpdateItem', 'AddItems', 'RemoveItem',
         'AddJob', 'AddJobs', 'UpdateJob', 'RemoveJob',
         'AddGang', 'AddGangs', 'UpdateGang', 'RemoveGang',
     }, 'QBCore.Functions')
+end)
+
+h.test('QBCore.Config exposes the complete current qb-core shape', function()
+    h.assertTrue(QBCore.Config.DefaultSpawn ~= nil)
+    h.assertTrue(type(QBCore.Config.Money.DontAllowMinus) == 'table')
+    h.assertTrue(QBCore.Config.Money.MinusLimit ~= nil)
+    h.assertTrue(QBCore.Config.Player.PlayerDefaults ~= nil)
+    h.assertTrue(type(QBCore.Config.Player.PlayerDefaults.charinfo.phone) == 'function')
+    h.assertTrue(type(QBCore.Config.Player.PlayerDefaults.metadata.fingerprint) == 'function')
+    h.assertTrue(QBCore.Config.Server.CheckDuplicateLicense == true)
+    h.assertTrue(QBCore.Config.Commands.OOCColor[1] == 255)
+    h.assertTrue(QBCore.Config.Notify.VariantDefinitions.success ~= nil)
+    h.assertTrue(QBCore.Shared.ForceJobDefaultDutyAtLogin == true)
 end)
 
 h.test('QBCore.Player.* surface is complete', function()
@@ -292,6 +307,36 @@ h.test('a Player.Functions call routes through the funnel (AddMoney changes bala
     local before = Player.Functions.GetMoney('cash')
     Player.Functions.AddMoney('cash', 500, 'test')
     h.assertEqual(Player.Functions.GetMoney('cash'), before + 500)
+end)
+
+h.test('AddPlayerMethod/AddPlayerField extend selected live player objects', function()
+    local player = QBCore.Functions.GetPlayer(1)
+    local custom = function() return 'custom-result' end
+    h.assertTrue(QBCore.Functions.AddPlayerMethod(1, 'CustomMethod', custom))
+    h.assertEqual(player.Functions.CustomMethod(), 'custom-result')
+    h.assertEqual(player.CustomMethod(), 'custom-result')
+    h.assertTrue(QBCore.Functions.AddPlayerField(1, 'CustomField', 42))
+    h.assertEqual(player.CustomField, 42)
+end)
+
+h.test('CreatePlayer(PlayerData, true) returns a full offline Player interface', function()
+    local internal = CoreInternal.player.freshData('CID-offline', 'license:offline', 3,
+        { firstname = 'Off', lastname = 'Line' })
+    local legacy = Core.compat.toLegacyPlayerData(internal)
+    local player = QBCore.Player.CreatePlayer(legacy, true)
+    h.assertTrue(player.Offline)
+    h.assertEqual(player.Functions.GetName(), 'Off Line')
+    h.assertEqual(player.PlayerData.job.grade.level, 0)
+    h.assertTrue(type(player.Functions.SetMetaData) == 'function')
+    h.assertTrue(type(player.Save) == 'function')
+    player.Functions.SetMetaData('callsign', 'OFF')
+    h.assertEqual(player.Functions.GetMetaData('callsign'), 'OFF')
+    player.PlayerData.metadata = nil
+    player.Functions.AddRep('crafting', 2)
+    h.assertEqual(player.Functions.GetRep('crafting'), 2, 'offline reputation must initialize missing metadata')
+    local callable = setmetatable({}, { __call = function() return 'offline-custom' end })
+    h.assertTrue(player.Functions.AddMethod('OfflineCustom', callable))
+    h.assertEqual(player.OfflineCustom(), 'offline-custom')
 end)
 
 h.test('QBCore:Server:OnPlayerUpdated fans out to legacy-shaped OnJobUpdate + OnGangUpdate', function()

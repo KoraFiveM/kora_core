@@ -77,7 +77,8 @@ shared_scripts {
 --                                  a staged-rollout fallback only
 --   dispatch/paycheck  need Core.jobs' index (dispatch also needs money for
 --                      nothing itself, but paycheck does)
---   needs              needs Core.metadata
+--   development        owns ephemeral per-player dev-mode state
+--   needs              needs Core.metadata + Core.development
 --   permissions/commands/logging
 --   garage/consumables  no framework ordering need beyond what's already
 --                       loaded above; grouped here rather than earlier
@@ -101,6 +102,7 @@ server_scripts {
     'modules/dispatch/server.lua',
     'modules/paycheck/server.lua',
     'modules/metadata/server.lua',
+    'modules/development/server.lua',
     'modules/needs/server.lua',
     'modules/inventory/server.lua',
     'modules/inventory/gateway.lua',
@@ -123,6 +125,7 @@ client_scripts {
     'modules/registry/client.lua',
     'modules/replication/client.lua',
     'modules/player/client.lua',
+    'modules/development/client.lua',
     'modules/needs/client.lua',
     'modules/jail/client.lua',
     'modules/jobs/client.lua',

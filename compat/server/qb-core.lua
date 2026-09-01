@@ -7,6 +7,17 @@
 
 local PI = CoreInternal.player
 
+-- CFX export-boundary callbacks may arrive as callable tables/funcrefs.
+-- Current qb-core uses this check for player extension hooks in both live and
+-- offline objects.
+local function isCallable(value)
+    if type(value) == 'function' then return true end
+    if type(value) ~= 'table' then return false end
+    if type(rawget(value, '__cfx_functionReference')) == 'string' then return true end
+    local mt = getmetatable(value)
+    return mt ~= nil and type(mt.__call) == 'function'
+end
+
 -- `provide 'qb-core'` alone doesn't make exports['qb-core']:GetCoreObject()
 -- resolve here; registering the __cfx_export event does (same identity hijack as
 -- qbtarget/client/compat/ox-target.lua).
@@ -115,8 +126,16 @@ local function buildQBPlayer(src)
     -- Extension hooks: qb-core lets a resource bolt a custom method/field onto a
     -- player object at runtime. AddMethod adds to THIS player's Functions table;
     -- AddField adds a field to the player object itself.
-    function F.AddMethod(name, method) F[name] = method; return true end
-    function F.AddField(name, data) self[name] = data; return true end
+    function F.AddMethod(name, method)
+        if type(name) ~= 'string' or not isCallable(method) then return false end
+        self[name], F[name] = method, method
+        return true
+    end
+    function F.AddField(name, data)
+        if type(name) ~= 'string' or isCallable(data) then return false end
+        self[name] = data
+        return true
+    end
 
     -- Real qb-core's Player class defines these as DIRECT colon methods on the
     -- player object (`function Player:SetMetaData(meta, val)` etc, server/
@@ -144,11 +163,181 @@ local function buildQBPlayer(src)
     return self
 end
 
+-- Offline lookups in current qb-core return a real Player object, not a bare
+-- `{PlayerData, Offline}` record. Keep a legacy-shaped local snapshot with the
+-- same method table; Save writes it back after translating grade levels to
+-- qbcore's internal one-based representation.
+local function buildOfflinePlayer(data)
+    local self = { PlayerData = Core.compat.toLegacyPlayerData(Core.util.deepClone(data)), Offline = true }
+    local F = {}
+    self.Functions = F
+
+    function F.GetPlayerData() return self.PlayerData end
+    function F.GetName()
+        local ci = self.PlayerData.charinfo or {}
+        return (ci.firstname or '') .. ' ' .. (ci.lastname or '')
+    end
+    function F.UpdateClient() end
+    F.UpdatePlayerData = F.UpdateClient
+
+    local function setRole(kind, name, grade)
+        name = type(name) == 'string' and name:lower() or name
+        local shared = kind == 'job' and QBCore.Shared.Jobs or QBCore.Shared.Gangs
+        local definition = shared[name]
+        if not definition then return false end
+        local level = math.max(math.floor(tonumber(grade) or 0), 0)
+        local gradeInfo = definition.grades[tostring(level)]
+        local role = {
+            name = name, label = definition.label, isboss = gradeInfo and gradeInfo.isboss or false,
+            grade = {
+                name = gradeInfo and gradeInfo.name or 'No Grades', level = level,
+                payment = gradeInfo and gradeInfo.payment or 0,
+                isboss = gradeInfo and gradeInfo.isboss or false,
+            },
+        }
+        if kind == 'job' then
+            role.type = definition.type or 'none'
+            role.onduty = definition.defaultDuty or false
+        end
+        self.PlayerData[kind] = role
+        return true
+    end
+
+    function F.SetJob(name, grade) return setRole('job', name, grade) end
+    function F.SetGang(name, grade) return setRole('gang', name, grade) end
+    function F.SetJobDuty(onDuty)
+        if self.PlayerData.job then self.PlayerData.job.onduty = not not onDuty end
+    end
+    function F.SetJobData(key, value) self.PlayerData.job[key] = value; return true end
+    function F.SetGangData(key, value) self.PlayerData.gang[key] = value; return true end
+    function F.SetPlayerData(key, value)
+        if type(key) ~= 'string' then return false end
+        self.PlayerData[key] = value
+        return true
+    end
+    function F.SetMetaData(key, value)
+        if type(key) ~= 'string' then return false end
+        self.PlayerData.metadata = self.PlayerData.metadata or {}
+        if key == 'hunger' or key == 'thirst' then value = math.min(100, math.max(0, tonumber(value) or 0)) end
+        self.PlayerData.metadata[key] = value
+        return true
+    end
+    function F.GetMetaData(key) return (self.PlayerData.metadata or {})[key] end
+    function F.SetCharInfo(key, value)
+        self.PlayerData.charinfo = self.PlayerData.charinfo or {}
+        self.PlayerData.charinfo[key] = value
+        return true
+    end
+    function F.SetCreditCard(number) return F.SetCharInfo('card', number) end
+
+    function F.GetMoney(moneyType) return (self.PlayerData.money or {})[moneyType] end
+    function F.SetMoney(moneyType, amount)
+        amount = tonumber(amount)
+        if not amount then return false end
+        self.PlayerData.money = self.PlayerData.money or {}
+        if self.PlayerData.money[moneyType] == nil then return false end
+        self.PlayerData.money[moneyType] = amount
+        return true
+    end
+    function F.AddMoney(moneyType, amount)
+        amount = tonumber(amount)
+        if not amount or amount < 0 then return false end
+        return F.SetMoney(moneyType, (F.GetMoney(moneyType) or 0) + amount)
+    end
+    function F.RemoveMoney(moneyType, amount)
+        amount = tonumber(amount)
+        local current = F.GetMoney(moneyType)
+        if not amount or amount < 0 or current == nil then return false end
+        local nextValue = current - amount
+        if not Config.money.allowNegative[moneyType] and nextValue < 0 then return false end
+        if nextValue < Config.money.minusLimit then return false end
+        return F.SetMoney(moneyType, nextValue)
+    end
+
+    local function itemMatches(item, name) return item and item.name == name end
+    function F.GetItemBySlot(slot) return (self.PlayerData.items or {})[tonumber(slot)] end
+    function F.GetItemByName(name)
+        for _, item in pairs(self.PlayerData.items or {}) do if itemMatches(item, name) then return item end end
+    end
+    function F.GetItemsByName(name)
+        local out = {}
+        for _, item in pairs(self.PlayerData.items or {}) do if itemMatches(item, name) then out[#out + 1] = item end end
+        return out
+    end
+    function F.HasItem(items, amount)
+        local names = type(items) == 'table' and items or { items }
+        for _, name in ipairs(names) do
+            local count = 0
+            for _, item in pairs(self.PlayerData.items or {}) do
+                if itemMatches(item, name) then count = count + (item.amount or 0) end
+            end
+            if count < (amount or 1) then return false end
+        end
+        return true
+    end
+    function F.SetInventory(items) self.PlayerData.items = items or {}; return true end
+    function F.ClearInventory(keep)
+        local wanted, kept = {}, {}
+        for _, name in pairs(keep or {}) do wanted[name] = true end
+        for slot, item in pairs(self.PlayerData.items or {}) do if wanted[item.name] then kept[slot] = item end end
+        self.PlayerData.items = kept
+        return true
+    end
+    function F.AddItem(name, amount, slot, info)
+        self.PlayerData.items = self.PlayerData.items or {}
+        slot = tonumber(slot) or (#self.PlayerData.items + 1)
+        self.PlayerData.items[slot] = { name = name, amount = amount or 1, slot = slot, info = info or {} }
+        return true
+    end
+    function F.RemoveItem(name, amount, slot)
+        amount = amount or 1
+        local item = slot and self.PlayerData.items[slot] or F.GetItemByName(name)
+        if not item or item.amount < amount then return false end
+        item.amount = item.amount - amount
+        if item.amount == 0 then self.PlayerData.items[item.slot] = nil end
+        return true
+    end
+
+    function F.GetRep(rep) return ((self.PlayerData.metadata or {}).rep or {})[rep] or 0 end
+    function F.AddRep(rep, amount)
+        self.PlayerData.metadata = self.PlayerData.metadata or {}
+        self.PlayerData.metadata.rep = self.PlayerData.metadata.rep or {}
+        self.PlayerData.metadata.rep[rep] = math.max(0, F.GetRep(rep) + (tonumber(amount) or 0))
+    end
+    function F.RemoveRep(rep, amount) return F.AddRep(rep, -(tonumber(amount) or 0)) end
+    function F.Notify() end
+    function F.Save() return QBCore.Player.SaveOffline(self.PlayerData) end
+    function F.Logout() return false end
+    function F.AddMethod(name, handler)
+        if type(name) ~= 'string' or not isCallable(handler) then return false end
+        self[name], F[name] = handler, handler
+        return true
+    end
+    function F.AddField(name, value)
+        if type(name) ~= 'string' or isCallable(value) then return false end
+        self[name] = value
+        return true
+    end
+
+    for name, fn in pairs(F) do if self[name] == nil then self[name] = fn end end
+    return self
+end
+
+Core.compat.buildOfflinePlayer = buildOfflinePlayer
+
 -- Keep QBCore.Players in sync as players load / unload.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
-    QBCore.Players[src] = buildQBPlayer(src)
+    local player = buildQBPlayer(src)
+    QBCore.Players[src] = player
+    if player and player.PlayerData.citizenid then
+        QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = player
+    end
 end)
 AddEventHandler('qbcore:server:playerDropped', function(src)
+    local player = QBCore.Players[src]
+    if player and player.PlayerData.citizenid then
+        QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = nil
+    end
     QBCore.Players[src] = nil
 end)
 
@@ -178,6 +367,7 @@ end
 local F = QBCore.Functions
 
 function F.GetPlayer(src)
+    src = tonumber(src) or F.GetSource(src)
     if QBCore.Players[src] then return QBCore.Players[src] end
     -- Build lazily if the load hook hasn't fired yet.
     local p = buildQBPlayer(src)
@@ -186,14 +376,18 @@ function F.GetPlayer(src)
 end
 
 function F.GetPlayerByCitizenId(cid)
+    if QBCore.PlayersByCitizenId[cid] then return QBCore.PlayersByCitizenId[cid] end
     local handle = PI.byCitizenId[cid]
-    return handle and F.GetPlayer(handle.source) or nil
+    local player = handle and F.GetPlayer(handle.source) or nil
+    if player then QBCore.PlayersByCitizenId[cid] = player end
+    return player
 end
 
 function F.GetPlayerByPhone(number)
     for src in pairs(PI.bySource) do
         local h = PI.handle(src)
-        if h and h.PlayerData.phone == number then return F.GetPlayer(src) end
+        local charinfo = h and h.PlayerData.charinfo
+        if charinfo and charinfo.phone == number then return F.GetPlayer(src) end
     end
     return nil
 end
@@ -208,7 +402,7 @@ end
 function F.GetOfflinePlayerByCitizenId(cid)
     local data = Core.persistence._load(cid)
     if not data then return nil end
-    return { PlayerData = data, Offline = true }
+    return QBCore.Player.CheckPlayerData(nil, data)
 end
 
 function F.GetIdentifier(src, kind)
@@ -353,18 +547,6 @@ function F.PaycheckInterval() return Config.jobs.paycheckInterval or 300000 end
 -- onto our Core.* implementations.
 -- ---------------------------------------------------------------------------
 
--- CFX delivers export-boundary callbacks as tables with a __call/functionRef;
--- treat those as callable too (same test real qb-core uses).
-local function isCallable(v)
-    if type(v) == 'function' then return true end
-    if type(v) == 'table' then
-        if type(rawget(v, '__cfx_functionReference')) == 'string' then return true end
-        local mt = getmetatable(v)
-        return mt ~= nil and type(mt.__call) == 'function'
-    end
-    return false
-end
-
 function F.GetCoords(entity)
     local coords = GetEntityCoords(entity, false)
     return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
@@ -376,6 +558,14 @@ function F.GetPlayerByLicense(license)
         if ids.license == license then return F.GetPlayer(src) end
     end
     return nil
+end
+
+function F.GetOfflinePlayerByLicense(license)
+    local row = QB.sql.single(
+        'SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL LIMIT 1',
+        { license }
+    )
+    return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
 end
 
 function F.GetPlayerByAccount(account)
@@ -630,6 +820,59 @@ function F.ExploitBan(playerId, origin)
     TriggerEvent('qb-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'red', name .. ' banned for exploiting ' .. tostring(origin), true)
 end
 
+local function createUniqueId(generator, query)
+    for _ = 1, 100 do
+        local value = generator()
+        local exists = QB.sql.scalar(query, { value })
+        if not exists or tonumber(exists) == 0 then return value end
+    end
+    QBCore.ShowError(GetCurrentResourceName(), 'createUniqueId: exceeded 100 retries')
+end
+
+function F.CreateAccountNumber()
+    return createUniqueId(
+        function()
+            return 'US0' .. math.random(1, 9) .. 'QBCore' .. math.random(1111, 9999)
+                .. math.random(1111, 9999) .. math.random(11, 99)
+        end,
+        'SELECT EXISTS(SELECT 1 FROM players WHERE JSON_UNQUOTE(JSON_EXTRACT(charinfo, "$.account")) = ?) AS uniqueCheck'
+    )
+end
+
+function F.CreatePhoneNumber()
+    return createUniqueId(
+        function() return tostring(math.random(100, 999)) .. tostring(math.random(1000000, 9999999)) end,
+        'SELECT EXISTS(SELECT 1 FROM players WHERE JSON_UNQUOTE(JSON_EXTRACT(charinfo, "$.phone")) = ?) AS uniqueCheck'
+    )
+end
+
+local function forEachCompatPlayer(ids, callback)
+    if type(ids) == 'number' then
+        if ids == -1 then
+            for _, player in pairs(QBCore.Players) do callback(player) end
+        elseif QBCore.Players[ids] then
+            callback(QBCore.Players[ids])
+        end
+    elseif type(ids) == 'table' then
+        for _, id in ipairs(ids) do forEachCompatPlayer(id, callback) end
+    end
+end
+
+function F.AddPlayerMethod(ids, methodName, handler)
+    if type(methodName) ~= 'string' or not isCallable(handler) then return false end
+    forEachCompatPlayer(ids, function(player)
+        player[methodName] = handler
+        player.Functions[methodName] = handler
+    end)
+    return true
+end
+
+function F.AddPlayerField(ids, fieldName, data)
+    if type(fieldName) ~= 'string' or isCallable(data) then return false end
+    forEachCompatPlayer(ids, function(player) player[fieldName] = data end)
+    return true
+end
+
 -- Runtime object extension (server/exports.lua's SetMethod/SetField).
 function F.SetMethod(methodName, handler)
     if type(methodName) ~= 'string' then return false, 'invalid_method_name' end
@@ -724,24 +967,92 @@ end
 
 local P = QBCore.Player
 
--- Login accepts real qb-core's (source, citizenid, newData); newData is used
--- verbatim when supplied, otherwise the character is loaded from persistence.
+local function applyPlayerDefaults(data, defaults)
+    for key, default in pairs(defaults) do
+        if data[key] == nil then
+            if type(default) == 'function' then
+                data[key] = default()
+            elseif type(default) == 'table' then
+                data[key] = Core.util.deepClone(default)
+                applyPlayerDefaults(data[key], default)
+            else
+                data[key] = default
+            end
+        elseif type(default) == 'table' and type(data[key]) == 'table' then
+            applyPlayerDefaults(data[key], default)
+        end
+    end
+end
+
+local function validateLegacyRole(data, key)
+    local role = data[key]
+    local shared = key == 'job' and QBCore.Shared.Jobs or QBCore.Shared.Gangs
+    local definition = role and role.name and shared[role.name]
+    local level = role and role.grade and role.grade.level
+    local grade = definition and level ~= nil and definition.grades[tostring(level)]
+    if not grade then data[key] = nil; return end
+
+    role.label = definition.label
+    role.grade.name = grade.name
+    role.grade.payment = grade.payment
+    role.grade.isboss = grade.isboss or false
+    role.isboss = grade.isboss or false
+    if key == 'job' then
+        role.type = definition.type or 'none'
+        if QBCore.Shared.ForceJobDefaultDutyAtLogin then role.onduty = definition.defaultDuty end
+    end
+end
+
+-- Login accepts real qb-core's (source, citizenid, newData). A citizenid login
+-- must belong to the source license; this is the anti-character-hijack check
+-- current qb-core performs before constructing the Player object.
 function P.Login(src, citizenid, newData)
-    local d = newData or Core.persistence._load(citizenid)
-    return d and Core.player.login(src, citizenid, d)
+    if not src or src == '' then
+        QBCore.ShowError(GetCurrentResourceName(), 'ERROR QBCORE.PLAYER.LOGIN - NO SOURCE GIVEN!')
+        return false
+    end
+    if citizenid then
+        local data = Core.persistence._load(citizenid)
+        local license = F.GetIdentifier(src, 'license')
+        if data and license == data.license then return P.CheckPlayerData(src, data) ~= nil end
+        DropPlayer(src, 'Dropped for character joining exploit')
+        TriggerEvent('qb-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'white',
+            (GetPlayerName(src) or tostring(src)) .. ' Has Been Dropped For Character Joining Exploit', false)
+        return false
+    end
+    return P.CheckPlayerData(src, newData) ~= nil
 end
 function P.Logout(src) return Core.player.logout(src) end
 function P.Save(src) local h = PI.handle(src); if h then Core.persistence.saveNow(h) end end
-function P.SaveOffline() --[[ offline saves go through QB.sql directly ]] end
+function P.SaveOffline(playerData)
+    if not playerData or not playerData.citizenid then return false end
+    local data = Core.compat.fromLegacyPlayerData(playerData)
+    local result = QB.sql.query(
+        'INSERT INTO `players` (`citizenid`,`cid`,`license`,`name`,`money`,`charinfo`,`job`,`gang`,'
+            .. '`position`,`metadata`,`inventory`,`phone_number`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) '
+            .. 'ON DUPLICATE KEY UPDATE `cid`=VALUES(`cid`),`name`=VALUES(`name`),`money`=VALUES(`money`),'
+            .. '`charinfo`=VALUES(`charinfo`),`job`=VALUES(`job`),`gang`=VALUES(`gang`),'
+            .. '`position`=VALUES(`position`),`metadata`=VALUES(`metadata`),'
+            .. '`inventory`=VALUES(`inventory`),`phone_number`=VALUES(`phone_number`)',
+        {
+            data.citizenid, tonumber(data.cid) or 1, data.license, data.name or 'unknown',
+            json.encode(data.money or {}), json.encode(data.charinfo or {}), json.encode(data.job or {}),
+            json.encode(data.gang or {}), json.encode(data.position or {}), json.encode(data.metadata or {}),
+            json.encode(data.items or {}), data.phone or (data.charinfo and data.charinfo.phone),
+        }
+    )
+    return result ~= nil
+end
 
 function P.CreatePlayer(srcOrData, charinfo, cid)
     if type(srcOrData) == 'table' then
-        -- real qb-core CreatePlayer(PlayerData, Offline) builds a player from a
-        -- full pre-made blob -- an internal login-flow path we don't expose.
-        -- External scripts create characters via the multichar events /
-        -- exports.qbcore:createCharacter, so refuse loudly rather than silently.
-        print('^3[qbcore:qb-core-bridge]^7 CreatePlayer(PlayerData, Offline) is not supported; use createCharacter/selectCharacter.')
-        return nil
+        local legacyData, offline = srcOrData, charinfo == true
+        if offline or not legacyData.source then return buildOfflinePlayer(Core.compat.fromLegacyPlayerData(legacyData)) end
+        if PI.handle(legacyData.source) then return nil end
+        local internal = Core.compat.fromLegacyPlayerData(legacyData)
+        if not P.SaveOffline(legacyData) then return nil end
+        local ok = Core.player.login(legacyData.source, legacyData.citizenid, internal)
+        return ok and F.GetPlayer(legacyData.source) or nil
     end
     return Core.player.createCharacter(srcOrData, charinfo, cid)
 end
@@ -749,15 +1060,26 @@ function P.DeleteCharacter(src, citizenid) return Core.multichar.deleteCharacter
 function P.ForceDeleteCharacter(citizenid)
     return QB.sql.query('UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
 end
-function P.CheckPlayerData(src) return F.GetPlayer(src) end
+function P.CheckPlayerData(src, playerData)
+    playerData = playerData or {}
+    local offline = not src
+    if src then
+        playerData.source = src
+        playerData.license = playerData.license or F.GetIdentifier(src, 'license')
+        playerData.name = GetPlayerName(src)
+    end
+    validateLegacyRole(playerData, 'job')
+    validateLegacyRole(playerData, 'gang')
+    applyPlayerDefaults(playerData, QBCore.Config.Player.PlayerDefaults)
+    return P.CreatePlayer(playerData, offline)
+end
 function P.ForceUpdatePlayerData() --[[ live data; no-op ]] end
 
 function P.GetOfflinePlayer(citizenid) return F.GetOfflinePlayerByCitizenId(citizenid) end
-function P.GetPlayerByLicense(license) return F.GetPlayerByLicense(license) end
-function P.GetOfflinePlayerByLicense(license)
-    local row = QB.sql.single('SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL LIMIT 1', { license })
-    return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
+function P.GetPlayerByLicense(license)
+    return F.GetPlayerByLicense(license) or F.GetOfflinePlayerByLicense(license)
 end
+function P.GetOfflinePlayerByLicense(license) return F.GetOfflinePlayerByLicense(license) end
 
 -- Id generators (server/player.lua). CitizenId routes to our identity module;
 -- the rest are self-contained random generators matching qb-core's formats.
@@ -816,27 +1138,7 @@ QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src); rebu
 rebuildCommandList()
 
 -- --- QBCore.Config -----------------------------------------------------------
--- Map the commonly-read Config fields onto ours. Config.Server is what
--- Kick/IsWhitelisted/RemovePermission read (Discord link, whitelist toggle,
--- the permission-group list).
-QBCore.Config.Money = { MoneyTypes = Config.money.default, PayCheckTimeOut = 10 }
-QBCore.Config.Player = { MaxWeight = Config.inventory.maxWeight, MaxInvSlots = Config.inventory.slots }
-QBCore.Config.MaxPlayers = GetConvarInt('sv_maxclients', 32)
-QBCore.Config.Server = {
-    Discord = GetConvar('qb_discord', ''),
-    Whitelist = false,
-    WhitelistPermission = 'admin',
-    Permissions = { 'god', 'admin', 'mod' },
-    Closed = false,
-    ClosedReason = 'Server Closed',
-}
--- Upstream constants some legacy scripts read directly (real qb-core's
--- shared/config.lua). Informational-only here -- they don't drive our own
--- needs-decay loop, which is server-owned on a different cadence -- so these
--- are just hardcoded to match upstream's documented defaults for any legacy
--- script that reads them directly.
-QBCore.Config.UpdateInterval = 5
-QBCore.Config.StatusInterval = 5000
+Core.compat.populateLegacyConfig()
 
 -- Force the lazy QBCore.Shared data views to materialise as REAL keys now.
 -- A consumer's GetCoreObject() result crosses the export boundary as a

@@ -87,7 +87,7 @@ CreateThread(function()
         -- Warm qbsql's prepared cache with the hot player statements.
         exports.qbsql:prepareWarm({
             'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL',
-            'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
+            'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
         })
         TriggerEvent('qbcore:server:databaseReady')
     end

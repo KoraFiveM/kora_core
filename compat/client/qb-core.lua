@@ -279,9 +279,8 @@ function F.IsWearingGloves()
     local ped = PlayerPedId()
     local armIndex = GetPedDrawableVariation(ped, 3)
     local model = GetEntityModel(ped)
-    -- Guarded: our QBCore.Shared doesn't seed the MaleNoGloves/FemaleNoGloves
-    -- tables, so treat a missing table as "no known no-glove indices" (returns
-    -- true) rather than erroring on a nil index.
+    -- Keep the nil guard for compatibility with scripts that replace Shared,
+    -- although the stock tables are populated by coreobject.lua.
     if model == GetHashKey('mp_m_freemode_01') then
         if (QBCore.Shared.MaleNoGloves or {})[armIndex] then
             return false
@@ -1259,24 +1258,7 @@ end
 -- fxmanifest.lua), so this is the exact same mapping compat/server/qb-core.lua
 -- builds from the same shared `Config` global, at zero network cost. Previously
 -- QBCore.Config was populated server-side only, leaving it an empty `{}` here.
-QBCore.Config.Money = { MoneyTypes = Config.money.default, PayCheckTimeOut = 10 }
-QBCore.Config.Player = { MaxWeight = Config.inventory.maxWeight, MaxInvSlots = Config.inventory.slots }
-QBCore.Config.MaxPlayers = GetConvarInt('sv_maxclients', 32)
-QBCore.Config.Server = {
-    Discord = GetConvar('qb_discord', ''),
-    Whitelist = false,
-    WhitelistPermission = 'admin',
-    Permissions = { 'god', 'admin', 'mod' },
-    Closed = false,
-    ClosedReason = 'Server Closed',
-}
--- Upstream constants some legacy scripts read directly (real qb-core's
--- shared/config.lua). Informational-only here -- they don't drive our own
--- needs-decay loop, which is server-owned on a different cadence -- so these
--- are just hardcoded to match upstream's documented defaults for any legacy
--- script that reads them directly.
-QBCore.Config.UpdateInterval = 5
-QBCore.Config.StatusInterval = 5000
+Core.compat.populateLegacyConfig()
 
 -- Force the lazy QBCore.Shared data views to materialise as REAL keys, same
 -- as the server compat does: a consumer's GetCoreObject() result crosses the
@@ -1304,7 +1286,15 @@ for functionName, func in pairs(QBCore.Functions) do
     end
 end
 
-provideExport('qb-core', 'GetCoreObject', function() return QBCore end)
+provideExport('qb-core', 'GetCoreObject', function(filters)
+    if not filters then return QBCore end
+    local result = {}
+    for i = 1, #filters do
+        local key = filters[i]
+        if QBCore[key] ~= nil then result[key] = QBCore[key] end
+    end
+    return result
+end)
 
 -- GetShared is a top-level export in real qb-core (shared/main.lua), not a
 -- Functions entry, on BOTH realms -- it was previously only registered
@@ -1389,4 +1379,9 @@ provideExport('qb-core', 'DrawText', compatDrawText)
 provideExport('qb-core', 'ChangeText', compatDrawText)
 provideExport('qb-core', 'HideText', compatHideText)
 -- Upstream's KeyPressed plays a brief NUI press animation, then hides.
-provideExport('qb-core', 'KeyPressed', compatHideText)
+provideExport('qb-core', 'KeyPressed', function()
+    CreateThread(function()
+        Wait(500)
+        compatHideText()
+    end)
+end)

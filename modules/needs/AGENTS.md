@@ -12,6 +12,7 @@ Hunger/thirst decay — the one piece of legacy qb-core behavior (hunger/thirst 
 ## Implementation notes
 - **Self-starts on `onResourceStart` for qbcore's own resource name**, same pattern as [[paycheck]] — see that module's AGENTS.md for why this isn't a bare top-level call.
 - **`_tick` decrements every online player's `hunger`/`thirst`** by `Config.needs.hungerDecay`/`Config.needs.thirstDecay`, clamped `[0, 100]`, via `Core.metadata.incrementMetaData`.
+- **Development mode suppresses the system per player.** `_tick` skips sources for which `Core.development.isDevMode(src)` is true. The client likewise ignores zero-need damage while its local mode is active; explicit metadata writes remain available to test code.
 - **Client damage subscribes to hunger and thirst separately.** A replicated zero hunger update applies `Config.needs.hungerDamage`; zero thirst applies `Config.needs.thirstDamage`. Both zero therefore stacks both amounts. Native-dead, metadata-dead, and last-stand players are skipped.
 - **`_tick` is directly callable outside the loop** for the same reason `Core.paycheck._tick` is — the mock test harness's `Wait()` never yields, so resuming the `CreateThread` loop even once would hang the test process.
 - **Generation counter guards stop/restart races**, identical to [[paycheck]].

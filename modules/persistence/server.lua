@@ -254,7 +254,7 @@ end
 ---@return table[]
 function Core.persistence._listCharacters(license)
     return QB.sql.query(
-        'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
+        'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
         { license }
     ) or {}
 end
