@@ -52,12 +52,14 @@ end
 MIGRATIONS[#MIGRATIONS + 1] = { version = 4, name = 'users', file = 'sql/004_users.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 5, name = 'vehicles', file = 'sql/005_vehicles.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 6, name = 'legacy_players', file = 'sql/006_legacy_players.sql' }
+MIGRATIONS[#MIGRATIONS + 1] = { version = 7, name = 'legacy_vehicle_finance', file = 'sql/007_legacy_vehicle_finance.sql' }
 
 CreateThread(function()
-    local ok = QB.sql.ready(60000)
-    if not ok then
-        print('^1[qbcore:migrate]^7 qbsql never became ready -- migrations skipped, the framework will not persist.')
-        return
+    -- MySQL may still be starting alongside FXServer. Keep the migration
+    -- worker alive so qbsql's reconnect can recover the whole stack without a
+    -- resource/server restart. The timed waits retain a useful status message.
+    while not QB.sql.ready(60000) do
+        print('^3[qbcore:migrate]^7 still waiting for qbsql; migrations will resume automatically.')
     end
 
     local resource = GetCurrentResourceName()

@@ -218,7 +218,9 @@ local function adopt(src, player)
     end
 
     -- Legacy load events (both directions), plus the modern one.
-    TriggerEvent('QBCore:Server:PlayerLoaded', player.PlayerData)          -- legacy server-side
+    -- Stock qb-core sends the Player wrapper. Legacy resources (including
+    -- qb-inventory) immediately dereference Player.PlayerData here.
+    TriggerEvent('QBCore:Server:PlayerLoaded', player)                     -- legacy server-side
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
     if Core.money and Core.money.syncState then Core.money.syncState(src) end

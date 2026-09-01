@@ -24,6 +24,10 @@ dofile('modules/money/server.lua')
 dofile('modules/metadata/server.lua')
 
 local PI = CoreInternal.player
+local legacyLoadedPlayer
+AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
+    legacyLoadedPlayer = player
+end)
 
 -- Log a player in with a fixed data blob so _encoded is seeded.
 local function loginTestPlayer()
@@ -40,6 +44,12 @@ h.test('mutating money marks exactly {money} dirty', function()
     for k in pairs(p._dirty) do keys[#keys + 1] = k end
     h.assertEqual(#keys, 1, 'exactly one column dirty')
     h.assertEqual(keys[1], 'money')
+end)
+
+h.test('legacy PlayerLoaded receives the Player wrapper expected by qb-inventory', function()
+    h.assertTrue(legacyLoadedPlayer ~= nil, 'legacy PlayerLoaded event fired')
+    h.assertTrue(legacyLoadedPlayer.PlayerData ~= nil, 'event payload exposes PlayerData')
+    h.assertEqual(legacyLoadedPlayer.PlayerData.citizenid, 'CID1')
 end)
 
 h.test('flushAll enqueues one row with ONLY the money column', function()
