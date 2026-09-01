@@ -189,7 +189,7 @@ function Core.persistence._insertNew(citizenid, license, cid, data)
             json.encode(data.money), json.encode(data.charinfo),
             json.encode(data.job), json.encode(data.gang),
             json.encode(data.position), json.encode(data.metadata),
-            json.encode(data.items or {}), data.phone,
+            json.encode(data.items or {}), data.phone or QB.sql.NULL,
         }
     )
     if ok == nil and err then return false, err end
