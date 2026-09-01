@@ -204,6 +204,7 @@ function Core.persistence._load(citizenid)
     local row, err = QB.sql.single('SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { citizenid })
     if not row then return nil, err or 'not found' end
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
+    local charinfo = dec(row.charinfo, {})
 
     -- PlayerData.items is a NUMERIC slot-keyed map (see modules/inventory/
     -- AGENTS.md); every write is setPath(src, {'items', slot}, record) with a
@@ -235,13 +236,16 @@ function Core.persistence._load(citizenid)
         cid = row.cid,
         name = row.name,
         money = dec(row.money, {}),
-        charinfo = dec(row.charinfo, {}),
+        charinfo = charinfo,
         job = dec(row.job, {}),
         gang = dec(row.gang, {}),
         position = dec(row.position, { x = 0, y = 0, z = 70, h = 0 }),
         metadata = dec(row.metadata, {}),
         items = decodeItems(row.inventory),
-        phone = row.phone_number,
+        -- Legacy qb-core stored the phone only inside charinfo. Migration v6
+        -- adds the scalar column without rewriting existing character rows,
+        -- so retain their number until a later normal player update persists it.
+        phone = row.phone_number or charinfo.phone,
     }
 end
 

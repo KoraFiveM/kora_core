@@ -51,6 +51,7 @@ end
 -- number, so it must stay stable independent of Config.persistence.generatedColumns.
 MIGRATIONS[#MIGRATIONS + 1] = { version = 4, name = 'users', file = 'sql/004_users.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 5, name = 'vehicles', file = 'sql/005_vehicles.sql' }
+MIGRATIONS[#MIGRATIONS + 1] = { version = 6, name = 'legacy_players', file = 'sql/006_legacy_players.sql' }
 
 CreateThread(function()
     local ok = QB.sql.ready(60000)

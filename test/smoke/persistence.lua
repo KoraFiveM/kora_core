@@ -113,7 +113,7 @@ h.test('_load re-keys JSON string slot keys back to numbers', function()
     local sql = 'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL'
     handle.sqlResponses.single[sql] = {
         citizenid = 'CID9', license = 'license:z', cid = 1, name = 'jay sixty',
-        money = '{}', charinfo = '{}', job = '{}', gang = '{}',
+        money = '{}', charinfo = '{"phone":"5551234"}', job = '{}', gang = '{}',
         position = '{}', metadata = '{}', phone_number = nil,
         -- Exactly the shape the live players.inventory column holds.
         inventory = '{"1":{"slot":1,"name":"weapon_knife","amount":1,"weight":500},'
@@ -127,6 +127,7 @@ h.test('_load re-keys JSON string slot keys back to numbers', function()
     h.assertEqual(data.items[1].name, 'weapon_knife')
     h.assertEqual(data.items[1].slot, 1)
     h.assertTrue(data.items['1'] == nil, 'the string key does not survive')
+    h.assertEqual(data.phone, '5551234', 'legacy charinfo phone survives a NULL scalar column')
 
     -- An empty inventory persists as '[]', which must stay an empty map.
     handle.sqlResponses.single[sql].inventory = '[]'
