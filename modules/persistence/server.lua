@@ -230,6 +230,25 @@ function Core.persistence._load(citizenid)
         end
         return out
     end
+    -- CoreInternal.player.buildJob puts `type` (leo/ems/civ/...) on the job
+    -- sub-table, but a character row written before that field existed has no
+    -- `type` key -- and the job blob is restored verbatim, never rebuilt. Every
+    -- `job.type == 'leo'` gate in a legacy resource, and Core.jobs' job-type
+    -- index, would therefore be wrong for existing characters until something
+    -- happened to reassign their job. Backfilled from the registry on load, in
+    -- the same "retain the old row, normalise on read" spirit as the phone
+    -- fallback below. A job no longer in the registry falls back to 'none'
+    -- rather than being dropped, so the character still loads.
+    local function decodeJob(s)
+        local job = dec(s, {})
+        if type(job) ~= 'table' then return {} end
+        if job.type == nil and job.name then
+            local def = Core.registry.getShared('jobs', job.name)
+            job.type = (def and def.type) or 'none'
+        end
+        return job
+    end
+
     return {
         citizenid = row.citizenid,
         license = row.license,
@@ -237,7 +256,7 @@ function Core.persistence._load(citizenid)
         name = row.name,
         money = dec(row.money, {}),
         charinfo = charinfo,
-        job = dec(row.job, {}),
+        job = decodeJob(row.job),
         gang = dec(row.gang, {}),
         position = dec(row.position, { x = 0, y = 0, z = 70, h = 0 }),
         metadata = dec(row.metadata, {}),

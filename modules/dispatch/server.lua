@@ -56,6 +56,17 @@ function Core.dispatch.alert(payload)
         count = count + 1
     end
 
+    -- Server-side mirror of the same alert, for a resource that OWNS the
+    -- presentation of dispatch (a dispatch/MDT UI) rather than merely receiving
+    -- one alert as a recipient. Such a resource cannot use the client push
+    -- above: it reaches every recipient, so each of their clients would ask the
+    -- server to record the same incident, once per recipient. One server-side
+    -- event fires exactly once per alert, which is what a call log needs.
+    --
+    -- Fired unconditionally and after the fan-out, so a listener that errors
+    -- cannot stop recipients being notified.
+    TriggerEvent('qbcore:server:dispatchAlert', payload, count)
+
     if Config.dispatch.legacyEvents then
         for _, jobName in ipairs(payload.jobs) do
             local legacy = LEGACY_JOB_EVENTS[jobName]

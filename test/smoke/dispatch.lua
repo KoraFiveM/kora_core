@@ -76,6 +76,23 @@ h.test('legacy events are suppressed when Config.dispatch.legacyEvents is false'
     Config.dispatch.legacyEvents = true
 end)
 
+h.test('a server-side mirror event fires exactly once per alert', function()
+    -- A dispatch UI resource records calls off this event. Firing it per
+    -- recipient (as the client push does) would log the same incident once for
+    -- every officer on duty.
+    local seen = {}
+    handle.eventHandlers['qbcore:server:dispatchAlert'] = handle.eventHandlers['qbcore:server:dispatchAlert'] or {}
+    table.insert(handle.eventHandlers['qbcore:server:dispatchAlert'], function(payload, count)
+        seen[#seen + 1] = { payload = payload, count = count }
+    end)
+
+    Core.dispatch.alert({ jobs = { 'police', 'ambulance' }, message = 'mirror check' })
+
+    h.assertEqual(#seen, 1, 'exactly one mirror event, not one per recipient')
+    h.assertEqual(seen[1].payload.message, 'mirror check', 'the payload should be forwarded intact')
+    h.assertEqual(seen[1].count, 2, 'the recipient count should ride along')
+end)
+
 h.test('alert requires a non-empty jobs array', function()
     local ok = pcall(Core.dispatch.alert, { jobs = {} })
     h.assertFalse(ok, 'an empty jobs array should be rejected')

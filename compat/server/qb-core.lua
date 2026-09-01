@@ -53,7 +53,18 @@ local function buildQBPlayer(src)
     function F.SetJob(name, grade) return Core.jobs.setJob(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetGang(name, grade) return Core.jobs.setGang(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetJobDuty(onDuty) return Core.jobs.setJobDuty(src, onDuty) end
-    function F.SetJobData(k, v) return Core.player.setPath(src, { 'job', k }, v) end
+    -- 'onduty' is routed through Core.jobs.setJobDuty rather than written
+    -- straight to the path: duty is indexed (byJobOnDuty / byTypeOnDuty), and a
+    -- raw setPath flips the value while leaving the index stale -- that player
+    -- then silently receives no dispatch alerts and counts as off duty
+    -- everywhere. Core.jobs also has an onChange reconciler covering direct
+    -- writes, but going through the real function keeps the duty EVENTS
+    -- (QBCore:Server:SetDuty / QBCore:Client:SetDuty) firing too, which the
+    -- reconciler cannot retrofit.
+    function F.SetJobData(k, v)
+        if k == 'onduty' then return Core.jobs.setJobDuty(src, v and true or false) end
+        return Core.player.setPath(src, { 'job', k }, v)
+    end
     function F.SetGangData(k, v) return Core.player.setPath(src, { 'gang', k }, v) end
 
     function F.AddMoney(t, amount, reason) return Core.money.addMoney(src, t, amount, reason) end
@@ -588,6 +599,14 @@ end
 -- Job/duty helpers -- iterate the live QBCore.Players map exactly as upstream,
 -- so the (players, count) return shape and the job.name/job.type match are
 -- byte-for-byte compatible.
+--
+-- The `jd.type == job` arm is live: CoreInternal.player.buildJob copies the
+-- registry's job type onto PlayerData.job, and toLegacyJobOrGang shallow-copies
+-- it into this legacy view. (It was dead until that change -- the type was
+-- registry-only, so passing 'leo' here matched nothing.) The modern equivalent
+-- with an O(1) index is Core.jobs.getPlayersByJobType; this scan is kept
+-- because upstream's shape allows a caller to pass either a name or a type in
+-- the same argument and the two can't be told apart here.
 function F.GetPlayersByJob(job, checkOnDuty)
     local players, count = {}, 0
     for src, Player in pairs(QBCore.Players) do

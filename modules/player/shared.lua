@@ -71,6 +71,20 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
 end
 
 -- Compose a job sub-table from the registry definition + a grade.
+--
+-- `type` IS copied here (defaulting to 'none'), unlike `blip` and the rest of
+-- the registry record. It has to be: real qb-core puts a job type on
+-- PlayerData.job, and both qb-policejob and qb-ambulancejob gate roughly thirty
+-- call sites on `Player.PlayerData.job.type == 'leo'` / `== 'ems'`. Without it
+-- every one of those checks is silently false and those resources simply don't
+-- work -- as was `compat/server/qb-core.lua`'s own `jd.type == job` branch in
+-- GetPlayersByJob. It is also what Core.jobs' job-type index and any dispatch
+-- system key off, so a per-consumer registry lookup would mean re-deriving the
+-- same mapping in every caller.
+--
+-- `blip` deliberately stays registry-only: nothing reads it off PlayerData, and
+-- copying a nested table into the persisted job blob for no reader would just
+-- widen the column.
 ---@param name string
 ---@param grade integer
 ---@return table
@@ -78,13 +92,14 @@ function CoreInternal.player.buildJob(name, grade)
     grade = math.max(1, math.floor(tonumber(grade) or 1))
     local def = Core.registry.getShared('jobs', name)
     if not def then
-        return { name = name, label = name, onduty = true, isboss = false,
+        return { name = name, label = name, type = 'none', onduty = true, isboss = false,
                  payment = 0, grade = { name = 'Unknown', level = grade } }
     end
     local g = def.grades and (def.grades[grade] or def.grades[1]) or { name = 'Grade', payment = 0 }
     return {
         name = def.name,
         label = def.label,
+        type = def.type or 'none',
         payment = g.payment or 0,
         onduty = def.defaultDuty ~= false,
         isboss = g.isboss or false,
