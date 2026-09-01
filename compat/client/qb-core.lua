@@ -103,22 +103,17 @@ RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
     end
 end)
 
--- Real QBCore's TriggerCallback (client->server) forwards EVERY value the
--- server handler returned to `cb`, not just the first -- qblib's
--- QB.callback.trigger (called here cross-resource, qbcore -> qblib) now
--- supports that end to end, so table.pack/unpack is all that's needed to match
--- it faithfully. Arg shape matches real: (name, cb, ...).
+-- Use qb-core's native callback wire for legacy callers. Routing this through
+-- qblib's promise-valued export makes a callback timeout surface as an export
+-- exception before the legacy callback can receive its normal nil result.
+-- Arg shape matches real: (name, cb, ...).
 --
 -- ALSO stores into QBCore.ServerCallbacks[name], matching upstream's own
--- side effect of TriggerCallback, so a script that pokes ServerCallbacks
--- directly (or a raw QBCore:Client:TriggerCallback reply -- see below) can
--- still find it. This is purely additive: the qblib round trip above is what
--- normally answers `cb`, since this function never fires the raw
--- QBCore:Server:TriggerCallback event itself.
+-- side effect of TriggerCallback, so a raw reply (or a script that pokes
+-- ServerCallbacks directly) finds the expected handler.
 function F.TriggerCallback(name, cb, ...)
     if cb then QBCore.ServerCallbacks[name] = cb end
-    local results = table.pack(QB.callback.trigger(name, ...))
-    if cb then cb(table.unpack(results, 1, results.n)) end
+    TriggerServerEvent('QBCore:Server:TriggerCallback', name, ...)
 end
 
 -- Raw wire, client->server REPLY leg: a legacy script that fired

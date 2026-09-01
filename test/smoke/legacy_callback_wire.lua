@@ -167,16 +167,21 @@ end)
 h.test('client->server: TriggerCallback populates QBCore.ServerCallbacks and the raw-wire reply invokes it', function()
     local lastSeen
     QBCore.Functions.TriggerCallback('test:z', function(v) lastSeen = v end, 5)
-    h.assertTrue(QBCore.ServerCallbacks['test:z'] ~= nil or lastSeen ~= nil,
-        'TriggerCallback must store into ServerCallbacks (or have already consumed it synchronously)')
+    h.assertTrue(QBCore.ServerCallbacks['test:z'] ~= nil,
+        'TriggerCallback must store into ServerCallbacks until the server replies')
 
-    -- Simulate the server's raw-wire reply arriving directly (as it would for
-    -- a script that skipped our TriggerCallback and fired the raw event
-    -- itself, or as a defensive fallback for ours). QB.callback.trigger's
-    -- mock resolves synchronously with nil the moment TriggerCallback is
-    -- called above -- that is a mock artifact of the qblib round trip, not
-    -- the wire protocol under test here -- so this assertion only cares
-    -- about the value `cb` holds AFTER the raw-wire reply, not call count.
+    local request
+    for i = #handle.serverEvents, 1, -1 do
+        if handle.serverEvents[i].name == 'QBCore:Server:TriggerCallback' then
+            request = handle.serverEvents[i]
+            break
+        end
+    end
+    h.assertTrue(request ~= nil, 'TriggerCallback must use the legacy server wire')
+    h.assertEqual(request.args[1], 'test:z')
+    h.assertEqual(request.args[2], 5)
+
+    -- Simulate the server's raw-wire reply arriving directly.
     handle.fireEvent('QBCore:Client:TriggerCallback', nil, 'test:z', 99)
     h.assertEqual(lastSeen, 99, 'the raw-wire reply must invoke the stored callback with its value')
     h.assertTrue(QBCore.ServerCallbacks['test:z'] == nil, 'the entry must be cleared after use')
