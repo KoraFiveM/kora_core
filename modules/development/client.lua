@@ -35,6 +35,10 @@ function Core.development._tick()
     -- from another client script.
     SetEntityInvincible(ped, true)
     SetPedMoveRateOverride(ped, walkSpeed)
+
+    -- Refilling every frame keeps stamina pinned at full; there is nothing to
+    -- restore on disable because normal drain resumes as soon as this stops.
+    RestorePlayerStamina(QB.cache.playerId(), 1.0)
 end
 
 local function restoreOwnedState()

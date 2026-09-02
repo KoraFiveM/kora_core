@@ -364,4 +364,29 @@ h.test('QBCore:Server:OnPlayerUpdated with an unrelated key is a no-op', functio
     h.assertFalse(fired, 'only key == nil/"all" should fan out')
 end)
 
+h.test('QBCore.Functions.GetPermission returns an upstream-shaped permission set', function()
+    -- Legacy scripts index the result by permission name
+    -- (`if permissions['admin'] then`), so it must stay a table even for a
+    -- player with no grants -- never the single level string our native
+    -- Core.permissions.getPermission returns.
+    local none = QBCore.Functions.GetPermission(1)
+    h.assertTrue(type(none) == 'table', 'GetPermission must always return a table')
+    h.assertFalse(none.admin, 'an ungranted player holds no permissions')
+
+    handle.setAce(1, 'group.admin', true)
+    local perms = QBCore.Functions.GetPermission(1)
+    h.assertTrue(perms.admin, 'a granted group must be keyed true')
+    h.assertFalse(perms.god, 'ungranted groups must be absent, not inherited')
+    h.assertEqual(Core.permissions.getPermission(1), 'admin', 'the native API still reports the highest level as a string')
+    handle.setAce(1, 'group.admin', nil)
+end)
+
+h.test('QBCore.Functions.HasPermission accepts a permission array', function()
+    handle.setAce(1, 'group.god', true)
+    h.assertTrue(QBCore.Functions.HasPermission(1, { 'admin', 'god' }), 'any match in the array passes')
+    h.assertFalse(QBCore.Functions.HasPermission(1, { 'admin', 'mod' }), 'no match fails')
+    h.assertTrue(QBCore.Functions.HasPermission(1, 'god'), 'the string form still works')
+    handle.setAce(1, 'group.god', nil)
+end)
+
 h.report('compat')

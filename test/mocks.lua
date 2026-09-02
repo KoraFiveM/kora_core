@@ -259,6 +259,29 @@ function M.install(opts)
             return out
         end,
     }
+    -- QB.permissions -- a minimal but REAL implementation over the ace mock
+    -- above, mirroring qblib/modules/permissions/server.lua's namespaces:
+    -- getLevel checks <prefix>.<level> and group.<level>, hasPermission also
+    -- honours command.<permission>, and 'user' is the unconditional floor.
+    -- Discord role grants are out of scope here (no QB.discord under test).
+    local function aceAllows(src, permission, prefix, includeCommand)
+        return (prefix ~= nil and IsPlayerAceAllowed(src, prefix .. '.' .. permission))
+            or IsPlayerAceAllowed(src, 'group.' .. permission)
+            or (includeCommand and IsPlayerAceAllowed(src, 'command.' .. permission))
+            or false
+    end
+    QB.permissions = {
+        getLevel = function(src, levels, prefix)
+            for _, level in ipairs(levels) do
+                if level == 'user' or aceAllows(src, level, prefix, false) then return level end
+            end
+            return 'user'
+        end,
+        hasPermission = function(src, permission, prefix)
+            if permission == 'user' then return true end
+            return aceAllows(src, permission, prefix, true)
+        end,
+    }
     QB.status = { apply = function() return true end, remove = function() return true end }
     QB.zones = { sphere = function() return { remove = function() end } end }
 

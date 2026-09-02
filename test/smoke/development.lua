@@ -60,11 +60,16 @@ local currentPed = 41
 local exists = { [41] = true, [52] = true }
 local invincible = {}
 local moveRate = {}
+local staminaRestores = {}
 
 QB.cache.ped = function() return currentPed end
+QB.cache.playerId = function() return 7 end
 _G.DoesEntityExist = function(ped) return exists[ped] == true end
 _G.SetEntityInvincible = function(ped, state) invincible[ped] = state end
 _G.SetPedMoveRateOverride = function(ped, rate) moveRate[ped] = rate end
+_G.RestorePlayerStamina = function(playerId, amount)
+    table.insert(staminaRestores, { playerId = playerId, amount = amount })
+end
 
 dofile('modules/development/client.lua')
 
@@ -75,6 +80,9 @@ h.test('client activation applies god mode and the configured fast walk rate', f
     h.assertTrue(Core.development.isDevMode())
     h.assertTrue(invincible[41], 'current ped should be invincible')
     h.assertEqual(moveRate[41], Config.development.walkSpeed)
+    h.assertTrue(#staminaRestores > 0, 'stamina should be refilled while active')
+    h.assertEqual(staminaRestores[#staminaRestores].playerId, 7)
+    h.assertEqual(staminaRestores[#staminaRestores].amount, 1.0)
 end)
 
 h.test('a replacement ped is protected and the previous ped is restored', function()
@@ -89,7 +97,9 @@ end)
 
 h.test('client deactivation restores the active ped', function()
     TriggerEvent('qbcore:client:setDevMode', false)
+    local restoresBefore = #staminaRestores
     Core.development._tick()
+    h.assertEqual(#staminaRestores, restoresBefore, 'stamina refill should stop when disabled')
 
     h.assertFalse(Core.development.isDevMode())
     h.assertFalse(invincible[52], 'active ped invincibility should be restored')

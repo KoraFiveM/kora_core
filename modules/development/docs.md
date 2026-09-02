@@ -11,6 +11,7 @@ exports.qbcore:setDevMode(source, false)
 
 For that player while enabled:
 - the local player ped is invincible;
+- stamina is refilled every frame, so sprinting never drains it;
 - passive hunger and thirst decay does not start or tick;
 - zero-value hunger/thirst updates do not apply needs damage; and
 - walking uses `Config.development.walkSpeed` every frame (`1.75` by default).

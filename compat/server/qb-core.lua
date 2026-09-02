@@ -517,8 +517,29 @@ function F.CanUseItem(name) return Core.registry.getShared('items', name) ~= nil
 function F.UseItem(src, item) return Core.inventory.useItem(src, type(item) == 'table' and item.name or item) end
 
 -- Permissions / admin.
-function F.HasPermission(src, perm) return Core.permissions.hasPermission(src, perm) end
-function F.GetPermission(src) return Core.permissions.getPermission(src) end
+-- Upstream HasPermission takes a permission name *or* an array of them (any
+-- match passes); our native one is single-permission only.
+function F.HasPermission(src, perm)
+    if type(perm) == 'table' then
+        for _, v in pairs(perm) do
+            if Core.permissions.hasPermission(src, v) then return true end
+        end
+        return false
+    end
+    return Core.permissions.hasPermission(src, perm)
+end
+
+-- Upstream GetPermission returns a SET of every configured permission group the
+-- player holds ({ god = true, admin = true }), which callers index by name --
+-- not the single highest level our native Core.permissions.getPermission
+-- reports. Built from HasPermission so perms[x] and HasPermission(x) agree.
+function F.GetPermission(src)
+    local perms = {}
+    for _, v in pairs(QBCore.Config.Server.Permissions) do
+        if Core.permissions.hasPermission(src, v) then perms[v] = true end
+    end
+    return perms
+end
 function F.AddPermission(src, perm) return Core.permissions.addPermission(src, perm) end
 function F.IsOptin(src) return Core.permissions.isOptin(src) end
 -- Full upstream signature: supports the connect-phase setKickReason/deferrals
