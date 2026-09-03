@@ -127,14 +127,28 @@ exports.qbcore:offPlayerDataChange(id)
 
 ### Money
 ```lua
-exports.qbcore:addMoney(src, account, amount, reason)     -- true | false, err
-exports.qbcore:removeMoney(src, account, amount, reason)
-exports.qbcore:setMoney(src, account, amount, reason)
+exports.qbcore:addMoney(src, account, amount, reason, ignoreTax)  -- true | false, err
+exports.qbcore:removeMoney(src, account, amount, reason, ignoreTax)
+exports.qbcore:setMoney(src, account, amount, reason)             -- never taxed
 exports.qbcore:getMoney(src, account)
-exports.qbcore:transferMoney(fromSrc, toSrc, account, amount, reason)
+exports.qbcore:transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
 ```
 Accounts: `cash`, `bank`, `crypto` (`Config.money.types`). `bank` may go negative
 to `Config.money.minusLimit`.
+
+**Transaction tax** (`Config.money.tax`, off by default) diverts a percentage of
+each transaction into a banking account — `government` on `qb-banking` by
+default. The tax is carved *out* of the amount rather than added on top, so a
+`removeMoney(src, 'bank', 100)` still costs the player exactly 100 and no
+existing shop or job resource needs re-auditing. Pass `ignoreTax = true` for
+movements that are not economic activity (refunds, admin grants, a player's own
+ATM deposit). A banking outage lets the transaction through untaxed rather than
+failing it.
+
+```lua
+exports.qbcore:calculateTax(price, 'bank', 'remove')  -- for a tax-inclusive UI
+exports.qbcore:collectTax(500, 'court fine')          -- an off-path levy; yields
+```
 
 ### Jobs / gangs
 ```lua
@@ -266,9 +280,11 @@ and drives `exports.qbcore:getCharacters/selectCharacter/deleteCharacter` (or th
 ## Config highlights (`config.lua`)
 
 `Config.persistence.interval` (60s save window), `Config.money.types/default`,
-`Config.inventory.maxWeight/slots`, `Config.compat.fireLegacyPlayerDataEvent`
-(default true), `Config.persistence.generatedColumns` (opt into SQL-queryable
-cash/bank/job virtual columns).
+`Config.money.tax` (transaction tax into a government banking account; off by
+default), `Config.inventory.maxWeight/slots`,
+`Config.compat.fireLegacyPlayerDataEvent` (default true),
+`Config.persistence.generatedColumns` (opt into SQL-queryable cash/bank/job
+virtual columns).
 
 ## Related resources
 

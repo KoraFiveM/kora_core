@@ -93,4 +93,82 @@ h.test('money APIs delegate add remove set and transfer', function()
         h.assertTrue(money:find(name, 1, true) ~= nil)
     end
 end)
+
+-- --- transaction tax over the physical-cash path ---
+-- Same carve-out rules as the ledger path, but every leg goes through the
+-- provider, so the tax leg and the net leg are separate provider calls.
+local bank = { accounts = {}, ok = true }
+exports['qb-banking'] = {
+    GetAccount = function(_, name) return bank.accounts[name] end,
+    CreateJobAccount = function(_, name, balance)
+        bank.accounts[name] = { account_balance = balance or 0 }
+        return 1
+    end,
+    AddMoney = function(_, name, amount)
+        if not bank.ok or not bank.accounts[name] then return false end
+        bank.accounts[name].account_balance = bank.accounts[name].account_balance + amount
+        return 1
+    end,
+}
+handle.resourceStates['qb-banking'] = 'started'
+Config.money.tax.enabled = true
+Config.money.tax.accounts.cash = true
+
+-- Capture only the threads created from here on: handle.step() would also
+-- resume persistence's flush loop, which never terminates under a Wait() that
+-- does not yield (see modules/paycheck/server.lua's note).
+local pendingThreads = {}
+_G.CreateThread = function(fn) pendingThreads[#pendingThreads + 1] = fn end
+local function settle()
+    local queued = pendingThreads
+    pendingThreads = {}
+    for _, fn in ipairs(queued) do fn() end
+end
+local function govBalance() return (bank.accounts.government or {}).account_balance or 0 end
+
+h.test('physical addMoney credits the net and banks the tax', function()
+    physical[1] = 0
+    h.assertTrue(Core.money.addMoney(1, 'cash', 100, 'paycheck'))
+    h.assertEqual(Core.money.getMoney(1, 'cash'), 95, 'item stack holds amount - tax')
+    settle()
+    h.assertEqual(govBalance(), 5)
+end)
+h.test('physical removeMoney takes the full amount from the stack', function()
+    physical[1] = 1000
+    local before = govBalance()
+    h.assertTrue(Core.money.removeMoney(1, 'cash', 100, 'shop'))
+    h.assertEqual(Core.money.getMoney(1, 'cash'), 900)
+    settle()
+    h.assertEqual(govBalance(), before + 5)
+end)
+h.test('physical transferMoney costs the sender the gross and pays the net', function()
+    physical[1] = 1000; physical[2] = 0
+    local before = govBalance()
+    h.assertTrue(Core.money.transferMoney(1, 2, 'cash', 200, 'transfer'))
+    h.assertEqual(Core.money.getMoney(1, 'cash'), 800, 'sender pays the gross')
+    h.assertEqual(Core.money.getMoney(2, 'cash'), 190, 'recipient receives the net')
+    settle()
+    h.assertEqual(govBalance(), before + 10)
+end)
+h.test('a physical transfer that fails mid-way returns the tax leg to the sender', function()
+    -- 200 is affordable but the provider refuses the 190 move: the 10 already
+    -- taken for tax must come back, leaving the sender exactly where they were.
+    physical[1] = 200; physical[2] = 0
+    local realTransfer = exports.qbinventory.physicalCashTransfer
+    exports.qbinventory.physicalCashTransfer = function() return false, 'provider said no' end
+    local ok, err = Core.money.transferMoney(1, 2, 'cash', 200, 'transfer')
+    exports.qbinventory.physicalCashTransfer = realTransfer
+    h.assertFalse(ok); h.assertEqual(err, 'provider said no')
+    h.assertEqual(physical[1], 200, 'sender is fully restored')
+    h.assertEqual(physical[2], 0)
+end)
+h.test('physical ignoreTax moves the whole amount', function()
+    physical[1] = 1000; physical[2] = 0
+    local before = govBalance()
+    h.assertTrue(Core.money.transferMoney(1, 2, 'cash', 200, 'transfer', true))
+    settle()
+    h.assertEqual(physical[1], 800); h.assertEqual(physical[2], 200)
+    h.assertEqual(govBalance(), before)
+end)
+
 h.report('physical_cash')

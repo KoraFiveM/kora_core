@@ -67,8 +67,11 @@ local function buildQBPlayer(src)
     end
     function F.SetGangData(k, v) return Core.player.setPath(src, { 'gang', k }, v) end
 
-    function F.AddMoney(t, amount, reason) return Core.money.addMoney(src, t, amount, reason) end
-    function F.RemoveMoney(t, amount, reason) return Core.money.removeMoney(src, t, amount, reason) end
+    -- `ignoreTax` is a qbcore addition past stock qb-core's 3-arg signature, so
+    -- an unported resource simply passes nil and is taxed like any other
+    -- transaction. SetMoney has no such param: it is never taxed.
+    function F.AddMoney(t, amount, reason, ignoreTax) return Core.money.addMoney(src, t, amount, reason, ignoreTax) end
+    function F.RemoveMoney(t, amount, reason, ignoreTax) return Core.money.removeMoney(src, t, amount, reason, ignoreTax) end
     function F.SetMoney(t, amount, reason) return Core.money.setMoney(src, t, amount, reason) end
     function F.GetMoney(t) return Core.money.getMoney(src, t) end
 

@@ -26,6 +26,22 @@ Config.money = {
     cashType = 'cash',               -- which account the physical `cash` item / paycheck touches
     allowNegative = { bank = true }, -- accounts permitted to go below zero
     minusLimit = -50000,             -- floor for accounts that allow negative balances
+
+    -- Transaction tax. A percentage of every taxable transaction is carved out
+    -- of the amount and deposited into a banking account (the "government"),
+    -- never added on top -- see modules/money/AGENTS.md for the exact model and
+    -- why that direction was chosen. Pass `ignoreTax = true` as the last
+    -- argument to addMoney/removeMoney/transferMoney to exempt one call.
+    tax = {
+        enabled = false,             -- master switch; OFF so an existing economy is unchanged until a server opts in
+        rate = 0.05,                 -- fraction of each taxable transaction diverted to the government (0.05 = 5%)
+        account = 'government',      -- banking account name the collected tax is deposited into
+        provider = 'qb-banking',     -- resource holding that account; while it is not running transactions go through UNTAXED (money is never destroyed)
+        autoCreateAccount = true,    -- create `account` through the provider the first time tax is collected
+        exports = { add = 'AddMoney', get = 'GetAccount', create = 'CreateJobAccount' }, -- provider export names, so a non-qb-banking bank can be pointed at
+        accounts = { cash = true, bank = true, crypto = false }, -- which Config.money.types are taxable; an account absent here is never taxed
+        actions = { add = true, remove = true, transfer = true }, -- taxable operations; setMoney is NEVER taxed (absolute assignment, not a transaction)
+    },
 }
 
 Config.inventory = {
