@@ -45,11 +45,27 @@ QBCoreSeed.jobs = {
         },
     },
     {
-        name = 'mechanic', label = 'Mechanic', defaultDuty = false, offDutyPay = false, type = 'civ',
+        name = 'mechanic', label = 'Mechanic', defaultDuty = false, offDutyPay = false, type = 'automotive',
         grades = {
             { name = 'Apprentice', payment = 40 },
             { name = 'Mechanic',   payment = 60 },
             { name = 'Boss',       payment = 100, isboss = true },
+        },
+    },
+    {
+        name = 'roadside', label = 'Roadside Assistance', defaultDuty = false, offDutyPay = false, type = 'automotive',
+        grades = {
+            { name = 'Responder', payment = 40 },
+            { name = 'Technician', payment = 60 },
+            { name = 'Supervisor', payment = 90, isboss = true },
+        },
+    },
+    {
+        name = 'bodyshop', label = 'Bodyshop', defaultDuty = false, offDutyPay = false, type = 'bodyshop',
+        grades = {
+            { name = 'Detailer', payment = 40 },
+            { name = 'Painter', payment = 60 },
+            { name = 'Owner', payment = 90, isboss = true },
         },
     },
     -- 'recovery' is a deliberate third service type alongside leo/ems: it is
