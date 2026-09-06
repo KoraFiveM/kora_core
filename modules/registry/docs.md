@@ -1,7 +1,7 @@
 # Registry module
 
 ## Overview
-The shared-lists engine behind `items`, `vehicles`, `jobs`, `gangs`, `weapons`, and `locations`. Each named registry keeps a dense insertion-ordered array, a key→position index, and a **materialised** key→record table that *is* the legacy `QBCore.Shared.*` table (`QBCore.Shared.Items`, etc.) — so legacy code reads it as a plain table lookup with zero network cost. The server is authoritative; clients mirror it over a delta/snapshot protocol. All functions are defined on `Core.registry` and exported flat as `exports.qbcore:<fn>`.
+The shared-lists engine behind `items`, `vehicles`, `jobs`, `gangs`, `weapons`, and `locations`. Each named registry keeps a dense insertion-ordered array plus a key→position index. The server is authoritative; clients mirror it over a delta/snapshot protocol. Modern code always reads records through getters. Legacy `QBCore.Shared.*` indexed tables are live compatibility views, not registry storage. All functions are defined on `Core.registry` and exported flat as `exports.qbcore:<fn>`.
 
 The registry names and their key fields:
 
@@ -17,7 +17,7 @@ The registry names and their key fields:
 ## API
 
 ### `Core.registry.getShared(name, key)` — shared
-Returns the record for `key` in registry `name`, or `nil`. This reads the materialised table — a plain hash lookup.
+Returns the record for `key` in registry `name`, or `nil`. This is a local index lookup; it does not cross the network.
 
 #### Parameters
 - `name: string` — Registry name (`'items'`, `'jobs'`, …).
@@ -32,7 +32,7 @@ local water = exports.qbcore:getShared('items', 'water')
 ```
 
 ### `Core.registry.allShared(name)` — shared
-Returns the **live** dense array of records for `name`. Do not mutate it. Iteration order is insertion order, but is **not stable across removals** (see Notes).
+Returns the **live** dense array of records for `name`. Do not mutate it. Fetch it when constructing each UI/admin list rather than caching a derived list. Its table reference survives full resyncs, but iteration order is **not stable across removals** (see Notes).
 
 #### Parameters
 - `name: string`
@@ -126,9 +126,10 @@ Removes a subscription by the id `onSharedChange` returned.
 Client-side registration is **not supported** — the server owns the registries. The client stub logs a warning and returns `false, 'client-side registration is not supported'`.
 
 ## Notes
-- **`QBCore.Shared.Items` (and friends) is the materialised table.** Legacy code that does `local Items = QBCore.Shared.Items` captures it by reference; the module therefore clears it *in place* on reseed and never reassigns it.
+- **Getter-first.** New code must call `getShared(name, key)` for individual records and `allShared(name)` whenever it constructs a list. Do not index or capture `QBCore.Shared.Jobs`, `Items`, and friends; those maps exist only for unchanged legacy resources.
+- **Compatibility views remain live.** The legacy maps are rebuilt in place after runtime mutations and resyncs, so old resources keep working without defining the modern contract.
 - **Reads are free.** `getShared`/`QBCore.Shared.*` are plain table lookups on the mirror; there is no per-read network round trip on either realm.
 - **Removal is O(1) via swap-remove, which reorders the array.** The removed slot is backfilled with the last element and its index fixed up, so `allShared(name)` iteration order changes after any removal. Never assume a stable index into the list across removals; key off `record[keyField]`.
 - **Epoch + resync.** Each registry carries an `epoch`. A full reseed bumps it. If a client receives a delta whose epoch doesn't match its own (and the action isn't a `remove`), the mirror is assumed stale and the client pulls a fresh snapshot instead of applying the delta onto stale data.
 - **Two broadcast channels.** The server emits each delta as both a local `TriggerEvent` (reaching every other server resource's mirror) and a `TriggerClientEvent(-1)` (reaching every client).
-- **Seed data is applied without broadcasting** at boot, so epochs start clean at `0` with the seeds already present.
+- **Default data uses runtime registration** at boot, through the same validation/change/replication funnel as records added later by other resources.

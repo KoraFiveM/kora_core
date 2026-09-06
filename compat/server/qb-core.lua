@@ -196,11 +196,10 @@ local function buildOfflinePlayer(data)
 
     local function setRole(kind, name, grade)
         name = type(name) == 'string' and name:lower() or name
-        local shared = kind == 'job' and QBCore.Shared.Jobs or QBCore.Shared.Gangs
-        local definition = shared[name]
+        local definition = Core.registry.getShared(kind == 'job' and 'jobs' or 'gangs', name)
         if not definition then return false end
         local level = math.max(math.floor(tonumber(grade) or 0), 0)
-        local gradeInfo = definition.grades[tostring(level)]
+        local gradeInfo = definition.grades[level + 1]
         local role = {
             name = name, label = definition.label, isboss = gradeInfo and gradeInfo.isboss or false,
             grade = {
@@ -1014,7 +1013,7 @@ function F.RemoveGang(name) return sharedRemove('gang', name) end
 
 -- GetShared is a top-level export in real qb-core (shared/main.lua), not a
 -- Functions entry. It reads QBCore.Shared[namespace], which our coreobject.lua
--- metatable resolves to the live materialised registry table -- so this body is
+-- metatable resolves to a live compatibility view -- so this body is
 -- identical to upstream's, except for the canonical-casing fallback (see
 -- Core.compat.canonicalSharedNamespace's comment -- real-world legacy scripts
 -- don't reliably call this with PascalCase, e.g. qb-recyclejob's GetShared('items')).
@@ -1050,10 +1049,10 @@ end
 
 local function validateLegacyRole(data, key)
     local role = data[key]
-    local shared = key == 'job' and QBCore.Shared.Jobs or QBCore.Shared.Gangs
-    local definition = role and role.name and shared[role.name]
+    local definition = role and role.name
+        and Core.registry.getShared(key == 'job' and 'jobs' or 'gangs', role.name)
     local level = role and role.grade and role.grade.level
-    local grade = definition and level ~= nil and definition.grades[tostring(level)]
+    local grade = definition and level ~= nil and definition.grades[(tonumber(level) or 0) + 1]
     if not grade then data[key] = nil; return end
 
     role.label = definition.label

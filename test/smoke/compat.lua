@@ -104,7 +104,7 @@ end)
 
 h.test('QBCore.Shared.* helpers and data tables resolve', function()
     assertCallableFields(QBCore.Shared, { 'Round', 'Trim', 'SplitStr', 'RandomStr', 'RandomInt' }, 'QBCore.Shared')
-    -- Data tables resolve lazily via the metatable to the materialised registries.
+    -- Data tables resolve lazily via the metatable to live compatibility views.
     h.assertTrue(QBCore.Shared.Items ~= nil, 'Shared.Items resolves')
     h.assertTrue(QBCore.Shared.Items.water_bottle ~= nil, 'Shared.Items has a seed item')
     h.assertTrue(QBCore.Shared.Jobs ~= nil and QBCore.Shared.Jobs.police ~= nil, 'Shared.Jobs resolves')
@@ -162,15 +162,18 @@ h.test('QBCore.Shared.ChangeVehicleExtra/SetDefaultVehicleExtras are NOT defined
     h.assertTrue(QBCore.Shared.SetDefaultVehicleExtras == nil, 'SetDefaultVehicleExtras must not exist server-side')
 end)
 
-h.test('QBCore.Shared.Locations resolves to the same materialised registry allShared sees', function()
+h.test('QBCore.Shared.Locations is a live legacy view over the getter-backed registry', function()
     local viaShared = QBCore.Shared.Locations
     h.assertTrue(viaShared ~= nil, 'Shared.Locations must resolve')
     local viaRegistry = Core.registry.allShared('locations')
     h.assertTrue(#viaRegistry > 0, 'the locations registry must have seed records to compare against')
     local seedKey = viaRegistry[1].key
     h.assertTrue(viaShared[seedKey] ~= nil, 'Shared.Locations must contain the same record allShared returns')
-    h.assertEqual(viaShared[seedKey], CoreInternal.registry.registries.locations.materialised[seedKey],
-        'Shared.Locations must be the SAME table reference as the registry\'s materialised view, not a copy')
+    h.assertEqual(viaShared[seedKey], Core.registry.getShared('locations', seedKey),
+        'Shared.Locations must contain the record returned by the registry getter')
+    Core.registry.registerShared('locations', 'runtime_location', { key = 'runtime_location', label = 'Runtime' })
+    h.assertTrue(viaShared.runtime_location ~= nil,
+        'an already-captured legacy view must refresh when a record is registered at runtime')
 end)
 
 h.test('QBCore.Shared.VehicleHashes resolves a seeded vehicle by GetHashKey(model)', function()

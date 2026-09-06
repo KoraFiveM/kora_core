@@ -386,8 +386,8 @@ end)
 
 -- Shared table updates -------------------------------------------------------
 -- Real qb-core patches its in-VM QBCore.Shared tables from these events. In our
--- build QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are the MATERIALISED
--- registry tables (see compat/shared/coreobject.lua's metatable), and the
+-- build QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are live legacy views
+-- over getter-backed registries (see compat/shared/coreobject.lua), and the
 -- authoritative sync happens over qbcore:registry:delta -- the client registry
 -- is server-owned and has no local "set" API. So these stay thin, best-effort
 -- local patches for any resource that still broadcasts the legacy shared-update
@@ -416,8 +416,8 @@ end)
 -- ENTIRE QBCore.Shared table as one payload -- a full push at connect time, not
 -- an incremental delta. Upstream's own client handler for it just merges that
 -- payload into its plain QBCore.Shared global. We deliberately do NOT do that
--- here: QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are already the LIVE
--- materialised registry tables (compat/shared/coreobject.lua's metatable), kept
+-- here: QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are already LIVE
+-- compatibility views (compat/shared/coreobject.lua's metatable), kept
 -- current by the registry snapshot every joining client already requests
 -- (modules/registry/client.lua) -- overwriting them with a one-shot snapshot
 -- payload would be a stale, one-time regression, not an update. So this handler

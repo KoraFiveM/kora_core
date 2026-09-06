@@ -56,7 +56,7 @@ function Core.registry.registerShared(name, key, record)
             :format(r.keyField, tostring(record[r.keyField]), tostring(key))
     end
 
-    local previous = r.materialised[key]
+    local previous = Core.registry.getShared(name, key)
     local action = RI.apply(name, key, record)
 
     local owner = GetInvokingResource() or GetCurrentResourceName()
@@ -133,8 +133,9 @@ function Core.registry.offSharedChange(name, subId)
     if r then r.subscribers[subId] = nil end
 end
 
--- Ingest the seed data (loaded before this file via shared/*.lua). Applied
--- directly (no broadcast) so the epoch starts clean at 0 with the seeds present.
+-- Register the default data at runtime through the same public mutation funnel
+-- used by every other resource. This keeps defaults and later additions on one
+-- contract: validation, change notification, replication, and owner tracking.
 do
     QBCoreSeed = QBCoreSeed or {}
     local seeds = {
@@ -143,12 +144,7 @@ do
         weapons = QBCoreSeed.weapons, locations = QBCoreSeed.locations,
     }
     for name, records in pairs(seeds) do
-        if records then
-            local r = RI.registries[name]
-            for _, record in ipairs(records) do
-                RI.apply(name, record[r.keyField], record)
-            end
-        end
+        if records then Core.registry.registerManyShared(name, records) end
     end
 end
 

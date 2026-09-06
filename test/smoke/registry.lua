@@ -1,6 +1,6 @@
--- Registry smoke test: register/update/unregister, materialised-table sync
--- (including after a swap-remove), onChange dispatch, the resource-stop sweep,
--- and epoch-bump reseed. Server realm only.
+-- Registry smoke test: runtime default registration, register/update/unregister,
+-- indexed getter sync (including after a swap-remove), onChange dispatch, the
+-- resource-stop sweep, and epoch-bump reseed. Server realm only.
 
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
@@ -22,6 +22,16 @@ local RI = CoreInternal.registry
 h.test('seeds are ingested and readable via getShared', function()
     h.assertTrue(Core.registry.getShared('items', 'water_bottle') ~= nil, 'seed item missing')
     h.assertTrue(Core.registry.countShared('jobs') >= 3, 'seed jobs missing')
+end)
+
+h.test('defaults are registered through the runtime delta funnel', function()
+    local seen = {}
+    for _, event in ipairs(handle.clientEvents) do
+        if event.name == 'qbcore:registry:delta' then seen[event.args[1]] = true end
+    end
+    for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs' }) do
+        h.assertTrue(seen[name] == true, ('%s defaults did not emit runtime registration deltas'):format(name))
+    end
 end)
 
 h.test('seed job grades are one-based sequential arrays', function()
@@ -47,13 +57,12 @@ h.test('seed gang grades are one-based sequential arrays', function()
     end
 end)
 
-h.test('register adds to list, index, and the materialised Shared table', function()
+h.test('register adds to the list and indexed getter', function()
     local ok = Core.registry.registerShared('items', 'donut', { name = 'donut', label = 'Donut', weight = 100 })
     h.assertTrue(ok, 'register failed')
     h.assertEqual(Core.registry.getShared('items', 'donut').label, 'Donut')
-    -- materialised table is the QBCore.Shared.Items reference
-    local mat = RI.registries.items.materialised
-    h.assertEqual(mat.donut.weight, 100)
+    local pos = RI.registries.items.index.donut
+    h.assertEqual(RI.registries.items.list[pos].weight, 100)
 end)
 
 h.test('register with an existing key updates in place (action=update)', function()
@@ -64,7 +73,7 @@ h.test('register with an existing key updates in place (action=update)', functio
     h.assertEqual(actions[#actions], 'update')
 end)
 
-h.test('unregister swap-removes and keeps list/index/materialised consistent', function()
+h.test('unregister swap-removes and keeps list/index/getter consistent', function()
     -- Add two, remove the first, ensure the moved element's index is correct.
     Core.registry.registerShared('items', 'itemA', { name = 'itemA', label = 'A' })
     Core.registry.registerShared('items', 'itemB', { name = 'itemB', label = 'B' })
@@ -96,14 +105,14 @@ h.test('onChange fires with add/remove and the resource-stop sweep removes recor
     h.assertTrue(Core.registry.getShared('items', 'plugin_item') == nil, 'swept record should be gone')
 end)
 
-h.test('reseed clears the materialised table IN PLACE (stable reference)', function()
-    local matBefore = RI.registries.items.materialised
+h.test('reseed refreshes the allShared list IN PLACE (stable reference)', function()
+    local listBefore = Core.registry.allShared('items')
     RI.reseed('items', { { name = 'only', label = 'Only' } }, 5)
-    local matAfter = RI.registries.items.materialised
-    h.assertTrue(matBefore == matAfter, 'materialised table reference must be stable across reseed')
+    local listAfter = Core.registry.allShared('items')
+    h.assertTrue(listBefore == listAfter, 'allShared list reference must stay live across reseed')
     h.assertEqual(RI.registries.items.epoch, 5)
-    h.assertEqual(matAfter.only.label, 'Only')
-    h.assertTrue(matAfter.water_bottle == nil, 'old keys cleared')
+    h.assertEqual(listAfter[1].label, 'Only')
+    h.assertTrue(Core.registry.getShared('items', 'water_bottle') == nil, 'old keys cleared')
 end)
 
 h.report('registry')

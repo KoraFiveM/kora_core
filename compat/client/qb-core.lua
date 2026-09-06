@@ -1268,10 +1268,9 @@ Core.compat.populateLegacyConfig()
 -- hiding behind coreobject.lua's lazy __index would be absent from the copy.
 -- The client registries exist by now (RI.create in modules/registry/client.lua,
 -- loaded before this file) but may still be EMPTY until the async snapshot
--- arrives -- that's fine: Items/Vehicles/Weapons cache the registry's live
--- `materialised` tables (reseed clears them IN PLACE, references stay stable),
--- and the Jobs/Gangs legacy views re-fill via their 'qbcore:registry:synced'
--- refresh hook when the snapshot lands.
+-- arrives -- that's fine: every compatibility view re-fills via its
+-- 'qbcore:registry:synced' refresh hook when the snapshot lands, while keeping
+-- its table reference stable for unchanged legacy consumers.
 for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
     local _ = QBCore.Shared[k]
 end
@@ -1303,7 +1302,7 @@ end)
 -- server-side (compat/server/qb-core.lua), which is why a client script
 -- (@qb-recyclejob/client.lua) calling exports['qb-core']:GetShared('Items')
 -- got "No such export". Reads QBCore.Shared[namespace], which coreobject.lua's
--- metatable resolves to the live materialised registry table -- identical
+-- metatable resolves to a live compatibility view -- identical
 -- body to the server compat's copy, including the canonical-casing fallback
 -- (real-world legacy scripts don't reliably call this with PascalCase, e.g.
 -- qb-recyclejob's OWN client.lua calls GetShared('items')).

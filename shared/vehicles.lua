@@ -1,5 +1,5 @@
--- Seed vehicle definitions (spawn model + display + class + price). Shape aligns
--- with legacy QBCore.Shared.Vehicles entries (keyed by `model`/spawn name).
+-- Default vehicle definitions (spawn model + display + class + price). The
+-- server registry registers them at runtime, keyed by `model`/spawn name.
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.vehicles = {

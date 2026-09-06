@@ -61,9 +61,9 @@ under the mocks (see `test/`); it lists every exported name.
   `exports.qbcore:fn()`, so `GetInvokingResource()` inside resolves to the real
   external consumer — load-bearing for owner-tracked registrations (commands,
   useables, registry entries, subscriptions).
-- `QBCore.Shared.Items/Vehicles/Jobs/Gangs/Weapons` ARE the materialised registry
-  tables. `registry`'s reseed clears them IN PLACE (never reassigns), because
-  legacy code captures the reference (`local Items = QBCore.Shared.Items`).
+- `QBCore.Shared.Items/Vehicles/Jobs/Gangs/Weapons` are legacy-only live views.
+  New code always calls `Core.registry.getShared`/`allShared` or
+  `QB.shared.get`/`all`; never index or capture those compatibility maps.
 - Client helper functions (`GetClosestPed`, `Draw3DText`, `Progressbar`, ...) are
   thin forwards to `QB.*`, not reimplementations.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,

@@ -198,7 +198,9 @@ exports.qbcore:offSharedChange(name, id)     -- tear down a shared-registry subs
 Prefer the LIVE MIRROR in a consumer resource — add
 `shared_script '@qbcore/init.lua'` (after `@qblib/init.lua`) and use `QB.shared.*`
 as shown above. A registration in ANY resource fires every subscriber's
-`onChange` in every resource that uses the list.
+`onChange` in every resource that uses the list. Always use `get` for one
+record and call `all` when each UI/admin list is built; never cache or index the
+legacy `QBCore.Shared.Jobs`/`Items` maps in new code.
 
 ### Identity / permissions / commands / logging
 ```lua
@@ -260,9 +262,9 @@ should use the namespaced key.
   with a warning rather than silently not persisting.
 - `QBCore.Functions.ExecuteSql` is deprecated (its `wait` arg is ignored) —
   forwarded to `QB.sql.query`, warned once per calling resource.
-- Writing `QBCore.Shared.Items['x'] = {...}` directly bypasses the registry, so
-  subscribers won't fire. Use `exports['qb-core']:AddItem(name, item)` (or
-  `QBCore.Functions.AddItem`) instead.
+- `QBCore.Shared.Items/Jobs/...` are legacy-only live views. Writing them
+  bypasses the registry, so subscribers won't fire. New code uses
+  `getShared`/`allShared` and `registerShared` instead.
 - `QBCore.Commands.List` reflects commands registered THROUGH the compat
   (`QBCore.Commands.Add`) or present at the last `Refresh`.
 - Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`

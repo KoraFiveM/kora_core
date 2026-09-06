@@ -1,7 +1,7 @@
 -- Core.registry (client realm) -- the RECEIVE side. The server is authoritative;
--- the client mirrors the registries so QBCore.Shared.Items and QB.shared.get
--- work client-side with zero network cost per read. On resource start the client
--- requests a full snapshot, then applies deltas.
+-- the client mirrors the registries so getter reads work client-side with zero
+-- network cost per read. Legacy QBCore.Shared maps are derived compatibility
+-- views. On resource start the client requests a full snapshot, then applies deltas.
 
 local RI = CoreInternal.registry
 
@@ -28,7 +28,7 @@ RegisterNetEvent('qbcore:registry:delta', function(name, action, key, record, ep
         TriggerServerEvent('qbcore:registry:requestSnapshot')
         return
     end
-    local previous = r.materialised[key]
+    local previous = Core.registry.getShared(name, key)
     if action == 'remove' then RI.remove(name, key) else RI.apply(name, key, record) end
     RI.dispatch(name, action, key, record, previous)
 end)

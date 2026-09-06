@@ -43,7 +43,7 @@ files {
 --   build/initiate.lua  creates the `Core` table the modules attach to
 --   shared/*.lua        plain QBCoreSeed.* data, no Core dependency
 --   modules/util        registry/player/inventory all call Core.util.*
---   modules/registry    ingests the seeds + owns the Shared.* materialised tables
+--   modules/registry    runtime-registers defaults + owns indexed getter storage
 --   ...rest             player/inventory shared shapes
 --   compat/shared       builds the QBCore skeleton (needs Core.util + registries)
 shared_scripts {
@@ -123,6 +123,7 @@ server_scripts {
 
 client_scripts {
     'modules/registry/client.lua',
+    'modules/pausemenu/client.lua',
     'modules/replication/client.lua',
     'modules/player/client.lua',
     'modules/development/client.lua',

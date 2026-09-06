@@ -164,18 +164,19 @@ local function toLegacyRecord(record)
     return view
 end
 
--- Rebuilt from scratch (not patched incrementally) on every registry change --
--- job/gang churn is rare (admin commands, not a hot path), so simplicity wins
--- over the bookkeeping an in-place patch would need. The returned table is a
--- real, plain table (not a metatable proxy) so `pairs()` over it -- and over
--- each record's `grades` -- works without relying on __pairs support.
-local function buildLegacyGradeView(regName)
+-- Legacy indexed maps are rebuilt from the getter-backed registry. They are
+-- deliberately confined to QBCore compatibility: modern code must call
+-- getShared/allShared (or QB.shared.get/all) when it needs current data.
+-- Keeping each compatibility table stable still protects unchanged legacy
+-- resources that captured QBCore.Shared.* once at startup.
+local function buildLegacyView(regName, transform)
     local view = {}
 
     local function refresh()
         for k in pairs(view) do view[k] = nil end
         for _, record in ipairs(Core.registry.allShared(regName)) do
-            view[record.name] = toLegacyRecord(record)
+            local keyField = CoreInternal.registry.registries[regName].keyField
+            view[record[keyField]] = transform and transform(record) or record
         end
     end
 
@@ -194,13 +195,16 @@ local function buildLegacyGradeView(regName)
     return view
 end
 
+local function buildLegacyGradeView(regName)
+    return buildLegacyView(regName, toLegacyRecord)
+end
+
 -- QBCore.Shared.VehicleHashes -- upstream keys the Vehicles records a SECOND
 -- way, by GetHashKey(model) instead of by model string, for callers that only
 -- have a spawned vehicle's model hash (GetEntityModel) rather than its name.
--- Unlike Items/Vehicles/Weapons (a direct read of a registry's materialised
--- table) this has to be BUILT, so it can't go through the `map` __index branch
--- below -- it gets its own branch. Built from the SAME materialised vehicles
--- registry Shared.Vehicles resolves to, and kept fresh with the identical
+-- Unlike the model-keyed Vehicles compatibility view, this needs a different
+-- key and therefore gets its own branch. It is built from the same getter-backed
+-- vehicles registry and kept fresh with the identical
 -- refresh-on-change wiring buildLegacyGradeView uses above (onSharedChange for
 -- in-VM mutation, 'qbcore:registry:synced' for the client snapshot gap) --
 -- otherwise this cached view would go stale the first time a vehicle is
@@ -224,10 +228,9 @@ local function buildVehicleHashesView()
     return view
 end
 
--- The Shared.* data tables (Items/Vehicles/Jobs/Gangs/Weapons/Locations) are the
--- MATERIALISED registry tables. They are wired in the realm files (after the
--- registries exist); a metatable here makes an early read return the live table
--- once it's available rather than nil, and keeps the reference stable.
+-- QBCore.Shared data maps are compatibility-only views. A metatable here makes
+-- an early read build the live view once its registry exists, then caches that
+-- stable view for legacy scripts which captured it at startup.
 setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
     __index = function(t, k)
         local legacyGradeRegistries = { Jobs = 'jobs', Gangs = 'gangs' }
@@ -247,9 +250,9 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
         local map = { Items = 'items', Vehicles = 'vehicles', Weapons = 'weapons', Locations = 'locations' }
         local regName = map[k]
         if regName and CoreInternal and CoreInternal.registry and CoreInternal.registry.registries[regName] then
-            local mat = CoreInternal.registry.registries[regName].materialised
-            rawset(t, k, mat)   -- cache the stable reference
-            return mat
+            local view = buildLegacyView(regName)
+            rawset(t, k, view)   -- cache the stable reference
+            return view
         end
         return nil
     end,

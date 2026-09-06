@@ -113,7 +113,10 @@ QB.shared.register(name, key, record)
 QB.shared.onChange(name, function(action, key, record, previous) ... end)
 ```
 A registration in ANY resource fires every subscriber's `onChange` in every
-resource that uses the list — the `/ideas` requirement.
+resource that uses the list — the `/ideas` requirement. Always use `get` for an
+individual record, and call `all` again whenever a UI/admin list is built. Do
+not cache or index `QBCore.Shared.Jobs` (or its sibling compatibility maps) in
+new code.
 
 ### Identity / permissions / commands / logging
 ```lua
@@ -184,10 +187,10 @@ should use the namespaced key.
   with a warning rather than silently not persisting.
 - `QBCore.Functions.ExecuteSql` is deprecated (its `wait` arg is ignored) —
   forwarded to `QB.sql.query`, warned once per calling resource.
-- Writing `QBCore.Shared.Items['x'] = {...}` directly bypasses the registry, so
-  subscribers won't fire. Use `exports['qb-core']:AddItem(name, item)` (or
-  `QBCore.Functions.AddItem`) instead — it routes through the registry, so the
-  item materialises, replicates to clients, and fires subscribers.
+- `QBCore.Shared.Items/Jobs/...` are legacy-only live views. Writing them
+  bypasses the registry, so subscribers won't fire. New code must use
+  `getShared`/`allShared` for reads and `registerShared` (or the legacy
+  `AddItem`/`AddJob` wrappers) for writes.
 - `QBCore.Commands.List` is a table keyed by command name (matching upstream), but
   it reflects commands registered THROUGH the compat (`QBCore.Commands.Add`) or
   present at the last `Refresh`; commands added by another resource straight

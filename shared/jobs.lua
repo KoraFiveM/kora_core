@@ -1,5 +1,5 @@
--- Seed job definitions with graded pay scales. Shape matches legacy
--- QBCore.Shared.Jobs: keyed by job name, with a one-based `grades` array.
+-- Default job definitions with graded pay scales. The server registers them
+-- through the runtime registry; `grades` is a one-based array internally.
 -- `offDutyPay` is either `false` (no off-duty paycheck) or a flat number paid
 -- to an employed-but-off-duty player each paycheck tick -- see Core.paycheck.
 --

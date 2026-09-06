@@ -42,7 +42,10 @@ end
 -- Re-seed a registry mirror from a snapshot (dense array + epoch).
 local function reseed(name, keyField, records, epoch)
     local m = ensure(name)
-    m.list = {}
+    -- Preserve the array reference across a full resync. Consumers should call
+    -- QB.shared.all() when building a list, but an accidental cached reference
+    -- should still observe the newest snapshot rather than freeze forever.
+    for i = #m.list, 1, -1 do m.list[i] = nil end
     m.index = {}
     m.keyField = keyField
     for i = 1, #records do

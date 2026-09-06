@@ -3,6 +3,10 @@
 
 Config = Config or {}
 
+Config.server = {
+    name = 'Roleplay Server Name',   -- shown as the title in GTA's standard pause menu; set an empty string to leave FiveM's default title intact
+}
+
 Config.identity = {
     primaryIdentifier = 'license',   -- which identifier keys a player across characters
     citizenIdLength = 8,             -- length of a generated citizenid (excluding the type prefix)

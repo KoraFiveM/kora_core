@@ -2,8 +2,8 @@
 -- items/vehicles/jobs/gangs/weapons/locations lists (the /ideas requirement).
 --
 -- Each registry holds a DENSE ARRAY (`list`, insertion order) + a LOOKUP TABLE
--- (`index`, key -> position) + a materialised key->record table (which IS the
--- QBCore.Shared.* table legacy code reads). Reads are plain table lookups.
+-- (`index`, key -> position). Public reads always go through getters; indexed
+-- QBCore.Shared.* maps are compatibility views built outside this module.
 --
 -- INTERNALS live on the private `CoreInternal.registry` table so build/finalise
 -- never exports them; only the curated public functions (registerShared, ...)
@@ -14,7 +14,7 @@ CoreInternal = CoreInternal or {}
 CoreInternal.registry = CoreInternal.registry or {}
 local RI = CoreInternal.registry
 
--- name -> { keyField, list, index, materialised, epoch, subscribers, nextSubId }
+-- name -> { keyField, list, index, epoch, subscribers, nextSubId }
 RI.registries = RI.registries or {}
 local registries = RI.registries
 
@@ -22,7 +22,7 @@ function RI.create(name, keyField)
     if registries[name] then return end
     registries[name] = {
         keyField = keyField,
-        list = {}, index = {}, materialised = {},
+        list = {}, index = {},
         epoch = 0, subscribers = {}, nextSubId = 1,
     }
 end
@@ -39,12 +39,10 @@ function RI.apply(name, key, record)
     local pos = r.index[key]
     if pos then
         r.list[pos] = record
-        r.materialised[key] = record
         return 'update'
     end
     r.list[#r.list + 1] = record
     r.index[key] = #r.list
-    r.materialised[key] = record
     return 'add'
 end
 
@@ -64,25 +62,21 @@ function RI.remove(name, key)
     end
     r.list[lastPos] = nil
     r.index[key] = nil
-    r.materialised[key] = nil
     return removed
 end
 
 -- Full re-seed + epoch bump (used on a resource restart so mirrors re-sync).
--- CRITICAL: `materialised` is exposed as QBCore.Shared.Items etc., which legacy
--- code captures by reference (`local Items = QBCore.Shared.Items`). So it must
--- be CLEARED IN PLACE, never reassigned -- a fresh table would leave every
--- captured reference pointing at stale data. list/index are internal and can be
--- replaced freely.
+-- Clear the list in place. Callers should fetch lists when they need them, but
+-- keeping the reference live prevents an accidental cached list from freezing
+-- after a snapshot/epoch resync.
 function RI.reseed(name, records, epoch)
     local r = registries[name]
-    r.list, r.index = {}, {}
-    for k in pairs(r.materialised) do r.materialised[k] = nil end
+    for i = #r.list, 1, -1 do r.list[i] = nil end
+    r.index = {}
     for i = 1, #records do
         local rec = records[i]
         r.list[i] = rec
         r.index[rec[r.keyField]] = i
-        r.materialised[rec[r.keyField]] = rec
     end
     r.epoch = epoch or (r.epoch + 1)
 end
@@ -126,7 +120,9 @@ end
 ---@return table|nil
 function Core.registry.getShared(name, key)
     local r = registries[name]
-    return r and r.materialised[key] or nil
+    if not r then return nil end
+    local pos = r.index[key]
+    return pos and r.list[pos] or nil
 end
 
 ---The dense array of records (live). Do not mutate.

@@ -1,7 +1,7 @@
--- Seed item definitions. Plain data, no Core dependency -- loaded before the
--- registry module, which ingests QBCoreSeed.items at its own load time. A
--- server extends this list or registers items at runtime from other resources
--- (QB.shared.register('items', ...)). Shape matches legacy QBCore.Shared.Items.
+-- Default item definitions. Plain data, no Core dependency -- loaded before
+-- the server registry module, which registers every record through the runtime
+-- mutation API. Other resources extend the same registry with
+-- QB.shared.register('items', ...).
 QBCoreSeed = QBCoreSeed or {}
 
 -- Temporary remote artwork catalogue. `image` remains the legacy local-file
