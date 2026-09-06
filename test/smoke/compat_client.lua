@@ -164,4 +164,22 @@ h.test('Progressbar forwards legacy prop and propTwo descriptors to qblib', func
     h.assertEqual(captured.props[1].model, 'prop_second_only')
 end)
 
+h.test('client SpawnVehicle stops cleanly when its model cannot load', function()
+    local requested, released, created = 0, 0, 0
+    _G.IsModelInCdimage = function() return true end
+    _G.IsModelValid = function() return true end
+    _G.vec3 = function(x, y, z) return { x = x, y = y, z = z } end
+    _G.HasModelLoaded = function() return false end
+    _G.RequestModel = function() requested = requested + 1 end
+    _G.SetModelAsNoLongerNeeded = function() released = released + 1 end
+    _G.CreateVehicle = function() created = created + 1; return 501 end
+    QB.loops.controlled = function() return false, 'Loop timed out.' end
+
+    local vehicle = QBCore.Functions.SpawnVehicle(123, nil, { x = 1, y = 2, z = 3, w = 0 }, false, false)
+    h.assertFalse(vehicle)
+    h.assertEqual(requested, 1)
+    h.assertEqual(released, 1, 'a failed stream request should release its model')
+    h.assertEqual(created, 0, 'CreateVehicle must not run with an unloaded model')
+end)
+
 h.report('compat_client')

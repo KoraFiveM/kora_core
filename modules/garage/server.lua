@@ -27,6 +27,30 @@ local function hydrate(row)
     return row
 end
 
+local spawningByPlate = {}
+
+local function normalizePlate(plate)
+    if type(plate) ~= 'string' then return nil end
+    local normalized = plate:gsub('^%s+', ''):gsub('%s+$', ''):upper()
+    return normalized ~= '' and normalized or nil
+end
+
+local function deleteSpawnedVehicle(vehicle)
+    if vehicle and vehicle ~= 0 and DoesEntityExist(vehicle) then
+        DeleteEntity(vehicle)
+    end
+end
+
+local function resolveNetworkId(vehicle)
+    local deadline = GetGameTimer() + Config.garage.spawnNetworkIdTimeout
+    repeat
+        local networkId = tonumber(NetworkGetNetworkIdFromEntity(vehicle))
+        if networkId and networkId % 1 == 0 and networkId > 0 then return networkId end
+        Wait(50)
+    until not DoesEntityExist(vehicle) or GetGameTimer() >= deadline
+    return nil
+end
+
 ---@param citizenid string|nil Set for a civilian-owned vehicle.
 ---@param model string|number
 ---@param plate string
@@ -113,29 +137,59 @@ end
 ---@return integer|false networkId
 ---@return string? error
 function Core.garage.spawnVehicle(src, plate, coords, heading)
-    local row = Core.garage.getByPlate(plate)
-    if not row then return false, 'unknown vehicle' end
-    if row.state == 'impounded' then return false, 'vehicle is impounded' end
-    if row.state == 'out' then return false, 'vehicle is already out' end
+    local plateKey = normalizePlate(plate)
+    if not plateKey then return false, 'invalid plate' end
+    if spawningByPlate[plateKey] then return false, 'vehicle spawn already in progress' end
 
-    local modelHash = tonumber(row.model) or joaat(row.model)
+    spawningByPlate[plateKey] = true
+    local vehicle
+    local callOk, networkId, spawnErr = pcall(function()
+        local row = Core.garage.getByPlate(plateKey)
+        if not row then return false, 'unknown vehicle' end
+        if row.state == 'impounded' then return false, 'vehicle is impounded' end
+        if row.state == 'out' then return false, 'vehicle is already out' end
 
-    local veh = CreateVehicle(modelHash, coords.x, coords.y, coords.z, heading or 0.0, true, false)
-    if veh == 0 or not DoesEntityExist(veh) then
-        return false, 'failed to create vehicle'
+        local modelHash = tonumber(row.model) or joaat(row.model)
+
+        vehicle = CreateVehicle(modelHash, coords.x, coords.y, coords.z, heading or 0.0, true, false)
+        if vehicle == 0 or not DoesEntityExist(vehicle) then
+            return false, 'failed to create vehicle'
+        end
+
+        SetEntityRoutingBucket(vehicle, GetPlayerRoutingBucket(src))
+
+        SetVehicleNumberPlateText(vehicle, row.plate)
+        SetVehicleFuelLevel(vehicle, row.fuel + 0.0)
+        SetVehicleEngineHealth(vehicle, row.engine_health + 0.0)
+        SetVehicleBodyHealth(vehicle, row.body_health + 0.0)
+
+        local resolvedNetworkId = resolveNetworkId(vehicle)
+        if not resolvedNetworkId then
+            deleteSpawnedVehicle(vehicle)
+            vehicle = nil
+            return false, 'failed to network vehicle'
+        end
+
+        local affected, err = QB.sql.update(
+            'UPDATE `player_vehicles` SET `state` = \'out\' '
+            .. 'WHERE `plate` = ? AND `state` = \'garaged\' AND `deleted_at` IS NULL',
+            { row.plate }
+        )
+        if err or affected ~= 1 then
+            deleteSpawnedVehicle(vehicle)
+            vehicle = nil
+            return false, err or 'vehicle is no longer available'
+        end
+
+        return resolvedNetworkId
+    end)
+
+    spawningByPlate[plateKey] = nil
+    if not callOk then
+        deleteSpawnedVehicle(vehicle)
+        return false, tostring(networkId)
     end
-
-    SetEntityRoutingBucket(veh, GetPlayerRoutingBucket(src))
-
-    SetVehicleNumberPlateText(veh, plate)
-    SetVehicleFuelLevel(veh, row.fuel + 0.0)
-    SetVehicleEngineHealth(veh, row.engine_health + 0.0)
-    SetVehicleBodyHealth(veh, row.body_health + 0.0)
-
-    local ok, err = QB.sql.execute('UPDATE `player_vehicles` SET `state` = \'out\' WHERE `plate` = ?', { plate })
-    if ok == nil and err then return false, err end
-
-    return NetworkGetNetworkIdFromEntity(veh)
+    return networkId, spawnErr
 end
 
 ---@param plate string
@@ -178,12 +232,15 @@ function Core.garage.retrieveImpound(src, plate)
         end
     end
 
-    local ok, err = QB.sql.execute(
-        'UPDATE `player_vehicles` SET `state` = \'garaged\', `impound_fee` = NULL, `impound_lot` = NULL, `impounded_at` = NULL WHERE `plate` = ?',
-        { plate }
+    local affected, err = QB.sql.update(
+        'UPDATE `player_vehicles` SET `state` = \'garaged\', `impound_fee` = NULL, '
+        .. '`impound_lot` = NULL, `impounded_at` = NULL '
+        .. 'WHERE `plate` = ? AND `state` = \'impounded\' AND `deleted_at` IS NULL',
+        { row.plate }
     )
 
-    if ok == nil and err then return false, err end
+    if err then return false, err end
+    if affected ~= 1 then return false, 'vehicle is no longer impounded' end
     return true
 end
 

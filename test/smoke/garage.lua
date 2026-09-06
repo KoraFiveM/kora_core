@@ -15,6 +15,8 @@ dofile('modules/replication/server.lua'); dofile('modules/persistence/server.lua
 dofile('modules/player/server.lua')
 
 local rows = {} -- plate -> row
+local nextStateTransitionAffected
+local deletedEntities = {}
 
 local function clone(t)
     local c = {}
@@ -79,6 +81,28 @@ handle.QB.sql.execute = function(sql, params)
     error('unmocked SQL in garage test: ' .. sql)
 end
 
+handle.QB.sql.update = function(sql, params)
+    local plate = params[1]
+    local row = rows[plate]
+    if sql:find("SET `state` = 'out'", 1, true) then
+        local affected = nextStateTransitionAffected
+        nextStateTransitionAffected = nil
+        if affected == nil then affected = row and row.state == 'garaged' and 1 or 0 end
+        if affected == 1 then row.state = 'out' end
+        return affected
+    end
+    if sql:find('`impound_fee` = NULL', 1, true) then
+        local affected = nextStateTransitionAffected
+        nextStateTransitionAffected = nil
+        if affected == nil then affected = row and row.state == 'impounded' and 1 or 0 end
+        if affected == 1 then
+            row.state = 'garaged'; row.impound_fee = nil; row.impound_lot = nil
+        end
+        return affected
+    end
+    error('unmocked SQL update in garage test: ' .. sql)
+end
+
 handle.QB.sql.single = function(sql, params)
     local plate = params[1]
     local row = rows[plate]
@@ -97,11 +121,16 @@ end
 
 _G.CreateVehicle = function(model, x, y, z, heading) return 42 end
 _G.DoesEntityExist = function() return true end
+_G.DeleteEntity = function(entity) deletedEntities[#deletedEntities + 1] = entity end
 _G.SetVehicleNumberPlateText = function() end
 _G.SetVehicleFuelLevel = function() end
 _G.SetVehicleEngineHealth = function() end
 _G.SetVehicleBodyHealth = function() end
-_G.NetworkGetNetworkIdFromEntity = function(e) return 1000 + e end
+local networkIdOverride
+_G.NetworkGetNetworkIdFromEntity = function(e)
+    if networkIdOverride ~= nil then return networkIdOverride end
+    return 1000 + e
+end
 _G.joaat = function(s) return 12345 end
 _G.json = { encode = function(t) return 'JSON' end, decode = function(s) return {} end }
 
@@ -133,6 +162,28 @@ h.test('spawnVehicle creates a networked entity and marks the row out', function
     local networkId, err = Core.garage.spawnVehicle(1, 'EMS001', { x = 0, y = 0, z = 0 }, 0.0)
     h.assertTrue(networkId ~= false, 'expected a network id, got error: ' .. tostring(err))
     h.assertEqual(Core.garage.getByPlate('EMS001').state, 'out')
+end)
+
+h.test('spawnVehicle deletes a losing entity when the atomic state transition affects no row', function()
+    Core.garage.createVehicle('CID1', 'police', 'RACE01')
+    nextStateTransitionAffected = 0
+    local networkId, err = Core.garage.spawnVehicle(1, 'race01', { x = 0, y = 0, z = 0 }, 0.0)
+    h.assertFalse(networkId)
+    h.assertEqual(err, 'vehicle is no longer available')
+    h.assertEqual(deletedEntities[#deletedEntities], 42)
+    h.assertEqual(Core.garage.getByPlate('RACE01').state, 'garaged')
+end)
+
+h.test('spawnVehicle leaves durable state garaged when no positive network id appears', function()
+    Core.garage.createVehicle('CID1', 'police', 'NONET1')
+    networkIdOverride = 0
+    local networkId, err = Core.garage.spawnVehicle(1, 'NONET1', { x = 0, y = 0, z = 0 }, 0.0)
+    networkIdOverride = nil
+
+    h.assertFalse(networkId)
+    h.assertEqual(err, 'failed to network vehicle')
+    h.assertEqual(deletedEntities[#deletedEntities], 42)
+    h.assertEqual(Core.garage.getByPlate('NONET1').state, 'garaged')
 end)
 
 h.test('storeVehicle garages the vehicle and snapshots its condition', function()
@@ -173,6 +224,15 @@ h.test('retrieveImpound clears the impound flags for the real owner', function()
     local row = Core.garage.getByPlate('IMP001')
     h.assertEqual(row.state, 'garaged')
     h.assertTrue(row.impound_fee == nil)
+end)
+
+h.test('retrieveImpound refuses a lost atomic transition', function()
+    Core.garage.createVehicle('CID3', 'police', 'IMP002')
+    Core.garage.impound('IMP002', 500, 'lot-1')
+    nextStateTransitionAffected = 0
+    local ok, err = Core.garage.retrieveImpound(2, 'IMP002')
+    h.assertFalse(ok)
+    h.assertEqual(err, 'vehicle is no longer impounded')
 end)
 
 h.test('deleteVehicle soft-deletes -- getByPlate no longer finds it', function()

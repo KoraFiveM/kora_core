@@ -28,6 +28,13 @@ dofile('compat/server/qb-core-events.lua')
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 
+h.test('generic client duty compatibility event is not registered', function()
+    Core.jobs.setJobDuty(1, false)
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    h.assertFalse(Core.jobs.getJob(1).onduty,
+        'job resources must own location-aware duty transitions')
+end)
+
 -- --- Task 1: chatMessage '/'-suppression ------------------------------------
 
 h.test("chatMessage starting with '/' cancels the event", function()

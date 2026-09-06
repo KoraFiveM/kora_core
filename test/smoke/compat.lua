@@ -389,4 +389,39 @@ h.test('QBCore.Functions.HasPermission accepts a permission array', function()
     handle.setAce(1, 'group.god', nil)
 end)
 
+h.test('legacy server vehicle spawns use one bounded lifecycle and fail closed', function()
+    local inVehicle, deleted = 0, {}
+    _G.CreateVehicle = function() return 401 end
+    _G.DoesEntityExist = function(entity) return entity == 401 end
+    _G.NetworkGetEntityOwner = function() return 1 end
+    _G.GetVehiclePedIsIn = function() return inVehicle end
+    _G.TaskWarpPedIntoVehicle = function(_, vehicle) inVehicle = vehicle end
+    _G.DeleteEntity = function(entity) deleted[#deleted + 1] = entity end
+
+    local vehicle = QBCore.Functions.SpawnVehicle(1, 123, { x = 1, y = 2, z = 3, w = 90 }, true)
+    h.assertEqual(vehicle, 401)
+    h.assertEqual(inVehicle, 401, 'warp should settle through the shared bounded helper')
+    h.assertEqual(#deleted, 0)
+
+    _G.CreateVehicle = function() return 402 end
+    _G.DoesEntityExist = function(entity) return entity == 402 end
+    _G.NetworkGetEntityOwner = function() return 99 end
+    local failed = QBCore.Functions.SpawnVehicle(1, 123, { x = 1, y = 2, z = 3 }, false)
+    h.assertFalse(failed, 'an entity that never acquires the expected owner must not escape')
+    h.assertEqual(deleted[#deleted], 402, 'a failed network spawn should be rolled back')
+end)
+
+h.test('legacy server setter shares existence and warp validation', function()
+    local inVehicle = 0
+    _G.CreateVehicleServerSetter = function() return 403 end
+    _G.DoesEntityExist = function(entity) return entity == 403 end
+    _G.GetVehiclePedIsIn = function() return inVehicle end
+    _G.TaskWarpPedIntoVehicle = function(_, vehicle) inVehicle = vehicle end
+    _G.DeleteEntity = function() error('successful setter spawn must not be deleted') end
+
+    local vehicle = QBCore.Functions.CreateVehicle(1, 123, 'automobile', { x = 1, y = 2, z = 3 }, true)
+    h.assertEqual(vehicle, 403)
+    h.assertEqual(inVehicle, 403)
+end)
+
 h.report('compat')

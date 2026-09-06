@@ -34,8 +34,10 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
 
     -- Fade screen to hide how clients get teleported.
     DoScreenFadeOut(650)
-    while not IsScreenFadedOut() do
-        Wait(0)
+    local faded = QB.loops.controlled(IsScreenFadedOut, false, 2000, 25)
+    if not faded then
+        DoScreenFadeIn(0)
+        return QBCore.Functions.Notify('Unable to begin waypoint teleport', 'error', 5000)
     end
 
     local ped, coords <const> = PlayerPedId(), GetBlipInfoIdCoord(blipMarker)
@@ -126,9 +128,9 @@ RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
     local hash = joaat(vehName)
     local veh = GetVehiclePedIsUsing(ped)
     if not IsModelInCdimage(hash) then return end
-    RequestModel(hash)
-    while not HasModelLoaded(hash) do
-        Wait(0)
+    local loaded = QBCore.Functions.LoadModel(hash)
+    if not loaded then
+        return QBCore.Functions.Notify('Unable to load that vehicle', 'error', 5000)
     end
 
     if IsPedInAnyVehicle(ped) then
@@ -136,7 +138,14 @@ RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
         DeleteVehicle(veh)
     end
 
-    local vehicle = CreateVehicle(hash, GetEntityCoords(ped), GetEntityHeading(ped), true, false)
+    -- A client event cannot prove why a shared entity is authorized. Keep this
+    -- legacy command functional as a local-only compatibility vehicle; native
+    -- admin/job resources use their guarded server-owned spawn paths.
+    local vehicle = CreateVehicle(hash, GetEntityCoords(ped), GetEntityHeading(ped), false, false)
+    if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then
+        SetModelAsNoLongerNeeded(hash)
+        return QBCore.Functions.Notify('Unable to spawn that vehicle', 'error', 5000)
+    end
     TaskWarpPedIntoVehicle(ped, vehicle, -1)
     SetVehicleFuelLevel(vehicle, 100.0)
     SetVehicleDirtLevel(vehicle, 0.0)

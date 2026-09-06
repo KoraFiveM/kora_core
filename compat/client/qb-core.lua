@@ -261,14 +261,10 @@ function F.PlayAnim(animDict, animName, upperbodyOnly, duration)
     local runTime = duration or -1
     if runTime == -1 then flags = 49 end
     local ped = PlayerPedId()
-    local start = GetGameTimer()
-    while not HasAnimDictLoaded(animDict) do
-        RequestAnimDict(animDict)
-        if (GetGameTimer() - start) > 5000 then
-            animPromise:reject(invoked .. ' :^1  Animation dictionary failed to load')
-            return animPromise.value
-        end
-        Wait(1)
+    local loaded = QB.stream.loadAnimDict(animDict)
+    if not loaded then
+        animPromise:reject(invoked .. ' :^1  Animation dictionary failed to load')
+        return animPromise.value
     end
     TaskPlayAnim(ped, animDict, animName, 8.0, 8.0, runTime, flags, 0, true, true, true)
     Wait(10) -- Wait a bit for the animation to start, then check if it exists
@@ -489,6 +485,18 @@ end
 
 -- Vehicle --------------------------------------------------------------------
 
+local warnedClientNetworkVehicle = false
+
+local function awaitStreamingAsset(value, timeout, request, hasLoaded, release)
+    if hasLoaded(value) then return true, value end
+    request(value)
+    local loaded = QB.loops.controlled(function()
+        return hasLoaded(value)
+    end, false, timeout or 5000, 25)
+    if not loaded and release then release(value) end
+    return loaded == true, value
+end
+
 function F.LoadModel(model, timeout)
     timeout = timeout or 5000
     local modelName = model
@@ -500,12 +508,7 @@ function F.LoadModel(model, timeout)
         return false, modelName
     end
 
-    RequestModel(modelName)
-    local count = GetGameTimer() + timeout
-    while not HasModelLoaded(modelName) and GetGameTimer() < count do
-        Wait(0)
-    end
-    return HasModelLoaded(modelName), modelName
+    return awaitStreamingAsset(modelName, timeout, RequestModel, HasModelLoaded, SetModelAsNoLongerNeeded)
 end
 
 function F.SpawnVehicle(model, cb, coords, isnetworked, teleportInto)
@@ -517,18 +520,25 @@ function F.SpawnVehicle(model, cb, coords, isnetworked, teleportInto)
     else
         coords = GetEntityCoords(ped)
     end
-    isnetworked = isnetworked == nil or isnetworked
-    F.LoadModel(model)
-    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, coords.w, isnetworked, false)
-    local netid = NetworkGetNetworkIdFromEntity(veh)
+    if isnetworked ~= false and not warnedClientNetworkVehicle then
+        warnedClientNetworkVehicle = true
+        print('[qbcore] client SpawnVehicle now creates a local vehicle under strict entity lockdown; use a server-owned gameplay spawn for shared vehicles.')
+    end
+    local loaded = F.LoadModel(model)
+    if not loaded then return false end
+    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, coords.w, false, false)
+    if not veh or veh == 0 or not DoesEntityExist(veh) then
+        SetModelAsNoLongerNeeded(model)
+        return false
+    end
     SetVehicleHasBeenOwnedByPlayer(veh, true)
-    SetNetworkIdCanMigrate(netid, true)
     SetVehicleNeedsToBeHotwired(veh, false)
     SetVehRadioStation(veh, 'OFF')
     SetVehicleFuelLevel(veh, 100.0)
     SetModelAsNoLongerNeeded(model)
     if teleportInto then TaskWarpPedIntoVehicle(PlayerPedId(), veh, -1) end
     if cb then cb(veh) end
+    return veh
 end
 
 function F.DeleteVehicle(vehicle)
@@ -1030,18 +1040,11 @@ function F.Draw3DText(coords, text, opts) QB.drawing.text3d(coords, text, opts) 
 
 function F.RequestAnimDict(animDict, timeout)
     timeout = timeout or 5000
-    if HasAnimDictLoaded(animDict) then return true, animDict end
     if not DoesAnimDictExist(animDict) then
         print(('[QBCore] Animation dictionary does not exist: %s'):format(animDict))
         return false, animDict
     end
-
-    RequestAnimDict(animDict)
-    local count = GetGameTimer() + timeout
-    while not HasAnimDictLoaded(animDict) and GetGameTimer() < count do
-        Wait(0)
-    end
-    return HasAnimDictLoaded(animDict), animDict
+    return awaitStreamingAsset(animDict, timeout, RequestAnimDict, HasAnimDictLoaded, RemoveAnimDict)
 end
 
 -- Alias kept from our previous compat -- not a real qb-core function, but some
@@ -1082,8 +1085,12 @@ end
 function F.AttachProp(ped, model, boneId, x, y, z, xR, yR, zR, vertex)
     local modelHash = type(model) == 'string' and joaat(model) or model
     local bone = GetPedBoneIndex(ped, boneId)
-    F.LoadModel(modelHash)
-    local prop = CreateObject(modelHash, 1.0, 1.0, 1.0, 1, 1, 0)
+    if not F.LoadModel(modelHash) then return false end
+    local prop = CreateObject(modelHash, 1.0, 1.0, 1.0, false, false, false)
+    if not prop or prop == 0 or not DoesEntityExist(prop) then
+        SetModelAsNoLongerNeeded(modelHash)
+        return false
+    end
     AttachEntityToEntity(prop, ped, bone, x, y, z, xR, yR, zR, 1, 1, 0, 1, not vertex and 2 or 0, 1)
     SetModelAsNoLongerNeeded(modelHash)
     return prop
@@ -1109,29 +1116,12 @@ function F.SpawnClear(coords, radius)
 end
 
 function F.LoadAnimSet(animSet, timeout)
-    timeout = timeout or 5000
-    if HasAnimSetLoaded(animSet) then return true, animSet end
-    RequestAnimSet(animSet)
-
-    local count = GetGameTimer() + timeout
-    while not HasAnimSetLoaded(animSet) and GetGameTimer() < count do
-        Wait(0)
-    end
-
-    return HasAnimSetLoaded(animSet), animSet
+    return awaitStreamingAsset(animSet, timeout, RequestAnimSet, HasAnimSetLoaded, RemoveAnimSet)
 end
 
 function F.LoadParticleDictionary(dictionary, timeout)
-    timeout = timeout or 5000
-    if HasNamedPtfxAssetLoaded(dictionary) then return true, dictionary end
-    RequestNamedPtfxAsset(dictionary)
-
-    local count = GetGameTimer() + timeout
-    while not HasNamedPtfxAssetLoaded(dictionary) and GetGameTimer() < count do
-        Wait(0)
-    end
-
-    return HasNamedPtfxAssetLoaded(dictionary), dictionary
+    return awaitStreamingAsset(dictionary, timeout, RequestNamedPtfxAsset,
+        HasNamedPtfxAssetLoaded, RemoveNamedPtfxAsset)
 end
 
 function F.StartParticleAtCoord(dict, ptName, looped, coords, rot, scale, alpha, color, duration)
@@ -1140,7 +1130,7 @@ function F.StartParticleAtCoord(dict, ptName, looped, coords, rot, scale, alpha,
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    F.LoadParticleDictionary(dict)
+    if not F.LoadParticleDictionary(dict) then return false end
     UseParticleFxAssetNextCall(dict)
     SetPtfxAssetNextCall(dict)
     local particleHandle
@@ -1165,7 +1155,7 @@ function F.StartParticleAtCoord(dict, ptName, looped, coords, rot, scale, alpha,
 end
 
 function F.StartParticleOnEntity(dict, ptName, looped, entity, bone, offset, rot, scale, alpha, color, evolution, duration)
-    F.LoadParticleDictionary(dict)
+    if not F.LoadParticleDictionary(dict) then return false end
     UseParticleFxAssetNextCall(dict)
     local particleHandle, boneID
     if bone and GetEntityType(entity) == 1 then

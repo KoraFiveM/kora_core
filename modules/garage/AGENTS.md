@@ -18,6 +18,14 @@ SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-f
 - **`spawnVehicle` uses the raw `CreateVehicle` native, never `QB.entities`** — qblib's entity spawner is explicitly local/non-networked, but a duty or owned vehicle must be visible to every player, not just the one who spawned it.
 - **`mods` are opaque JSON, not auto-applied.** Stored/returned as-is; applying them to a spawned vehicle is ~50 `SetVehicleMod` calls of presentation-layer work belonging to whichever job/garage UI wants a tuning system, not to a generic persistence primitive. `fuel`/`engine`/`body` health ARE applied on spawn, since that's cheap and universally wanted.
 - **`storeVehicle`/`updateState` both `COALESCE` against the existing column** — an omitted `snapshot`/`patch` field leaves the stored value unchanged rather than nulling it.
+- **Take-out and impound release are atomic state transitions.** `spawnVehicle`
+  serializes a plate in-process, resolves a positive network ID within the
+  configured bounded timeout, and only then requires an affected-row-checked
+  `garaged -> out` update before returning the network ID; an unnetworked or
+  losing entity is deleted while the durable row stays garaged.
+  `retrieveImpound` likewise requires exactly one
+  `impounded -> garaged` transition so a concurrent caller cannot receive a
+  second successful release.
 - **Payment is the caller's responsibility.** `retrieveImpound` clears the impound flag but does not charge the fee — call `Core.money.removeMoney` before calling this, same reasoning `Core.jobs` leaves payment amounts to `Core.money` rather than moving cash itself.
 - **Ownership check only applies to civilian rows.** A job-fleet row (`citizenid` unset) has no per-player ownership to check in `retrieveImpound` — any on-duty member retrieving it is a job-resource-level policy decision, not this module's.
 - **Soft delete**, same convention `players`/character rows use (`deleted_at`, filtered out of `getByPlate`/`getByOwner`).

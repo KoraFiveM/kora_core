@@ -696,22 +696,44 @@ function F.GetEntitiesInBucket(bucket)
     return pool
 end
 
--- Server-side vehicle creation (ported verbatim from upstream).
+-- Server-side vehicle creation. Legacy qb-core used frame-count loops here,
+-- which made the real timeout depend on server tick rate and could still
+-- return an invalid handle. Keep both compatibility entry points on the same
+-- millisecond-bounded qblib lifecycle.
+local function discardEntity(entity)
+    if entity and entity ~= 0 and DoesEntityExist(entity) then DeleteEntity(entity) end
+    return false
+end
+
+local function awaitEntity(entity)
+    if not entity or entity == 0 then return false end
+    local ready = QB.loops.controlled(function()
+        return DoesEntityExist(entity) and entity or nil
+    end, false, 5000, 25)
+    return ready or false
+end
+
+local function awaitVehicleWarp(ped, vehicle)
+    return QB.loops.controlled(function()
+        if GetVehiclePedIsIn(ped) == vehicle then return true end
+        TaskWarpPedIntoVehicle(ped, vehicle, -1)
+    end, false, 2000, 25)
+end
+
 function F.SpawnVehicle(source, model, coords, warp)
     local ped = GetPlayerPed(source)
     model = type(model) == 'string' and joaat(model) or model
     if not coords then coords = GetEntityCoords(ped) end
     local heading = coords.w and coords.w or 0.0
-    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, heading, true, true)
-    local t = 0
-    while not DoesEntityExist(veh) and t < 1000 do Wait(0); t = t + 1 end
-    if warp then
-        t = 0
-        while GetVehiclePedIsIn(ped) ~= veh and t < 100 do Wait(0); t = t + 1; TaskWarpPedIntoVehicle(ped, veh, -1) end
-    end
-    t = 0
-    while NetworkGetEntityOwner(veh) ~= source and t < 1000 do Wait(0); t = t + 1 end
-    return veh
+    local vehicle = awaitEntity(CreateVehicle(model, coords.x, coords.y, coords.z, heading, true, true))
+    if not vehicle then return false end
+
+    local owned = QB.loops.controlled(function()
+        return DoesEntityExist(vehicle) and NetworkGetEntityOwner(vehicle) == source
+    end, false, 5000, 25)
+    if not owned then return discardEntity(vehicle) end
+    if warp and not awaitVehicleWarp(ped, vehicle) then return discardEntity(vehicle) end
+    return vehicle
 end
 -- Upstream's CreateAutomobile uses the experimental CREATE_AUTOMOBILE native
 -- (documented there as "doesn't work for all vehicles"). We delegate to the
@@ -724,11 +746,10 @@ function F.CreateVehicle(source, model, vehtype, coords, warp)
     model = type(model) == 'string' and joaat(model) or model
     vehtype = type(vehtype) == 'string' and tostring(vehtype) or vehtype
     if not coords then coords = GetEntityCoords(GetPlayerPed(source)) end
-    local veh = CreateVehicleServerSetter(model, vehtype, coords, coords.w and coords.w or 0.0)
-    local t = 0
-    while not DoesEntityExist(veh) and t < 1000 do Wait(0); t = t + 1 end
-    if warp then TaskWarpPedIntoVehicle(GetPlayerPed(source), veh, -1) end
-    return veh
+    local vehicle = awaitEntity(CreateVehicleServerSetter(model, vehtype, coords, coords.w and coords.w or 0.0))
+    if not vehicle then return false end
+    if warp and not awaitVehicleWarp(GetPlayerPed(source), vehicle) then return discardEntity(vehicle) end
+    return vehicle
 end
 
 -- Client callbacks: real qb-core's own raw wire protocol

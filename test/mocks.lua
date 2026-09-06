@@ -220,6 +220,15 @@ function M.install(opts)
     QB.events = { register = function() end, trigger = function() end, push = function() end }
     QB.notify = { send = function() end }
     QB.stream = setmetatable({}, { __index = function() return function() end end })
+    QB.loops = {
+        controlled = function(call)
+            for _ = 1, 16 do
+                local result = call()
+                if result then return result end
+            end
+            return false, 'Loop timed out.'
+        end,
+    }
     QB.drawing = { text3d = function() end }
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }

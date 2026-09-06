@@ -91,6 +91,7 @@ Config.garage = {
     defaultFuel = 100,
     defaultEngineHealth = 1000,
     defaultBodyHealth = 1000,
+    spawnNetworkIdTimeout = 1000, -- ms to wait for a positive entity network ID before changing durable state
 }
 
 Config.consumables = {
