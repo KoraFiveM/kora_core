@@ -132,6 +132,7 @@ client_scripts {
     'modules/inventory/client.lua',
     'modules/multichar/client.lua',
     'modules/commands/client.lua',
+    'modules/locales/client.lua',
     'compat/client/qb-core.lua',
     'compat/client/qb-core-events.lua',
     'build/finalise.lua'
