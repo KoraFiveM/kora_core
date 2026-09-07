@@ -287,7 +287,7 @@ function F.IsWearingGloves()
     local model = GetEntityModel(ped)
     -- Keep the nil guard for compatibility with scripts that replace Shared,
     -- although the stock tables are populated by coreobject.lua.
-    if model == GetHashKey('mp_m_freemode_01') then
+    if model == joaat('mp_m_freemode_01') then
         if (QBCore.Shared.MaleNoGloves or {})[armIndex] then
             return false
         end

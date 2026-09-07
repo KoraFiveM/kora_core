@@ -200,7 +200,7 @@ local function buildLegacyGradeView(regName)
 end
 
 -- QBCore.Shared.VehicleHashes -- upstream keys the Vehicles records a SECOND
--- way, by GetHashKey(model) instead of by model string, for callers that only
+-- way, by joaat(model) instead of by model string, for callers that only
 -- have a spawned vehicle's model hash (GetEntityModel) rather than its name.
 -- Unlike the model-keyed Vehicles compatibility view, this needs a different
 -- key and therefore gets its own branch. It is built from the same getter-backed
@@ -215,7 +215,7 @@ local function buildVehicleHashesView()
     local function refresh()
         for k in pairs(view) do view[k] = nil end
         for _, record in ipairs(Core.registry.allShared('vehicles')) do
-            view[GetHashKey(record.model)] = record
+            view[joaat(record.model)] = record
         end
     end
 

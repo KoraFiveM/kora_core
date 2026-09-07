@@ -129,6 +129,7 @@ function M.install(opts)
         end
         return hash
     end
+    _G.joaat = _G.GetHashKey
     local vehicleExtras = {}   -- [vehicle][extra] = enabled (boolean)
     function _G.DoesExtraExist(_, _) return true end
     function _G.SetVehicleExtra(vehicle, extra, disable)
