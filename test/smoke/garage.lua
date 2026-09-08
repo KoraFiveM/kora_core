@@ -17,6 +17,8 @@ dofile('modules/player/server.lua')
 local rows = {} -- plate -> row
 local nextStateTransitionAffected
 local deletedEntities = {}
+local encodedJson = {}
+local nextJsonId = 0
 
 local function clone(t)
     local c = {}
@@ -132,7 +134,15 @@ _G.NetworkGetNetworkIdFromEntity = function(e)
     return 1000 + e
 end
 _G.joaat = function(s) return 12345 end
-_G.json = { encode = function(t) return 'JSON' end, decode = function(s) return {} end }
+_G.json = {
+    encode = function(value)
+        nextJsonId = nextJsonId + 1
+        local key = 'JSON' .. nextJsonId
+        encodedJson[key] = value
+        return key
+    end,
+    decode = function(value) return encodedJson[value] or {} end,
+}
 
 dofile('modules/garage/server.lua')
 
@@ -193,6 +203,44 @@ h.test('storeVehicle garages the vehicle and snapshots its condition', function(
     h.assertEqual(row.state, 'garaged')
     h.assertEqual(row.fuel, 42)
     h.assertEqual(row.engine_health, 700)
+end)
+
+h.test('saveVehicleProperties persists a complete snapshot without changing state', function()
+    local ok, err = Core.garage.saveVehicleProperties('EMS001', {
+        plate = 'SPOOFED',
+        model = 12345,
+        fuelLevel = 0,
+        engineHealth = 850,
+        bodyHealth = 725,
+        tankHealth = 900,
+        windowStatus = { [0] = false },
+        modEngine = 3,
+        modTurbo = true,
+    })
+
+    h.assertTrue(ok, tostring(err))
+    local row = Core.garage.getByPlate('EMS001')
+    h.assertEqual(row.state, 'garaged')
+    h.assertEqual(row.plate, 'EMS001', 'the row identity remains authoritative')
+    h.assertEqual(row.fuel, 0)
+    h.assertEqual(row.engine_health, 850)
+    h.assertEqual(row.body_health, 725)
+    h.assertEqual(row.mods.tankHealth, 900)
+    h.assertEqual(row.mods.windowStatus[0], false)
+    h.assertEqual(row.mods.modEngine, 3)
+    h.assertTrue(row.mods.modTurbo)
+    h.assertEqual(row.mods.plate, nil)
+    h.assertEqual(row.mods.model, nil)
+end)
+
+h.test('saveVehicleProperties rejects an invalid snapshot or unknown plate', function()
+    local ok, err = Core.garage.saveVehicleProperties('EMS001', 'not a table')
+    h.assertFalse(ok)
+    h.assertEqual(err, 'vehicle properties must be a table')
+
+    ok, err = Core.garage.saveVehicleProperties('UNKNOWN', {})
+    h.assertFalse(ok)
+    h.assertEqual(err, 'unknown vehicle')
 end)
 
 h.test('storeVehicle refuses an impounded vehicle', function()

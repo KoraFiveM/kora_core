@@ -1,38 +1,40 @@
--- Default vehicle definitions (spawn model + display + class + price). The
+-- Default vehicle definitions (spawn model + display + price). The
 -- server registry registers them at runtime, keyed by `model`/spawn name.
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.vehicles = {
-    { model = 'sultan',   name = 'Sultan',   brand = 'Karin',    price = 12000, category = 'sedans',  shop = 'pdm' },
-    { model = 'blista',   name = 'Blista',   brand = 'Dinka',    price = 8000,  category = 'compacts',shop = 'pdm' },
-    { model = 'kuruma',   name = 'Kuruma',   brand = 'Karin',    price = 95000, category = 'sports',  shop = 'pdm' },
-    { model = 'police',   name = 'Cruiser',  brand = 'Vapid',    price = 0,     category = 'emergency', shop = 'pdm' },
-    { model = 'ambulance',name = 'Ambulance',brand = 'Brute',    price = 0,     category = 'emergency', shop = 'pdm' },
+    { brand = 'Karin', name = 'Sultan', model = 'sultan', price = 12000 },
+    { brand = 'Dinka', name = 'Blista', model = 'blista', price = 8000 },
+    { brand = 'Karin', name = 'Kuruma', model = 'kuruma', price = 95000 },
+    { brand = 'Vapid', name = 'Cruiser', model = 'police', price = 0 },
+    { brand = 'Brute', name = 'Ambulance', model = 'ambulance', price = 0 },
 }
 
 -- Broad, vanilla quick-pick catalogue for qbadmin. This is deliberately only
 -- a convenience list, not an allow-list: qbadmin also accepts any native GTA
 -- or streamed addon vehicle model that passes its server-side model check.
--- Keep the compact seed records above as the canonical priced shop examples;
+-- Keep the compact seed records above as the canonical priced dealership examples;
 -- these entries exist so an admin does not need to remember every common
 -- spawn code just to browse the menu.
-local function addCatalogueVehicles(category, vehicles)
+local function addCatalogueVehicles(vehicles)
     for _, vehicle in ipairs(vehicles) do
         QBCoreSeed.vehicles[#QBCoreSeed.vehicles + 1] = {
-            model = vehicle[1], name = vehicle[2], brand = vehicle[3] or 'GTA',
-            price = 0, category = category, shop = 'admin',
+            brand = vehicle[3] or 'GTA',
+            name = vehicle[2],
+            model = vehicle[1],
+            price = 0,
         }
     end
 end
 
-addCatalogueVehicles('compacts', {
+addCatalogueVehicles({
     { 'asbo', 'Asbo', 'Maxwell' }, { 'brioso', 'Brioso', 'Grotti' }, { 'brioso2', 'Brioso 300', 'Grotti' },
     { 'club', 'Club', 'BF' }, { 'dilettante', 'Dilettante', 'Karin' }, { 'issi2', 'Issi', 'Weeny' },
     { 'panto', 'Panto', 'Benefactor' }, { 'prairie', 'Prairie', 'Bollokan' }, { 'rhapsody', 'Rhapsody', 'Declasse' },
     { 'weevil', 'Weevil', 'BF' },
 })
 
-addCatalogueVehicles('sedans', {
+addCatalogueVehicles({
     { 'asea', 'Asea', 'Declasse' }, { 'asterope', 'Asterope', 'Karin' }, { 'cognoscenti', 'Cognoscenti', 'Enus' },
     { 'deity', 'Deity', 'Enus' }, { 'emperor', 'Emperor', 'Albany' }, { 'fugitive', 'Fugitive', 'Cheval' },
     { 'glendale', 'Glendale', 'Benefactor' }, { 'ingot', 'Ingot', 'Vulcar' }, { 'intruder', 'Intruder', 'Karin' },
@@ -42,14 +44,14 @@ addCatalogueVehicles('sedans', {
     { 'warrener', 'Warrener', 'Vulcar' }, { 'washington', 'Washington', 'Albany' },
 })
 
-addCatalogueVehicles('coupes', {
+addCatalogueVehicles({
     { 'cogcabrio', 'Cognoscenti Cabrio', 'Enus' }, { 'exemplar', 'Exemplar', 'Dewbauchee' },
     { 'f620', 'F620', 'Ocelot' }, { 'felon', 'Felon', 'Lampadati' }, { 'felon2', 'Felon GT', 'Lampadati' },
     { 'jackal', 'Jackal', 'Ocelot' }, { 'oracle2', 'Oracle XS', 'Ubermacht' }, { 'sentinel2', 'Sentinel XS', 'Ubermacht' },
     { 'windsor', 'Windsor', 'Enus' }, { 'zion', 'Zion', 'Ubermacht' },
 })
 
-addCatalogueVehicles('sports', {
+addCatalogueVehicles({
     { 'alpha', 'Alpha', 'Albany' }, { 'banshee', 'Banshee', 'Bravado' }, { 'bestia', 'Bestia GTS', 'Grotti' },
     { 'buffalo', 'Buffalo', 'Bravado' }, { 'calico', 'Calico GTF', 'Karin' }, { 'carbonizzare', 'Carbonizzare', 'Grotti' },
     { 'comet2', 'Comet', 'Pfister' }, { 'coquette', 'Coquette', 'Invetero' }, { 'elegy', 'Elegy Retro', 'Annis' },
@@ -62,7 +64,7 @@ addCatalogueVehicles('sports', {
     { 'tenf', '10F', 'Obey' }, { 'vectre', 'Vectre', 'Emperor' },
 })
 
-addCatalogueVehicles('super', {
+addCatalogueVehicles({
     { 'adder', 'Adder', 'Truffade' }, { 'autarch', 'Autarch', 'Ocelot' }, { 'bullet', 'Bullet', 'Vapid' },
     { 'cheetah', 'Cheetah', 'Grotti' }, { 'cyclone', 'Cyclone', 'Coil' }, { 'deveste', 'Deveste Eight', 'Principe' },
     { 'emerus', 'Emerus', 'Progen' }, { 'entity2', 'Entity XXR', 'Overflod' }, { 'entityxf', 'Entity XF', 'Overflod' },
@@ -78,7 +80,7 @@ addCatalogueVehicles('super', {
     { 'zentorno', 'Zentorno', 'Pegassi' }, { 'zorrusso', 'Zorrusso', 'Pegassi' },
 })
 
-addCatalogueVehicles('muscle', {
+addCatalogueVehicles({
     { 'blade', 'Blade', 'Vapid' }, { 'buccaneer', 'Buccaneer', 'Albany' }, { 'dominator', 'Dominator', 'Vapid' },
     { 'dukes', 'Dukes', 'Imponte' }, { 'ellie', 'Ellie', 'Vapid' }, { 'gauntlet', 'Gauntlet', 'Bravado' },
     { 'greenwood', 'Greenwood', 'Bravado' }, { 'hermes', 'Hermes', 'Albany' }, { 'hotknife', 'Hotknife', 'Vapid' },
@@ -88,7 +90,7 @@ addCatalogueVehicles('muscle', {
     { 'vigero', 'Vigero', 'Declasse' }, { 'virgo', 'Virgo', 'Albany' }, { 'yosemite', 'Yosemite', 'Declasse' },
 })
 
-addCatalogueVehicles('offroad', {
+addCatalogueVehicles({
     { 'bfinjection', 'BF Injection', 'BF' }, { 'bifta', 'Bifta', 'BF' }, { 'blazer', 'Blazer', 'Nagasaki' },
     { 'bodhi2', 'Bodhi', 'Canis' }, { 'caracara2', 'Caracara 4x4', 'Vapid' }, { 'dubsta3', 'Dubsta 6x6', 'Benefactor' },
     { 'dune', 'Dune Buggy', 'BF' }, { 'everon', 'Everon', 'Karin' }, { 'freecrawler', 'Freecrawler', 'Canis' },
@@ -99,7 +101,7 @@ addCatalogueVehicles('offroad', {
     { 'vagrant', 'Vagrant', 'Maxwell' }, { 'verus', 'Verus', 'Dinka' }, { 'winky', 'Winky', 'Vapid' },
 })
 
-addCatalogueVehicles('suvs', {
+addCatalogueVehicles({
     { 'baller', 'Baller', 'Gallivanter' }, { 'bjxl', 'BeeJay XL', 'Karin' }, { 'cavalcade', 'Cavalcade', 'Albany' },
     { 'contender', 'Contender', 'Vapid' }, { 'dubsta', 'Dubsta', 'Benefactor' }, { 'granger', 'Granger', 'Declasse' },
     { 'gresley', 'Gresley', 'Bravado' }, { 'habanero', 'Habanero', 'Emperor' }, { 'huntley', 'Huntley S', 'Enus' },
@@ -108,7 +110,7 @@ addCatalogueVehicles('suvs', {
     { 'serrano', 'Serrano', 'Benefactor' }, { 'toros', 'Toros', 'Pegassi' }, { 'xls', 'XLS', 'Benefactor' },
 })
 
-addCatalogueVehicles('motorcycles', {
+addCatalogueVehicles({
     { 'akuma', 'Akuma', 'Dinka' }, { 'bati', 'Bati 801', 'Pegassi' }, { 'bf400', 'BF400', 'Nagasaki' },
     { 'carbonrs', 'Carbon RS', 'Nagasaki' }, { 'daemon', 'Daemon', 'Western' }, { 'defiler', 'Defiler', 'Shitzu' },
     { 'double', 'Double-T', 'Dinka' }, { 'enduro', 'Enduro', 'Dinka' }, { 'faggio', 'Faggio', 'Pegassi' },

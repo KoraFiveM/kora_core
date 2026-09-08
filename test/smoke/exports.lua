@@ -61,6 +61,7 @@ h.test('finalise flattens the complete server surface without collisions', funct
     dofile('build/finalise.lua')
     h.assertTrue(type(flattened.deleteCharacter) == 'function', 'deleteCharacter is exported')
     h.assertTrue(type(flattened.setDevMode) == 'function', 'setDevMode is exported')
+    h.assertTrue(type(flattened.saveVehicleProperties) == 'function', 'saveVehicleProperties is exported')
 end)
 
 h.report('exports')

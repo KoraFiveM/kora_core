@@ -168,6 +168,7 @@ QBCoreSeed.items = {
     { name = 'phone',        label = 'Phone',    weight = 190,  type = 'item', image = 'phone.png',        imageUrl = QBCoreSeed.imageUrl('phone'), unique = true,  useable = true,  shouldClose = false, description = 'Smartphone.' },
     { name = 'id_card',      label = 'ID Card',  weight = 0,    type = 'item', image = 'id_card.png',      imageUrl = QBCoreSeed.imageUrl('id_card'), unique = true,  useable = true,  shouldClose = false, description = 'Identification.' },
     { name = 'lockpick',     label = 'Lockpick', weight = 160,  type = 'item', image = 'lockpick.png',     imageUrl = QBCoreSeed.imageUrl('lockpick'), unique = false, useable = true,  shouldClose = true,  description = 'For locked things.' },
+    { name = 'vehiclekey',   label = 'Vehicle Key', weight = 20, type = 'item', image = 'vehiclekey.png',   imageUrl = QBCoreSeed.imageUrl('vehiclekey'), unique = true, useable = true, shouldClose = false, description = 'A key assigned to a vehicle.' },
     { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
 
     -- Further consumables (food/drink/alcohol/drugs). Their actual hunger/

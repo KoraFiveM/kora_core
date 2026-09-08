@@ -274,6 +274,39 @@ function Core.garage.updateState(plate, patch)
     return ok ~= nil
 end
 
+---Persists a complete QBCore-compatible vehicle-property snapshot without
+---changing the vehicle's garage state. This is intentionally a server-only
+---primitive: callers must authorize and charge for tuning before calling it.
+---The plate and model remain authoritative database fields, while fuel and
+---health are kept in their dedicated columns so a later garage spawn cannot
+---be overridden by the JSON snapshot.
+---@param plate string
+---@param properties table Result of QB.vehicle.getProperties.
+---@return boolean, string|nil
+function Core.garage.saveVehicleProperties(plate, properties)
+    if type(properties) ~= 'table' then return false, 'vehicle properties must be a table' end
+
+    local storedProperties = {}
+    for key, value in pairs(properties) do
+        -- `plate` identifies the row and `model` is its ownership record, not
+        -- mutable vehicle appearance. The condition values live in dedicated
+        -- columns and are applied by spawnVehicle before presentation props.
+        if key ~= 'plate' and key ~= 'model'
+            and key ~= 'fuelLevel' and key ~= 'engineHealth' and key ~= 'bodyHealth' then
+            storedProperties[key] = value
+        end
+    end
+
+    local saved = Core.garage.updateState(plate, {
+        fuel = properties.fuelLevel,
+        engineHealth = properties.engineHealth,
+        bodyHealth = properties.bodyHealth,
+        mods = storedProperties,
+    })
+    if not saved then return false, 'unknown vehicle' end
+    return true
+end
+
 ---Soft-deletes a vehicle row (same convention `players`/character rows use).
 ---@param plate string
 ---@return boolean

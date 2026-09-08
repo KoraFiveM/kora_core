@@ -24,6 +24,15 @@ h.test('seeds are ingested and readable via getShared', function()
     h.assertTrue(Core.registry.countShared('jobs') >= 3, 'seed jobs missing')
 end)
 
+h.test('shared weapons expose inventory-owned damage settings', function()
+    local pistol = assert(Core.registry.getShared('weapons', 'weapon_pistol'))
+    local railgun = assert(Core.registry.getShared('weapons', 'weapon_railgun'))
+    h.assertEqual(pistol.damageModifier, 0.8)
+    h.assertTrue(pistol.disableCriticalHits)
+    h.assertEqual(railgun.damageModifier, 1.0, 'unconfigured weapons retain native damage')
+    h.assertFalse(railgun.disableCriticalHits)
+end)
+
 h.test('defaults are registered through the runtime delta funnel', function()
     local seen = {}
     for _, event in ipairs(handle.clientEvents) do
@@ -55,6 +64,20 @@ h.test('seed gang grades are one-based sequential arrays', function()
             h.assertTrue(gang.grades[grade] ~= nil, ('%s has a gap at grade %d'):format(name, grade))
         end
     end
+end)
+
+h.test('legacy zero-based role grade maps are normalised for modern consumers', function()
+    local ok = Core.registry.registerShared('jobs', 'burgershot', {
+        name = 'burgershot', label = 'Burger Shot', grades = {
+            ['0'] = { name = 'Trainee', payment = 30 },
+            ['1'] = { name = 'Cook', payment = 45 },
+        },
+    })
+    h.assertTrue(ok, 'legacy job registration failed')
+    local job = assert(Core.registry.getShared('jobs', 'burgershot'))
+    h.assertEqual(job.grades[1].name, 'Trainee', 'zero-based grade 0 must become internal grade 1')
+    h.assertEqual(job.grades[2].name, 'Cook', 'zero-based grade 1 must become internal grade 2')
+    h.assertTrue(job.grades['0'] == nil, 'legacy grade keys must not leak into the live registry')
 end)
 
 h.test('register adds to the list and indexed getter', function()

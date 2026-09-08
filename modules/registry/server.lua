@@ -18,6 +18,33 @@ RI.create('locations', 'key')
 
 local ownedRecords = {}   -- resource -> { [name] = { key = true } }
 
+-- Jobs and gangs use one-based grade arrays internally.  Resources written for
+-- legacy QBCore commonly supply an equivalent map keyed by "0", "1", …;
+-- convert that boundary format once so every modern consumer sees the same
+-- shape (and setJob/buildJob can resolve the selected grade).
+---@param record table
+local function normaliseRoleGrades(record)
+    local grades = record.grades
+    if type(grades) ~= 'table' then return end
+    -- A numeric zero key makes #grades non-zero once grade 1 is also present,
+    -- so check it explicitly before treating the table as a modern array.
+    if #grades > 0 and grades[0] == nil and grades['0'] == nil then return end
+
+    local indexed = {}
+    for key, grade in pairs(grades) do
+        local level = tonumber(key)
+        if level and level >= 0 and level % 1 == 0 and type(grade) == 'table' then
+            indexed[#indexed + 1] = { level = level, grade = grade }
+        end
+    end
+    if #indexed == 0 then return end
+
+    table.sort(indexed, function(a, b) return a.level < b.level end)
+    local normalised = {}
+    for _, entry in ipairs(indexed) do normalised[#normalised + 1] = entry.grade end
+    record.grades = normalised
+end
+
 local subRegistry = QB.resources.serverRegistry(function(owner)
     for _, r in pairs(RI.registries) do
         for subId, sub in pairs(r.subscribers) do
@@ -50,6 +77,7 @@ function Core.registry.registerShared(name, key, record)
     if type(record) ~= 'table' then return false, 'record must be a table' end
     local r = RI.registries[name]
     if not r then return false, ('no registry named %q'):format(tostring(name)) end
+    if name == 'jobs' or name == 'gangs' then normaliseRoleGrades(record) end
     record[r.keyField] = record[r.keyField] or key
     if record[r.keyField] ~= key then
         return false, ('record.%s (%s) does not match key (%s)')

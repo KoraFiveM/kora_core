@@ -12,6 +12,7 @@ SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-f
 - `Core.garage.impound(plate, fee, impoundLot)` — marks `impounded`.
 - `Core.garage.retrieveImpound(src, plate)` — clears the impound flag. Ownership-checked for civilian rows.
 - `Core.garage.updateState(plate, patch)` — partial condition update, for periodic autosave of a vehicle that's currently `out`. Unlike `storeVehicle`, does not change `state` or refuse an impounded vehicle.
+- `Core.garage.saveVehicleProperties(plate, properties)` — trusted server-resource API that persists a complete `QB.vehicle.getProperties` snapshot without changing state. The caller owns authorization and payment; never expose it directly to a client event or callback.
 - `Core.garage.deleteVehicle(plate)` — soft-delete (`deleted_at`).
 
 ## Implementation notes

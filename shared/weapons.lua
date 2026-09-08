@@ -7,7 +7,59 @@
 -- map packs to natives without inventing another taxonomy.
 QBCoreSeed = QBCoreSeed or {}
 
+-- Inventory applies these only while the corresponding weapon is actually in
+-- a player's hand. Everything omitted here deliberately retains native damage
+-- and critical-hit behaviour.
+local damageSettings = {
+    weapon_unarmed = { modifier = 0.2, disableCriticalHits = true },
+    weapon_dagger = { modifier = 0.6, disableCriticalHits = true },
+    weapon_bat = { modifier = 0.4, disableCriticalHits = true },
+    weapon_bottle = { modifier = 0.6, disableCriticalHits = true },
+    weapon_crowbar = { modifier = 0.6, disableCriticalHits = true },
+    weapon_flashlight = { modifier = 0.4, disableCriticalHits = true },
+    weapon_hammer = { modifier = 0.4, disableCriticalHits = true },
+    weapon_hatchet = { modifier = 0.5, disableCriticalHits = true },
+    weapon_knuckle = { modifier = 0.4, disableCriticalHits = true },
+    weapon_knife = { modifier = 0.4, disableCriticalHits = true },
+    weapon_machete = { modifier = 0.5, disableCriticalHits = true },
+    weapon_switchblade = { modifier = 0.5, disableCriticalHits = true },
+    weapon_nightstick = { modifier = 0.4, disableCriticalHits = true },
+    weapon_wrench = { modifier = 0.6, disableCriticalHits = true },
+    weapon_pistol = { modifier = 0.8, disableCriticalHits = true },
+    weapon_pistol_mk2 = { modifier = 0.9, disableCriticalHits = true },
+    weapon_combatpistol = { modifier = 1.0, disableCriticalHits = true },
+    weapon_appistol = { modifier = 0.4, disableCriticalHits = true },
+    weapon_pistol50 = { modifier = 1.4, disableCriticalHits = true },
+    weapon_snspistol = { modifier = 1.0, disableCriticalHits = true },
+    weapon_heavypistol = { modifier = 0.1, disableCriticalHits = true },
+    weapon_vintagepistol = { modifier = 0.8, disableCriticalHits = true },
+    weapon_flaregun = { modifier = 0.1, disableCriticalHits = true },
+    weapon_marksmanpistol = { modifier = 0.1, disableCriticalHits = true },
+    weapon_revolver = { modifier = 0.5, disableCriticalHits = true },
+    weapon_microsmg = { modifier = 0.5, disableCriticalHits = true },
+    weapon_minismg = { modifier = 0.5, disableCriticalHits = true },
+    weapon_smg = { modifier = 0.5, disableCriticalHits = true },
+    weapon_smg_mk2 = { modifier = 0.1, disableCriticalHits = true },
+    weapon_assaultsmg = { modifier = 1.0, disableCriticalHits = true },
+    weapon_combatpdw = { modifier = 0.5, disableCriticalHits = true },
+    weapon_machinepistol = { modifier = 0.5, disableCriticalHits = true },
+    weapon_pumpshotgun = { modifier = 0.4, disableCriticalHits = true },
+    weapon_pumpshotgun_mk2 = { modifier = 0.4, disableCriticalHits = true },
+    weapon_dbshotgun = { modifier = 0.4, disableCriticalHits = true },
+    weapon_assaultrifle = { modifier = 0.4, disableCriticalHits = true },
+    weapon_carbinerifle_mk2 = { modifier = 0.6, disableCriticalHits = true },
+    weapon_compactrifle = { modifier = 0.5, disableCriticalHits = true },
+    weapon_mg = { modifier = 0.1, disableCriticalHits = true },
+    weapon_combatmg = { modifier = 0.1, disableCriticalHits = true },
+    weapon_combatmg_mk2 = { modifier = 0.1, disableCriticalHits = true },
+    weapon_proxmine = { modifier = 1.5, disableCriticalHits = true },
+    weapon_bzgas = { modifier = 0.1, disableCriticalHits = true },
+    weapon_molotov = { modifier = 1.0, disableCriticalHits = true },
+    weapon_smokegrenade = { modifier = 0.1, disableCriticalHits = true },
+}
+
 local function weapon(name, label, ammotype, weight, weapontype)
+    local damage = damageSettings[name] or {}
     return {
         name = name,
         label = label,
@@ -16,6 +68,8 @@ local function weapon(name, label, ammotype, weight, weapontype)
         weight = weight,
         type = 'weapon',
         weapontype = weapontype,
+        damageModifier = damage.modifier or 1.0,
+        disableCriticalHits = damage.disableCriticalHits == true,
         unique = true,
         useable = true,
         image = name .. '.png',

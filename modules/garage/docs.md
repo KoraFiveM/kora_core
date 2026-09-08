@@ -75,6 +75,23 @@ Generic partial condition update, for periodic autosave of a vehicle that's curr
 #### Returns
 - `boolean`
 
+### `Core.garage.saveVehicleProperties(plate, properties)`
+Persists a complete `QB.vehicle.getProperties` snapshot without changing the
+vehicle's state. Fuel, engine health, and body health are saved in their
+dedicated columns; all other mutable properties are saved in `mods` and are
+restored by `qbgarages` when the vehicle is taken out.
+
+This is a **trusted server-resource API**. Call it only after the resource has
+validated ownership and completed any tuning/payment logic. The normal garage
+store callback continues to accept only safe cosmetic properties from a client.
+
+#### Parameters
+- `plate: string`
+- `properties: table` — result of `QB.vehicle.getProperties(vehicle)`.
+
+#### Returns
+- `boolean`, `string | nil` — `false, 'unknown vehicle'` when no active row exists.
+
 ### `Core.garage.deleteVehicle(plate)`
 Soft-deletes a vehicle row.
 
@@ -86,6 +103,9 @@ Soft-deletes a vehicle row.
 exports.qbcore:createVehicle(citizenid, 'sultan', plate, nil, { fuel = 100 })
 local netId = exports.qbcore:spawnVehicle(src, plate, coords, heading)
 exports.qbcore:storeVehicle(plate, { fuel = 87.5, engineHealth = 950.0 })
+
+-- In a server-side tuning resource, after authorization/payment:
+exports.qbcore:saveVehicleProperties(plate, properties)
 ```
 
 ## Notes
