@@ -556,6 +556,16 @@ function F.GetVehicleLabel(vehicle)
     return GetLabelText(GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)))
 end
 
+local function vehicleColorComponents(color)
+    return color[1] or color['1'] or color.r,
+        color[2] or color['2'] or color.g,
+        color[3] or color['3'] or color.b
+end
+
+local function vehicleColorTable(red, green, blue)
+    return { r = red, g = green, b = blue }
+end
+
 function F.GetVehicleProperties(vehicle)
     if DoesEntityExist(vehicle) then
         local pearlescentColor, wheelColor = GetVehicleExtraColours(vehicle)
@@ -612,7 +622,7 @@ function F.GetVehicleProperties(vehicle)
         local xenonColor
         local hasCustom, r, g, b = GetVehicleXenonLightsCustomColor(vehicle)
         if hasCustom then
-            xenonColor = table.pack(r, g, b)
+            xenonColor = vehicleColorTable(r, g, b)
         else
             xenonColor = GetVehicleXenonLightsColor(vehicle)
         end
@@ -647,10 +657,10 @@ function F.GetVehicleProperties(vehicle)
                 IsVehicleNeonLightEnabled(vehicle, 2),
                 IsVehicleNeonLightEnabled(vehicle, 3)
             },
-            neonColor = table.pack(GetVehicleNeonLightsColour(vehicle)),
+            neonColor = vehicleColorTable(GetVehicleNeonLightsColour(vehicle)),
             interiorColor = GetVehicleInteriorColour(vehicle),
             extras = extras,
-            tyreSmokeColor = table.pack(GetVehicleTyreSmokeColor(vehicle)),
+            tyreSmokeColor = vehicleColorTable(GetVehicleTyreSmokeColor(vehicle)),
             xenonColor = xenonColor,
             modSpoilers = GetVehicleMod(vehicle, 0),
             modFrontBumper = GetVehicleMod(vehicle, 1),
@@ -755,7 +765,7 @@ function F.SetVehicleProperties(vehicle, props)
                 ClearVehicleCustomPrimaryColour(vehicle)
                 SetVehicleColours(vehicle, props.color1, colorSecondary)
             else
-                SetVehicleCustomPrimaryColour(vehicle, props.color1[1], props.color1[2], props.color1[3])
+                SetVehicleCustomPrimaryColour(vehicle, vehicleColorComponents(props.color1))
             end
         end
         if props.color2 then
@@ -763,7 +773,7 @@ function F.SetVehicleProperties(vehicle, props)
                 ClearVehicleCustomSecondaryColour(vehicle)
                 SetVehicleColours(vehicle, type(props.color1) == 'number' and props.color1 or colorPrimary, props.color2)
             else
-                SetVehicleCustomSecondaryColour(vehicle, props.color2[1], props.color2[2], props.color2[3])
+                SetVehicleCustomSecondaryColour(vehicle, vehicleColorComponents(props.color2))
             end
         end
         if props.pearlescentColor then
@@ -822,7 +832,7 @@ function F.SetVehicleProperties(vehicle, props)
             SetVehicleNeonLightEnabled(vehicle, 3, props.neonEnabled[4])
         end
         if props.neonColor then
-            SetVehicleNeonLightsColour(vehicle, props.neonColor[1], props.neonColor[2], props.neonColor[3])
+            SetVehicleNeonLightsColour(vehicle, vehicleColorComponents(props.neonColor))
         end
         if props.interiorColor then
             SetVehicleInteriorColour(vehicle, props.interiorColor)
@@ -834,7 +844,7 @@ function F.SetVehicleProperties(vehicle, props)
             SetVehicleWheelWidth(vehicle, props.wheelWidth)
         end
         if props.tyreSmokeColor then
-            SetVehicleTyreSmokeColor(vehicle, props.tyreSmokeColor[1], props.tyreSmokeColor[2], props.tyreSmokeColor[3])
+            SetVehicleTyreSmokeColor(vehicle, vehicleColorComponents(props.tyreSmokeColor))
         end
         if props.modSpoilers then
             SetVehicleMod(vehicle, 0, props.modSpoilers, false)
@@ -907,7 +917,7 @@ function F.SetVehicleProperties(vehicle, props)
         end
         if props.xenonColor then
             if type(props.xenonColor) == 'table' then
-                SetVehicleXenonLightsCustomColor(vehicle, props.xenonColor[1], props.xenonColor[2], props.xenonColor[3])
+                SetVehicleXenonLightsCustomColor(vehicle, vehicleColorComponents(props.xenonColor))
             else
                 SetVehicleXenonLightsColor(vehicle, props.xenonColor)
             end

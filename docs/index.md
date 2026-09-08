@@ -240,6 +240,8 @@ Server helpers present: identity/player lookups (`GetPlayerBy*`), job/duty
 `SetMethod`/`SetField`. Client helpers present: the full vehicle-property /
 world / drawing / anim-and-particle set (`GetVehicleProperties`,
 `SetVehicleProperties`, `GetClosest*`, `DrawText3D`, `StartParticle*`, ...).
+Vehicle RGB snapshots are persisted as JSON-stable `{ r, g, b }` objects; the
+setter also accepts arrays and legacy JSON objects with numeric string keys.
 
 Current upstream behavior also includes the complete `QBCore.Config` shape,
 `PlayersByCitizenId`, phone/account generators, runtime player method/field
