@@ -202,6 +202,13 @@ QBCoreSeed.items = {
     { name = 'glass',      label = 'Glass',       weight = 100, type = 'item', image = 'glass.png',      imageUrl = QBCoreSeed.imageUrl('glass'),      unique = false, useable = false, shouldClose = true, description = 'Sorted glass.' },
     { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = QBCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
 
+    -- Crafting components and finished workshop supplies. Recipes and access
+    -- policy live in qbcrafting; these records only define inventory metadata.
+    { name = 'wire_bundle',        label = 'Wire Bundle',        weight = 180,  type = 'item', image = 'wire_bundle.png',        imageUrl = QBCoreSeed.imageUrl('wire_bundle'),        unique = false, useable = false, shouldClose = true, description = 'Insulated copper wiring for electrical projects.' },
+    { name = 'metal_bracket',      label = 'Metal Bracket',      weight = 350,  type = 'item', image = 'metal_bracket.png',      imageUrl = QBCoreSeed.imageUrl('metal_bracket'),      unique = false, useable = false, shouldClose = true, description = 'A reinforced bracket for mechanical assemblies.' },
+    { name = 'electronics_kit',    label = 'Electronics Kit',    weight = 650,  type = 'item', image = 'electronics_kit.png',    imageUrl = QBCoreSeed.imageUrl('electronics_kit'),    unique = false, useable = false, shouldClose = true, description = 'Packaged wiring and components for electronic repairs.' },
+    { name = 'vehicle_repair_kit', label = 'Vehicle Repair Kit', weight = 1800, type = 'item', image = 'vehicle_repair_kit.png', imageUrl = QBCoreSeed.imageUrl('vehicle_repair_kit'), unique = false, useable = false, shouldClose = true, description = 'Workshop supplies for repairing a damaged vehicle.' },
+
     -- Standard Ammu-Nation ammunition. These are ordinary stackable inventory
     -- items, allowing shops and a future weapon system to move them through the
     -- same authoritative qbinventory transfer path as every other item.
