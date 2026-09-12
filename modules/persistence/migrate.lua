@@ -64,23 +64,7 @@ CreateThread(function()
     end
 
     local resource = GetCurrentResourceName()
-    local migrations = {}
-    for _, m in ipairs(MIGRATIONS) do
-        local sql = LoadResourceFile(resource, m.file)
-        if not sql then
-            print(('^1[qbcore:migrate]^7 missing migration file %s'):format(m.file))
-            return
-        end
-        migrations[#migrations + 1] = {
-            version = m.version,
-            name = m.name,
-            sql = sql,
-            checksum = checksum(sql),
-            acceptedChecksums = m.acceptedChecksums,
-        }
-    end
-
-    local applied, err = QB.sql.migrate(resource, migrations)
+    local applied, err = QB.sql.migrateFiles(resource, MIGRATIONS, checksum)
     if err then
         print(('^1[qbcore:migrate]^7 migration failed: %s'):format(tostring(err)))
     else
