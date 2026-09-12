@@ -9,11 +9,7 @@
 --     Progressbar) are THIN FORWARDS to qblib (QB.*) / our replicated mirror --
 --     the whole point of building on qblib.
 
-local function provideExport(providedResource, exportName, func)
-    AddEventHandler(('__cfx_export_%s_%s'):format(providedResource, exportName), function(setCB)
-        setCB(func)
-    end)
-end
+local provideExport = QB.compat.provideExport
 
 local F = QBCore.Functions
 

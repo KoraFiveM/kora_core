@@ -176,6 +176,23 @@ function M.install(opts)
 
     -- --- fake qblib QB ---
     local QB = {}
+    QB.util = {
+        isCallable = function(value)
+            if type(value) == 'function' then return true end
+            if type(value) ~= 'table' then return false end
+            if type(rawget(value, '__cfx_functionReference')) == 'string' then return true end
+            local mt = getmetatable(value)
+            return mt ~= nil and type(mt.__call) == 'function'
+        end,
+        trim = function(value) return type(value) == 'string' and value:match('^%s*(.-)%s*$') or value end,
+    }
+    QB.compat = {
+        provideExport = function(identity, name, fn)
+            AddEventHandler(('__cfx_export_%s_%s'):format(identity, name), function(setCallback)
+                setCallback(fn)
+            end)
+        end,
+    }
 
     -- resources.serverRegistry: a REAL implementation (the sweep is under test).
     QB.resources = {

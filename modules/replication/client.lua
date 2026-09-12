@@ -11,11 +11,7 @@ local stats = { seq = 0, resyncs = 0, opsApplied = 0, lastDeltaAt = 0 }
 local subscribers = {}
 local nextSubId = 1
 
-local function isCallable(x)
-    if type(x) == 'function' then return true end
-    local mt = getmetatable(x)
-    return mt ~= nil and type(mt.__call) == 'function'
-end
+local isCallable = QB.util.isCallable
 
 local function pathGet(t, path)
     local node = t

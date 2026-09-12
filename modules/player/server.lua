@@ -25,11 +25,7 @@ local physicalCashWriteToken = {}
 local subscribers = {}
 local nextSubId = 1
 
-local function isCallable(x)
-    if type(x) == 'function' then return true end
-    local mt = getmetatable(x)
-    return mt ~= nil and type(mt.__call) == 'function'
-end
+local isCallable = QB.util.isCallable
 
 -- Does `path` start with `prefix`? Both are key arrays.
 local function pathMatchesPrefix(path, prefix)
@@ -279,7 +275,7 @@ end
 local creatingCharacter = {}
 
 local function trim(value)
-    return type(value) == 'string' and value:match('^%s*(.-)%s*$') or nil
+    return type(value) == 'string' and QB.util.trim(value) or nil
 end
 
 local function boundedText(value, field, minimum, maximum)

@@ -10,22 +10,12 @@ local PI = CoreInternal.player
 -- CFX export-boundary callbacks may arrive as callable tables/funcrefs.
 -- Current qb-core uses this check for player extension hooks in both live and
 -- offline objects.
-local function isCallable(value)
-    if type(value) == 'function' then return true end
-    if type(value) ~= 'table' then return false end
-    if type(rawget(value, '__cfx_functionReference')) == 'string' then return true end
-    local mt = getmetatable(value)
-    return mt ~= nil and type(mt.__call) == 'function'
-end
+local isCallable = QB.util.isCallable
 
 -- `provide 'qb-core'` alone doesn't make exports['qb-core']:GetCoreObject()
 -- resolve here; registering the __cfx_export event does (same identity hijack as
 -- qbtarget/client/compat/ox-target.lua).
-local function provideExport(providedResource, exportName, func)
-    AddEventHandler(('__cfx_export_%s_%s'):format(providedResource, exportName), function(setCB)
-        setCB(func)
-    end)
-end
+local provideExport = QB.compat.provideExport
 
 -- --- the per-player QBPlayer compat object -----------------------------------
 
