@@ -178,6 +178,14 @@ alongside it for legacy consumers — real qb-core uses that unnamespaced key an
 untouchable scripts (real qb-doorlock's client loop) read it directly. New code
 should use the namespaced key.
 
+Domain resources can add a client-visible read model to PlayerData without
+placing it in `metadata`: register a non-core root with
+`registerPlayerDataField(key, provider)`, then publish changes with
+`setPlayerDataField(source, key, value)`. The provider hydrates the field before
+the initial snapshot. The registering resource exclusively owns writes to the
+field, and qbcore never persists it; authorization must use the owner's server
+database/cache rather than the replicated client copy.
+
 ### Known compat caveats
 - A `Player` object returned to ANOTHER resource carries a `PlayerData` SNAPSHOT
   frozen at call time (it crossed the export boundary as a copy). The function

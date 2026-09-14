@@ -256,6 +256,12 @@ alongside it as a legacy mirror (real qb-core uses that unnamespaced key, and
 untouchable consumers such as real qb-doorlock read it directly) — new code
 should use the namespaced key.
 
+Domain resources can add client-visible, replicated-only PlayerData roots with
+`registerPlayerDataField(key, provider)` and update them through
+`setPlayerDataField(source, key, value)`. Providers run before the initial
+snapshot. These fields are resource-owned read models, are not saved by qbcore,
+and must never be trusted for server authorization.
+
 ### Known compat caveats
 - A `Player` object returned to ANOTHER resource carries a `PlayerData` SNAPSHOT
   frozen at call time. The function refs stay live; for fresh data call

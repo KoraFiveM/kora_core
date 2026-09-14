@@ -21,6 +21,12 @@ PI.byCitizenId = byCitizenId
 -- setPath below.
 local physicalCashWriteToken = {}
 
+-- Resource-owned, replicated-only PlayerData roots. These fields let a domain
+-- resource expose a read model to client UI without putting that domain's
+-- authoritative state in the players.metadata JSON blob.
+local playerDataFields = {}
+local playerDataFieldWriteToken = {}
+
 -- Path-prefix onChange subscribers: { id -> { resource, prefix (array), handler } }
 local subscribers = {}
 local nextSubId = 1
@@ -49,6 +55,14 @@ function Core.player.setPath(src, path, value, opts)
     local player = bySource[src]
     if not player then return false, 'no such player' end
     if type(path) ~= 'table' or #path == 0 then return false, 'path must be a non-empty array' end
+
+    local field = playerDataFields[path[1]]
+    if field and not (opts and opts._playerDataFieldWriteToken == playerDataFieldWriteToken) then
+        local invokingResource = GetInvokingResource() or GetCurrentResourceName()
+        if invokingResource ~= field.resource then
+            return false, ('PlayerData field %s is owned by %s'):format(path[1], field.resource)
+        end
+    end
 
     -- Once qbinventory owns a physical cash account, a generic direct write
     -- here would create a second balance beside the cash item. The only
@@ -157,6 +171,75 @@ function Core.player.getAllPlayers()
     return out
 end
 
+local RESERVED_PLAYER_DATA_FIELDS = {
+    source = true,
+    citizenid = true,
+    license = true,
+    cid = true,
+}
+
+for key in pairs(COLUMN_FOR) do RESERVED_PLAYER_DATA_FIELDS[key] = true end
+
+local function validPlayerDataField(key)
+    return type(key) == 'string' and #key <= 32 and key:match('^[a-z][%w_]*$') ~= nil
+        and not RESERVED_PLAYER_DATA_FIELDS[key]
+end
+
+local function loadPlayerDataField(field, player)
+    local ok, value, err = pcall(field.provider, player.source, player.citizenid)
+    if not ok then return nil, tostring(value) end
+    if err then return nil, tostring(err) end
+    return Core.util.deepClone(value)
+end
+
+---Register a resource-owned, replicated-only root field. The provider is run
+---before each initial snapshot and receives (source, citizenid). Its returned
+---value is never persisted by qbcore.
+---@param key string
+---@param provider fun(src:integer, citizenid:string):any, string|nil
+---@return boolean, string|nil
+function Core.player.registerPlayerDataField(key, provider)
+    if not validPlayerDataField(key) then return false, 'invalid or reserved PlayerData field' end
+    if not isCallable(provider) then return false, 'provider must be callable' end
+
+    local resource = GetInvokingResource() or GetCurrentResourceName()
+    local existing = playerDataFields[key]
+    if existing then
+        if existing.resource == resource then return false, 'PlayerData field is already registered' end
+        return false, ('PlayerData field is owned by %s'):format(existing.resource)
+    end
+
+    local field = { resource = resource, provider = provider }
+    playerDataFields[key] = field
+
+    -- A resource can restart while characters are already online. Hydrate
+    -- those sessions immediately; ordinary logins are hydrated in adopt().
+    for src, player in pairs(bySource) do
+        local value, err = loadPlayerDataField(field, player)
+        if err then
+            print(('^3[qbcore:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+                :format(resource, key, player.citizenid, err))
+        else
+            Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+        end
+    end
+    return true
+end
+
+---Update a registered replicated-only field. Only its registering resource can
+---write it; server authority must remain in that resource's own store/cache.
+---@param src integer
+---@param key string
+---@param value any
+---@return boolean, string|nil
+function Core.player.setPlayerDataField(src, key, value)
+    local field = playerDataFields[key]
+    if not field then return false, 'PlayerData field is not registered' end
+    local resource = GetInvokingResource() or GetCurrentResourceName()
+    if field.resource ~= resource then return false, ('PlayerData field is owned by %s'):format(field.resource) end
+    return Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+end
+
 -- --- subscriptions ---
 
 ---Subscribe to changes under a path prefix. handler(src, path, value). Prefix is
@@ -186,6 +269,14 @@ AddEventHandler('onResourceStop', function(resource)
     for id, subscriber in pairs(subscribers) do
         if subscriber.resource == resource then subscribers[id] = nil end
     end
+    for key, field in pairs(playerDataFields) do
+        if field.resource == resource then
+            playerDataFields[key] = nil
+            for src in pairs(bySource) do
+                Core.player.setPath(src, { key }, nil, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+            end
+        end
+    end
 end)
 
 -- --- lifecycle ---
@@ -198,6 +289,21 @@ local function adopt(src, player)
     byCitizenId[player.citizenid] = player
     Core.persistence._adopt(player)
     Core.replication._adopt(player)
+
+    -- Hydrate external read models after persistence has captured its baseline
+    -- but before any load event or snapshot can expose an incomplete shape.
+    for key, field in pairs(playerDataFields) do
+        local value, err = loadPlayerDataField(field, player)
+        if err then
+            print(('^3[qbcore:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+                :format(field.resource, key, player.citizenid, err))
+        else
+            Core.player.setPath(src, { key }, value, {
+                silent = true,
+                _playerDataFieldWriteToken = playerDataFieldWriteToken,
+            })
+        end
+    end
 
     -- qbinventory may own the physical cash account. Convert any persisted
     -- ledger balance before a snapshot or legacy load event can expose it;
