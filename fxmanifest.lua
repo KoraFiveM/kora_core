@@ -54,6 +54,12 @@ shared_scripts {
     'shared/vehicles.lua',
     'shared/jobs.lua',
     'shared/gangs.lua',
+    -- Canonical qb-core records fill gaps without replacing the purpose-built
+    -- definitions above. The merge converts keyed data into registry seeds.
+    'shared/upstream/items.lua',
+    'shared/upstream/jobs.lua',
+    'shared/upstream/gangs.lua',
+    'shared/upstream/merge.lua',
     'shared/weapons.lua',
     'shared/locations.lua',
     'modules/util/shared.lua',
