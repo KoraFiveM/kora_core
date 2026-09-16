@@ -12,7 +12,7 @@
 --
 -- metadata.injail is mirrored alongside it: real qb-core's metadata key is
 -- `injail`, not `jailed`, and legacy scripts read it directly (real
--- qb-ambulancejob checks `metadata['injail'] > 0` on hospital respawn and on
+-- the ambulance flow checks `metadata['injail'] > 0` on hospital respawn and on
 -- leaving a hospital bed) rather than through any Core.jail accessor. Same
 -- "legacy view alongside the modern shape" pattern already used for the
 -- isLoggedIn state bag -- see qbcore/modules/player/server.lua.

@@ -126,9 +126,9 @@ Config.dependencySupervisor = {
     -- themselves against a dependency that restarted mid-session.
     map = {
         qbinventory = { 'qb-banking' },
-        qbtarget = { 'qb-banking', 'qb-recyclejob' },
-        PolyZone = { 'qb-recyclejob' },
-        qbcore = { 'qb-banking', 'qb-recyclejob' },
+        qbtarget = { 'qb-banking' },
+        PolyZone = { },
+        qbcore = { 'qb-banking' },
     },
     cooldownMs = 15000,               -- a resource won't be restarted again within this many ms of its own last restart
 }

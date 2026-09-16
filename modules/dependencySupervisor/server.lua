@@ -1,7 +1,7 @@
--- dependencySupervisor (server realm) -- qb-banking and qb-recyclejob are
+-- dependencySupervisor (server realm) -- qb-banking is an
 -- untouchable legacy scripts that never re-register themselves when a
 -- resource they depend on (qbcore, qbinventory, qbtarget, PolyZone) restarts
--- mid-session. Since they can't self-heal, this restarts THEM instead,
+-- mid-session. Since it can't self-heal, this restarts it instead,
 -- driven entirely by Config.dependencySupervisor (disabled by default -- this
 -- is new behavior with no existing convention to lean on).
 --

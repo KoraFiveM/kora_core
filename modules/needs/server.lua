@@ -56,7 +56,7 @@ AddEventHandler('onResourceStart', function(resourceName)
 end)
 
 ---Resets hunger/thirst to full and stress to zero for one player -- mirrors
----legacy qb-ambulancejob's `hospital:server:resetHungerThirst`, called from a
+---legacy `hospital:server:resetHungerThirst`, called from a
 ---job resource's own respawn/heal flow (this module doesn't hook death itself).
 ---@param src integer
 function Core.needs.reset(src)

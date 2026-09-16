@@ -3,7 +3,7 @@
 ## Purpose
 A small, config-driven, OFF-by-default supervisor that restarts a resource
 when one of its dependencies restarts mid-session. It exists specifically for
-legacy resources (e.g. `qb-banking`, `qb-recyclejob`) that are kept
+legacy resources (e.g. `qb-banking`) that are kept
 byte-identical for backward-compat testing and therefore cannot be edited to
 re-register themselves against `qbcore`/`qbinventory`/`qbtarget`/`PolyZone`
 coming back up. Since they can't self-heal, this restarts THEM instead.

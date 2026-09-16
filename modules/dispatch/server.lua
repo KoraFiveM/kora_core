@@ -22,7 +22,7 @@
 ---@field data table|nil    -- freeform, passed through untouched
 
 -- `local` is the same-server TriggerEvent legacy code elsewhere might also
--- fire directly (matches qb-policejob's own police:server:policeAlert
+    -- fire directly (matches the legacy police:server:policeAlert
 -- convention); `client` is what each recipient receives. Ambulance/EMS has no
 -- established local-TriggerEvent convention to mirror -- only the client-side
 -- alert is legacy-preserved for it.

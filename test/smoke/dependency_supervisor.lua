@@ -32,25 +32,25 @@ h.test('cooldown blocks a second restart of the same resource in quick successio
     -- A resource name unused by any earlier test, so its cooldown state
     -- starts fresh regardless of test order within this file.
     Config.dependencySupervisor.enabled = true
-    Config.dependencySupervisor.map = { qbtarget = { 'qb-recyclejob' } }
+    Config.dependencySupervisor.map = { qbtarget = { 'qb-test-dependent' } }
     Config.dependencySupervisor.cooldownMs = 15000
-    handle.resourceStates['qb-recyclejob'] = 'started'
+    handle.resourceStates['qb-test-dependent'] = 'started'
 
     TriggerEvent('onResourceStart', 'qbtarget')
     TriggerEvent('onResourceStart', 'qbtarget')
 
-    h.assertEqual(restartCallsFor('qb-recyclejob'), 1, 'only one restart issued across two rapid triggers')
+    h.assertEqual(restartCallsFor('qb-test-dependent'), 1, 'only one restart issued across two rapid triggers')
 end)
 
 h.test('a dependent that is not currently started is never restarted', function()
     Config.dependencySupervisor.enabled = true
-    Config.dependencySupervisor.map = { qbinventory = { 'qb-recyclejob' } }
+    Config.dependencySupervisor.map = { qbinventory = { 'qb-test-stopped' } }
     Config.dependencySupervisor.cooldownMs = 15000
-    handle.resourceStates['qb-recyclejob'] = 'stopped'
+    handle.resourceStates['qb-test-stopped'] = 'stopped'
 
-    local before = restartCallsFor('qb-recyclejob')
+    local before = restartCallsFor('qb-test-stopped')
     TriggerEvent('onResourceStart', 'qbinventory')
-    local after = restartCallsFor('qb-recyclejob')
+    local after = restartCallsFor('qb-test-stopped')
 
     h.assertEqual(after - before, 0, 'not-started dependent left alone')
 end)

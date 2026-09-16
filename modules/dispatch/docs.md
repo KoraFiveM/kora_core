@@ -50,5 +50,5 @@ The per-recipient push, delivered only to on-duty members of the requested jobs.
 
 ## Notes
 - **Rendering is not this module's job.** qbcore ships no NUI/UI of its own — a job resource's own client code decides how to present the `qbcore:client:dispatchAlert` push (blips, sound, notify).
-- **Legacy compatibility, gated by `Config.dispatch.legacyEvents`.** When enabled, a `police` alert also fires `police:server:policeAlert` (same-server `TriggerEvent`, matching qb-policejob's own convention) and `police:client:policeAlert` to each recipient; `ambulance`/`ems` alerts also fire `hospital:client:ambulanceAlert`. Both legacy client events receive `(message or title, coords)`, not the full payload table.
+- **Legacy compatibility, gated by `Config.dispatch.legacyEvents`.** When enabled, a `police` alert also fires `police:server:policeAlert` and `police:client:policeAlert` to each recipient; `ambulance`/`ems` alerts also fire `hospital:client:ambulanceAlert`. Both legacy client events receive `(message or title, coords)`, not the full payload table.
 - **Dedup, not multiplied sends.** A recipient matching more than one job in `payload.jobs` is still only notified once.

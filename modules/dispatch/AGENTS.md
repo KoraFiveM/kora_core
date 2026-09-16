@@ -10,7 +10,7 @@ Job-aware alert fan-out for job resources (police/ambulance dispatch, tow, mecha
 - **Recipients via `Core.jobs.getPlayersByJob`'s O(1) index**, one lookup per job in `payload.jobs`, not a scan of all players.
 - **No native multi-target send.** `TriggerClientEvent` is looped per recipient — a `-1` broadcast + client-side filter would leak alert content (coords, message) to every connected client, not just the on-duty roster it's meant for.
 - **Dedup by `src`.** A player who somehow matches more than one requested job (not possible today — `PlayerData.job` is single-valued — but `getPlayersByJob` is called once per job) is only notified once.
-- **Legacy job events, gated by `Config.dispatch.legacyEvents`.** `LEGACY_JOB_EVENTS` maps `police`/`ambulance`/`ems` to the client event a stock qb-policejob/qb-ambulancejob expects (`police:client:policeAlert`, `hospital:client:ambulanceAlert`). `police` additionally fires a same-server `police:server:policeAlert` `TriggerEvent` (matches qb-policejob's own convention) — ambulance/EMS has no established local-event convention to mirror, so only the client push is legacy-preserved for it.
+- **Legacy job events, gated by `Config.dispatch.legacyEvents`.** `LEGACY_JOB_EVENTS` maps `police`/`ambulance`/`ems` to the legacy client events (`police:client:policeAlert`, `hospital:client:ambulanceAlert`). `police` additionally fires a same-server `police:server:policeAlert` `TriggerEvent`; ambulance/EMS has no established local-event convention to mirror, so only the client push is legacy-preserved for it.
 
 ## Best practices
 - Send one alert per incident, not per recipient — `Core.dispatch.alert` already fans out.

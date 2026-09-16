@@ -16,7 +16,7 @@ Hunger/thirst decay — the one piece of legacy qb-core behavior (hunger/thirst 
 - **Client damage subscribes to hunger and thirst separately.** A replicated zero hunger update applies `Config.needs.hungerDamage`; zero thirst applies `Config.needs.thirstDamage`. Both zero therefore stacks both amounts. Native-dead, metadata-dead, and last-stand players are skipped.
 - **`_tick` is directly callable outside the loop** for the same reason `Core.paycheck._tick` is — the mock test harness's `Wait()` never yields, so resuming the `CreateThread` loop even once would hang the test process.
 - **Generation counter guards stop/restart races**, identical to [[paycheck]].
-- **`reset` mirrors legacy qb-ambulancejob's `hospital:server:resetHungerThirst`** — called from a job resource's own respawn/heal flow. This module doesn't hook death itself.
+- **`reset` restores the legacy hunger/thirst contract** — called from a job resource's own respawn/heal flow. This module doesn't hook death itself.
 
 ## Best practices
 - Don't auto-decay stress here — push stress changes directly via `Core.metadata.incrementMetaData` from whichever job resource causes them.

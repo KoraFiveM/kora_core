@@ -18,7 +18,7 @@ Stops the loop.
 - Nothing.
 
 ### `Core.needs.reset(src)`
-Resets `hunger`/`thirst` to 100 and `stress` to 0 for one player. Mirrors legacy qb-ambulancejob's `hospital:server:resetHungerThirst`, meant to be called from a job resource's own respawn/heal flow — this module doesn't hook death itself.
+Resets `hunger`/`thirst` to 100 and `stress` to 0 for one player. Intended to be called from a job resource's own respawn/heal flow — this module doesn't hook death itself.
 
 #### Parameters
 - `src: integer`

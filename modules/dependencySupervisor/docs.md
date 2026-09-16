@@ -2,8 +2,8 @@
 
 ## Overview
 Restarts a resource when a dependency of that resource restarts mid-session.
-Built for legacy, unmodifiable resources (e.g. `qb-banking`,
-`qb-recyclejob`) that cannot re-register themselves when `qbcore`,
+Built for legacy, unmodifiable resources (e.g. `qb-banking`) that cannot
+re-register themselves when `qbcore`,
 `qbinventory`, `qbtarget`, or `PolyZone` come back from a restart. Disabled
 by default. Server only. No exported functions -- it's a single reactive
 `onResourceStart` handler.
@@ -18,9 +18,9 @@ Config.dependencySupervisor = {
     map = {
         -- providerResourceName = { dependentResourceName, ... }
         qbinventory = { 'qb-banking' },
-        qbtarget = { 'qb-banking', 'qb-recyclejob' },
-        PolyZone = { 'qb-recyclejob' },
-        qbcore = { 'qb-banking', 'qb-recyclejob' },
+        qbtarget = { 'qb-banking' },
+        PolyZone = { },
+        qbcore = { 'qb-banking' },
     },
     cooldownMs = 15000,    -- min ms between two restarts of the SAME resource
 }

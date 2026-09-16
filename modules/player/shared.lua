@@ -52,7 +52,7 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
             licences = { driver = true, weapon = false },
             phone = {}, bloodtype = 'O+',
             -- Real qb-core seeds both on every new character (config.lua's
-            -- PlayerDefaults.metadata) -- fingerprint feeds qb-policejob's
+            -- PlayerDefaults.metadata) -- fingerprint feeds the police flow's
             -- fingerprint-scan feature, walletid feeds any wallet/banking
             -- script that reads it. Real qb-core pre-checks uniqueness
             -- against the DB before accepting a candidate; this rebuild
@@ -74,7 +74,7 @@ end
 --
 -- `type` IS copied here (defaulting to 'none'), unlike `blip` and the rest of
 -- the registry record. It has to be: real qb-core puts a job type on
--- PlayerData.job, and both qb-policejob and qb-ambulancejob gate roughly thirty
+    -- PlayerData.job, and both police and ambulance flows gate roughly thirty
 -- call sites on `Player.PlayerData.job.type == 'leo'` / `== 'ems'`. Without it
 -- every one of those checks is silently false and those resources simply don't
 -- work -- as was `compat/server/qb-core.lua`'s own `jd.type == job` branch in

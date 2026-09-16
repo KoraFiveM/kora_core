@@ -73,7 +73,7 @@ local function unavailable(name)
     if not warnedUnavailable then
         warnedUnavailable = true
         print(("^3[qbcore:inventory]^7 qbinventory is not started (state: %s); using the temporary built-in "
-            .. "legacy fallback. Start qbinventory to enable authoritative inventory sessions and live updates."):format(state))
+            .. "legacy fallback. start qbinventory to enable authoritative inventory sessions and live updates."):format(state))
     end
     return false
 end

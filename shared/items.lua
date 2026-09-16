@@ -187,7 +187,7 @@ QBCoreSeed.items = {
     { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
     { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
-    -- Recycling plant rewards. qb-recyclejob is a public civilian activity,
+    -- Recycling plant rewards are a public civilian activity,
     -- but its server-side payout still travels through qbcore's shared item
     -- registry and qbinventory's authoritative add/remove path. Keeping these
     -- here means a completed package can be received, displayed, and sold
@@ -231,7 +231,7 @@ QBCoreSeed.items = {
     ammo('firework_ammo', 'Firework Rocket', 'AMMO_FIREWORK', 500, 1),
     ammo('railgun_ammo', 'Railgun Charge', 'AMMO_RAILGUN', 750, 1),
     ammo('homing_missile', 'Homing Missile', 'AMMO_HOMINGLAUNCHER', 2400, 1),
-    ammo('emp_round', 'EMP Round', 'AMMO_EMPLAUNCHER', 1000, 1),
+    ammo('emp_round', 'EMP round', 'AMMO_EMPLAUNCHER', 1000, 1),
 
     -- Optional licence record for servers that choose to gate weapon-shop
     -- access through a player item rather than a metadata/ACE policy.

@@ -125,7 +125,7 @@ function Core.jobs.setJob(src, name, grade)
     -- job/gang/duty change through Player:UpdateClient(key, val), which fires
     -- QBCore:Server:OnPlayerUpdated / QBCore:Client:OnPlayerUpdated -- the
     -- event name legacy scripts actually listen for (confirmed:
-    -- qb-ambulancejob's job.lua, qb-policejob's client/main.lua both key off
+    -- legacy ambulance and police job resources both key off
     -- OnPlayerUpdated directly, never OnJobUpdate). Both are fired below so
     -- either listening style keeps working. Payload must be legacy-shaped
     -- (zero-based grade.level), same translation as QBCore.Shared.Jobs/the

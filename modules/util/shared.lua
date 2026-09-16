@@ -1,4 +1,4 @@
--- Core.util -- the QBCore.Shared.* primitives (Round/Trim/SplitStr/RandomStr/
+-- Core.util -- the QBCore.Shared.* primitives (round/Trim/SplitStr/RandomStr/
 -- RandomInt) plus the small helpers the player funnel needs (pathGet/pathSet,
 -- deepClone). Shared realm: identical on client and server.
 --
