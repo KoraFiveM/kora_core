@@ -65,13 +65,13 @@ function Core.garage.createVehicle(citizenid, model, plate, job, extra)
     local modelName = type(model) == 'number' and tostring(model) or model
 
     local ok, err = QB.sql.execute(
-        'INSERT INTO `player_vehicles` (`plate`,`model`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
-        .. 'VALUES (?,?,?,?,?,?,?)',
+        'INSERT INTO `player_vehicles` (`plate`,`model`,`vehicle`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
+        .. 'VALUES (?,?,?,?,?,?,?,?)',
         {
             -- Exactly one of citizenid/job is set; the other is a real SQL NULL.
             -- Writing it as a bare nil would leave a hole in this array and the
             -- driver would reject the whole statement.
-            plate, modelName, citizenid or QB.sql.NULL, job or QB.sql.NULL,
+            plate, modelName, modelName, citizenid or QB.sql.NULL, job or QB.sql.NULL,
             extra.fuel or Config.garage.defaultFuel,
             extra.engineHealth or Config.garage.defaultEngineHealth,
             extra.bodyHealth or Config.garage.defaultBodyHealth,

@@ -26,6 +26,56 @@ local function checksum(str)
     return (('%016x%016x'):format(a, b) .. string.rep('0', 32))
 end
 
+local VEHICLE_SYNC_TRIGGERS = {
+    {
+        name = 'qbcore_player_vehicles_model_sync_insert',
+        sql = [[CREATE TRIGGER `qbcore_player_vehicles_model_sync_insert`
+            BEFORE INSERT ON `player_vehicles` FOR EACH ROW
+            SET NEW.`model` = COALESCE(NULLIF(NEW.`model`, ''), NEW.`vehicle`),
+                NEW.`vehicle` = COALESCE(NULLIF(NEW.`vehicle`, ''), NEW.`model`)]],
+    },
+    {
+        name = 'qbcore_player_vehicles_model_sync_update',
+        sql = [[CREATE TRIGGER `qbcore_player_vehicles_model_sync_update`
+            BEFORE UPDATE ON `player_vehicles` FOR EACH ROW
+            SET NEW.`model` = CASE
+                    WHEN NOT (NEW.`model` <=> OLD.`model`)
+                        AND (NEW.`vehicle` <=> OLD.`vehicle`) THEN NEW.`model`
+                    WHEN NOT (NEW.`vehicle` <=> OLD.`vehicle`)
+                        AND (NEW.`model` <=> OLD.`model`) THEN NEW.`vehicle`
+                    ELSE COALESCE(NULLIF(NEW.`model`, ''), NEW.`vehicle`)
+                END,
+                NEW.`vehicle` = CASE
+                    WHEN NOT (NEW.`model` <=> OLD.`model`)
+                        AND (NEW.`vehicle` <=> OLD.`vehicle`) THEN NEW.`model`
+                    WHEN NOT (NEW.`vehicle` <=> OLD.`vehicle`)
+                        AND (NEW.`model` <=> OLD.`model`) THEN NEW.`vehicle`
+                    ELSE COALESCE(NULLIF(NEW.`model`, ''), NEW.`vehicle`)
+                END]],
+    },
+}
+
+local function ensureVehicleSyncTriggers()
+    local rows, queryErr = QB.sql.query([[SELECT `TRIGGER_NAME` AS `name`
+        FROM `information_schema`.`TRIGGERS`
+        WHERE `TRIGGER_SCHEMA` = DATABASE()
+            AND `EVENT_OBJECT_TABLE` = 'player_vehicles'
+            AND `TRIGGER_NAME` IN (?, ?)]], {
+        VEHICLE_SYNC_TRIGGERS[1].name, VEHICLE_SYNC_TRIGGERS[2].name,
+    })
+    if not rows then return false, queryErr end
+
+    local existing = {}
+    for _, row in ipairs(rows) do existing[row.name] = true end
+    for _, trigger in ipairs(VEHICLE_SYNC_TRIGGERS) do
+        if not existing[trigger.name] then
+            local created, createErr = QB.sql.execute(trigger.sql)
+            if created == nil and createErr then return false, createErr end
+        end
+    end
+    return true
+end
+
 local MIGRATIONS = {
     { version = 1, name = 'core',        file = 'sql/001_core.sql' },
     { version = 2, name = 'identifiers', file = 'sql/002_identifiers.sql' },
@@ -54,6 +104,7 @@ MIGRATIONS[#MIGRATIONS + 1] = { version = 5, name = 'vehicles', file = 'sql/005_
 MIGRATIONS[#MIGRATIONS + 1] = { version = 6, name = 'legacy_players', file = 'sql/006_legacy_players.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 7, name = 'legacy_vehicle_finance', file = 'sql/007_legacy_vehicle_finance.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 8, name = 'active_character_slots', file = 'sql/008_active_character_slots.sql' }
+MIGRATIONS[#MIGRATIONS + 1] = { version = 9, name = 'legacy_vehicle_model', file = 'sql/009_legacy_vehicle_model.sql' }
 
 CreateThread(function()
     -- MySQL may still be starting alongside FXServer. Keep the migration
@@ -68,6 +119,17 @@ CreateThread(function()
     if err then
         print(('^1[qbcore:migrate]^7 migration failed: %s'):format(tostring(err)))
     else
+        local synced, syncErr = QB.sql.execute([[UPDATE `player_vehicles`
+            SET `model` = COALESCE(NULLIF(`model`, ''), `vehicle`),
+                `vehicle` = COALESCE(NULLIF(`vehicle`, ''), `model`)
+            WHERE (`model` IS NULL OR `model` = '') OR (`vehicle` IS NULL OR `vehicle` = '')]])
+        if synced == nil and syncErr then
+            print(('^1[qbcore:migrate]^7 vehicle column sync failed: %s'):format(tostring(syncErr)))
+        end
+        local triggersReady, triggerErr = ensureVehicleSyncTriggers()
+        if not triggersReady then
+            print(('^1[qbcore:migrate]^7 vehicle sync trigger setup failed: %s'):format(tostring(triggerErr)))
+        end
         print('^2[qbcore:migrate]^7 schema up to date.')
         -- Warm qbsql's prepared cache with the hot player statements.
         exports.qbsql:prepareWarm({

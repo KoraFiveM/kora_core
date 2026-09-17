@@ -28,10 +28,10 @@ end
 
 handle.QB.sql.execute = function(sql, params)
     if sql:find('INSERT INTO `player_vehicles`', 1, true) then
-        local plate, model, citizenid, job, fuel, engineHealth, bodyHealth = table.unpack(params)
+        local plate, model, vehicle, citizenid, job, fuel, engineHealth, bodyHealth = table.unpack(params)
         if rows[plate] then return nil, 'duplicate plate' end
         rows[plate] = {
-            plate = plate, model = model, citizenid = citizenid, job = job,
+            plate = plate, model = model, vehicle = vehicle, citizenid = citizenid, job = job,
             state = 'garaged', fuel = fuel, engine_health = engineHealth, body_health = bodyHealth,
             mods = nil, last_position = nil, impound_fee = nil, impound_lot = nil, deleted_at = nil,
         }
