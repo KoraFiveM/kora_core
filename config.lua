@@ -134,4 +134,33 @@ Config.dependencySupervisor = {
 }
 
 -- Registers this resource-owned configuration with qblib without changing its public Config table.
-if QB and QB.config and QB.config.adopt then Config = QB.config.adopt(Config) end
+if QB and QB.config and QB.config.adopt then
+    Config.compat.jobUpdateEventSource = QB.config.enum(Config.compat.jobUpdateEventSource, {
+        label = 'Legacy job-update event source',
+        description = 'Selects which realm emits the legacy QBCore:Client:OnJobUpdate compatibility event. Client matches traditional behaviour, server supports server-originated integrations, and both should be used only when consumers safely tolerate duplicate notifications.',
+        options = {
+            { value = 'client', label = 'Client' },
+            { value = 'server', label = 'Server' },
+            { value = 'both', label = 'Client and server' },
+        },
+    })
+    Config.persistence.volatileMetadataKeys = QB.config.map(Config.persistence.volatileMetadataKeys,
+        QB.config.boolean(false), {
+            scope = 'server',
+            label = 'Volatile metadata keys',
+            description = 'Defines metadata keys that persistence routes to the separate volatile metadata column. Use the exact metadata key as each row key and true as its value; leave the map empty unless the database schema and migration policy explicitly use volatile metadata.',
+        })
+    Config.compat.clientMetadataKeys = QB.config.map(Config.compat.clientMetadataKeys,
+        QB.config.boolean(false), {
+            scope = 'server',
+            label = 'Client-writable legacy metadata keys',
+            description = 'Allow-lists metadata keys accepted by the legacy QBCore:Server:SetMetaData compatibility event. Use the exact metadata key with true to permit it. The secure default is empty because every enabled key lets a client request changes to that metadata field.',
+        })
+    Config.dependencySupervisor.map = QB.config.map(Config.dependencySupervisor.map,
+        QB.config.list({}, QB.config.string('', { minLength = 1 })), {
+            scope = 'server',
+            label = 'Dependency restart map',
+            description = 'Maps a provider resource name to the ordered list of dependent resources restarted after that provider starts. Empty lists are valid. This supervisor remains inactive unless Dependency supervisor enabled is also turned on; review restart ordering and player impact before enabling it.',
+        })
+    Config = QB.config.adopt(Config)
+end
