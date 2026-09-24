@@ -94,6 +94,22 @@ Items are slot-keyed (`items[slot] = {slot, name, amount, info, ...}`). No NUI i
 shipped. qbinventory is the headless inventory authority and separately owns the
 `qb-inventory` compatibility identity; its optional companion resource owns any UI.
 
+### Transactions
+```lua
+exports.qbcore:transaction(src, {
+    reason = 'shop purchase',
+    money = { remove = { { account = 'cash', amount = 500 } } },
+    items = { add = { { item = 'sandwich', amount = 2, info = {} } } }
+}) -- true | false, errorString
+```
+
+All money balances, item quantities, and carry capacity are checked before
+mutation. Amounts must be positive whole numbers. Item entries require `item`
+and `amount`, with optional `slot` and `info`; money entries require `account`
+and `amount`. A later failure triggers best-effort compensation. This is not
+crash-proof atomicity: callers must authorize the operation and validate price,
+ownership, permissions, and distance. `coords` is metadata only.
+
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
 ```lua
 exports.qbcore:getShared(name, key)          -- one record

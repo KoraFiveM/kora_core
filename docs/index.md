@@ -59,6 +59,30 @@ exports.qbcore:onPlayerDataChange('job', function(path, value)
 end)
 ```
 
+### Commit money and inventory changes together
+```lua
+local ok, err = exports.qbcore:transaction(source, {
+    reason = 'shop purchase',
+    coords = vector3(1, 2, 3), -- metadata only; no distance check
+    money = {
+        remove = { { account = 'cash', amount = 500 } },
+        add = { { account = 'bank', amount = 500 } }
+    },
+    items = {
+        remove = { { item = 'water_bottle', amount = 1 } },
+        add = { { item = 'sandwich', amount = 2, info = {} } }
+    }
+})
+if not ok then print(('transaction rejected: %s'):format(err)) end
+```
+
+The transaction checks all balances, item quantities, and carry capacity before
+mutating. It then removes money/items and adds items/money. If a later operation
+fails, it attempts to compensate completed operations. Amounts must be positive
+whole numbers. Callers must perform authorization, price, ownership, permission,
+and distance checks; never pass an untrusted client-defined transaction. This is
+compensating rollback, not crash-proof atomicity, and concurrent calls can race.
+
 ### Subscribe to a player change server-side
 ```lua
 -- server
@@ -149,6 +173,15 @@ failing it.
 exports.qbcore:calculateTax(price, 'bank', 'remove')  -- for a tax-inclusive UI
 exports.qbcore:collectTax(500, 'court fine')          -- an off-path levy; yields
 ```
+
+### Transactions
+```lua
+exports.qbcore:transaction(src, definition) -- true | false, errorString
+```
+
+`definition` supports `money.remove`, `money.add`, `items.remove`, and
+`items.add`. Item entries use `item`, `amount`, optional `slot`/`info`; money
+entries use `account` and `amount`. `reason` and `coords` are optional metadata.
 
 ### Jobs / gangs
 ```lua
