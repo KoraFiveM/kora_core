@@ -319,4 +319,23 @@ QBCoreSeed.items = {
     { name = 'tuna',                label = 'Tuna',                weight = 100, type = 'item', image = 'tuna.png',                unique = false, useable = false, shouldClose = false, description = 'A sizeable tuna, prized for its rich, meaty flesh.' },
     { name = 'white_bass',          label = 'White Bass',          weight = 100, type = 'item', image = 'white_bass.png',          unique = false, useable = false, shouldClose = false, description = 'A silvery white bass caught from open water.' },
     { name = 'worm',                label = 'Worm',                weight = 100, type = 'item', image = 'worm.png',                unique = false, useable = false, shouldClose = false, description = 'A wriggling worm, perfect for baiting a hook.' },
+
+    --- Metal Detecting
+    { name = 'antique_coin',    label = 'Antique Coin',    weight = 100,    type = 'item',    image = 'antique_coin.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'bobby_pin',    label = 'Bobby Pin',    weight = 100,    type = 'item',    image = 'bobby_pin.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'bottle_cap',    label = 'Bottle Cap',    weight = 100,    type = 'item',    image = 'bottle_cap.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'car_keys_md',    label = ' Found Car Keys',    weight = 100,    type = 'item',    image = 'car_keys_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'clump',    label = 'Clump',    weight = 100,    type = 'item',    image = 'clump.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'corno',    label = 'Corno',    weight = 100,    type = 'item',    image = 'corno.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'diamond_earring_md',    label = ' Found Diamond Earring',    weight = 100,    type = 'item',    image = 'diamond_earring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'diamond_ring_md',    label = 'Found Diamond Ring',    weight = 100,    type = 'item',    image = 'diamond_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'gold_bracelet_md',    label = ' Found Gold Bracelet',    weight = 100,    type = 'item',    image = 'gold_bracelet_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'gold_chain_md',    label = ' Found Gold Chain',    weight = 100,    type = 'item',    image = 'gold_chain_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'gold_diamond_ring_md',    label = ' Found Gold Diamond Ring',    weight = 100,    type = 'item',    image = 'gold_diamond_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'gold_ring_md',    label = ' Found Gold Ring',    weight = 100,    type = 'item',    image = 'gold_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'metaldetector',    label = 'Metal Detector',    weight = 100,    type = 'item',    image = 'metaldetector.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'nails',    label = 'Nails',    weight = 100,    type = 'item',    image = 'nails.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'ruby_ring_md',    label = 'Found Ruby Ring ',    weight = 100,    type = 'item',    image = 'ruby_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'silver_ring_md',    label = ' Found Silver Ring',    weight = 100,    type = 'item',    image = 'silver_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'toy_car',    label = 'Toy Car',    weight = 100,    type = 'item',    image = 'toy_car.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
 }
