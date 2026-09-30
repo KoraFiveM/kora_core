@@ -65,10 +65,17 @@ function Core.inventory.canCarry(src, name, amount)
     local addWeight = (def.weight or 0) * amount
     local current = II.totalWeight(it)
     if current + addWeight > Config.inventory.maxWeight then return false, 'over weight' end
-    -- Needs at least one slot if it can't fully stack.
-    if II.isUnique(name) or not II.findStackSlot(it, name, nil) then
-        if II.firstFreeSlot(it) == nil then return false, 'no free slot' end
+    if II.isUnique(name) then
+        local needed = amount
+        for slot = 1, Config.inventory.slots do
+            if it[slot] == nil then
+                needed = needed - 1
+                if needed <= 0 then return true end
+            end
+        end
+        return false, 'no free slot'
     end
+    if not II.findStackSlot(it, name, nil) and II.firstFreeSlot(it) == nil then return false, 'no free slot' end
     return true
 end
 

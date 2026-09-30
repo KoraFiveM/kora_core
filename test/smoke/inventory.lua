@@ -48,6 +48,44 @@ h.test('unique items never stack -- each occupies its own slot', function()
     h.assertEqual(slots, 2, 'two unique phones -> two slots')
 end)
 
+h.test('a bulk unique grant with too few slots rejects without adding anything', function()
+    local previousSlots = Config.inventory.slots
+    Config.inventory.slots = 2
+    player.PlayerData.items = {}
+    h.assertTrue(Core.inventory.addItem(1, 'water_bottle', 1))
+    local existing = player.PlayerData.items[1]
+    local can = Core.inventory.canCarry(1, 'phone', 2)
+    local canString = Core.inventory.canCarry(1, 'phone', '2')
+    local ok, err = Core.inventory.addItem(1, 'phone', 2)
+    Config.inventory.slots = previousSlots
+    h.assertFalse(can, 'capacity must account for every unique item')
+    h.assertFalse(canString, 'numeric string amounts retain their existing coercion')
+    h.assertFalse(ok)
+    h.assertEqual(err, 'no free slot')
+    h.assertEqual(player.PlayerData.items[2], nil, 'a failed bulk grant must not leave a partial grant')
+    h.assertEqual(player.PlayerData.items[1], existing, 'existing items are preserved')
+end)
+
+h.test('an exact-fit unique grant succeeds while full inventories can still stack', function()
+    local previousSlots = Config.inventory.slots
+    Config.inventory.slots = 3
+    player.PlayerData.items = {}
+    Core.inventory.addItem(1, 'water_bottle', 1)
+    local can = Core.inventory.canCarry(1, 'phone', 2)
+    local ok = Core.inventory.addItem(1, 'phone', 2)
+    local canStack = Core.inventory.canCarry(1, 'water_bottle', 2)
+    local canUnique = Core.inventory.canCarry(1, 'phone', 1)
+    Config.inventory.slots = previousSlots
+    h.assertTrue(can)
+    h.assertTrue(ok)
+    h.assertEqual(player.PlayerData.items[2].name, 'phone')
+    h.assertEqual(player.PlayerData.items[2].amount, 1)
+    h.assertEqual(player.PlayerData.items[3].name, 'phone')
+    h.assertEqual(player.PlayerData.items[3].amount, 1)
+    h.assertTrue(canStack, 'stackable items do not need an additional slot')
+    h.assertFalse(canUnique, 'a full inventory cannot accept another unique item')
+end)
+
 h.test('weight rejection returns (false, err) and mutates nothing', function()
     player.PlayerData.items = {}
     -- water_bottle weighs 500g; maxWeight 120000 -> 240 fit, 241 should reject.
