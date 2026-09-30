@@ -328,21 +328,25 @@ end
 
 Core.compat.buildOfflinePlayer = buildOfflinePlayer
 
+local function forgetPlayer(src)
+    local player = QBCore.Players[src]
+    if player and player.PlayerData.citizenid then
+        QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = nil
+    end
+    QBCore.Players[src] = nil
+end
+
 -- Keep QBCore.Players in sync as players load / unload.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
+    forgetPlayer(src)
     local player = buildQBPlayer(src)
     QBCore.Players[src] = player
     if player and player.PlayerData.citizenid then
         QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = player
     end
 end)
-AddEventHandler('qbcore:server:playerDropped', function(src)
-    local player = QBCore.Players[src]
-    if player and player.PlayerData.citizenid then
-        QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = nil
-    end
-    QBCore.Players[src] = nil
-end)
+AddEventHandler('qbcore:server:playerDropped', forgetPlayer)
+AddEventHandler('QBCore:Server:OnPlayerUnload', forgetPlayer)
 
 -- Keeps QBCore.Players[src].PlayerData incrementally in sync with EVERY write
 -- Core.player.setPath makes (it calls this on every successful write -- see
@@ -371,18 +375,30 @@ local F = QBCore.Functions
 
 function F.GetPlayer(src)
     src = tonumber(src) or F.GetSource(src)
-    if QBCore.Players[src] then return QBCore.Players[src] end
+    local handle = PI.handle(src)
+    if not handle then
+        forgetPlayer(src)
+        return nil
+    end
+    local player = QBCore.Players[src]
+    if player and player.PlayerData.citizenid == handle.citizenid then return player end
+    forgetPlayer(src)
     -- Build lazily if the load hook hasn't fired yet.
     local p = buildQBPlayer(src)
-    if p then QBCore.Players[src] = p end
+    -- Logout clears the state flag before unload callbacks, but retains the
+    -- handle until they finish. Allow those reads without rebuilding the cache.
+    if p and Player(src).state.isLoggedIn ~= false then QBCore.Players[src] = p end
     return p
 end
 
 function F.GetPlayerByCitizenId(cid)
-    if QBCore.PlayersByCitizenId[cid] then return QBCore.PlayersByCitizenId[cid] end
     local handle = PI.byCitizenId[cid]
-    local player = handle and F.GetPlayer(handle.source) or nil
-    if player then QBCore.PlayersByCitizenId[cid] = player end
+    if not handle then
+        if cid ~= nil then QBCore.PlayersByCitizenId[cid] = nil end
+        return nil
+    end
+    local player = F.GetPlayer(handle.source)
+    if player and Player(handle.source).state.isLoggedIn ~= false then QBCore.PlayersByCitizenId[cid] = player end
     return player
 end
 

@@ -322,6 +322,71 @@ h.test('AddPlayerMethod/AddPlayerField extend selected live player objects', fun
     h.assertEqual(player.CustomField, 42)
 end)
 
+h.test('logout clears both legacy caches even when a later unload listener reads the character', function()
+    local function login(cid)
+        local data = CoreInternal.player.freshData(cid, 'license:cache-test', 1, { firstname = 'Cache', lastname = 'Test' })
+        h.assertTrue(Core.player.login(6, cid, data))
+    end
+    login('CID-cache-old')
+    local old = QBCore.Functions.GetPlayer(6)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old'), old)
+
+    local readDuringUnload = false
+    AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
+        if src ~= 6 or not CoreInternal.player.handle(src) then return end
+        readDuringUnload = true
+        h.assertEqual(QBCore.Functions.GetPlayer(src).PlayerData.citizenid, 'CID-cache-old', 'unload retains character reads')
+        h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old').PlayerData.citizenid, 'CID-cache-old')
+    end)
+
+    h.assertTrue(Core.player.logout(6))
+    h.assertTrue(readDuringUnload, 'the listener reads after compat cache cleanup')
+    h.assertEqual(QBCore.Players[6], nil, 'the source cache must stay empty without another getter call')
+    h.assertEqual(QBCore.PlayersByCitizenId['CID-cache-old'], nil, 'the citizenid cache must stay empty')
+    h.assertEqual(QBCore.Functions.GetPlayer(6), nil)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old'), nil)
+    h.assertEqual(QBCore.Functions.GetQBPlayers()[6], nil)
+
+    login('CID-cache-new')
+    local current = QBCore.Functions.GetPlayer(6)
+    h.assertTrue(current ~= old, 'a replacement character receives its own wrapper')
+    h.assertEqual(current.PlayerData.citizenid, 'CID-cache-new')
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-new'), current)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old'), nil)
+    h.assertEqual(QBCore.PlayersByCitizenId['CID-cache-old'], nil)
+
+    Core.player.dropPlayer(6, 'cache test')
+    h.assertEqual(QBCore.Players[6], nil, 'drop clears the source cache')
+    h.assertEqual(QBCore.PlayersByCitizenId['CID-cache-new'], nil, 'drop clears the citizenid cache')
+    h.assertEqual(QBCore.Functions.GetPlayer(6), nil)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-new'), nil)
+end)
+
+h.test('legacy getters reject stale cache entries using the authoritative player handle', function()
+    local data = CoreInternal.player.freshData('CID-stale-old', 'license:stale-test', 1, { firstname = 'Stale', lastname = 'Old' })
+    h.assertTrue(Core.player.login(7, 'CID-stale-old', data))
+    local old = QBCore.Functions.GetPlayer(7)
+    h.assertTrue(Core.player.logout(7))
+
+    QBCore.Players[7] = old
+    QBCore.PlayersByCitizenId['CID-stale-old'] = old
+    h.assertEqual(QBCore.Functions.GetPlayer(7), nil, 'a cached wrapper is not an online character')
+    h.assertEqual(QBCore.Players[7], nil)
+    QBCore.PlayersByCitizenId['CID-stale-old'] = old
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-stale-old'), nil)
+    h.assertEqual(QBCore.PlayersByCitizenId['CID-stale-old'], nil)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId(nil), nil, 'nil citizenid preserves the legacy nil result')
+
+    data = CoreInternal.player.freshData('CID-stale-new', 'license:stale-test', 2, { firstname = 'Stale', lastname = 'New' })
+    h.assertTrue(Core.player.login(7, 'CID-stale-new', data))
+    QBCore.Players[7] = old
+    QBCore.PlayersByCitizenId['CID-stale-old'] = old
+    h.assertEqual(QBCore.Functions.GetPlayer(7).PlayerData.citizenid, 'CID-stale-new', 'source lookup refreshes a previous identity')
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-stale-old'), nil)
+    h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-stale-new').PlayerData.citizenid, 'CID-stale-new')
+    Core.player.dropPlayer(7, 'cache test')
+end)
+
 h.test('CreatePlayer(PlayerData, true) returns a full offline Player interface', function()
     local internal = CoreInternal.player.freshData('CID-offline', 'license:offline', 3,
         { firstname = 'Off', lastname = 'Line' })
