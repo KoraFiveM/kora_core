@@ -52,6 +52,56 @@ h.test('creates the first character in slot 1 with no cid given', function()
     h.assertEqual(lastInsertParams()[3], 1, 'cid should be the third bound param')
 end)
 
+h.test('creation persists only server-configured starter entitlements before login', function()
+    local previous = QBCore
+    local starters = {
+        phone = { item = 'phone', amount = 9 },
+        id_card = { item = 'id_card', amount = 1 },
+        custom = { item = 'custom_starter', amount = 1 },
+    }
+    _G.QBCore = { Shared = { StarterItems = starters } }
+    withExistingCount(0)
+    local citizenid, err = Core.player.createCharacter(51, {
+        firstname = 'New', lastname = 'Character', metadata = { starterItems = { forged = true } },
+    })
+    _G.QBCore = previous
+    h.assertTrue(citizenid ~= nil, err)
+    local pending = json.decode(lastInsertParams()[10]).starterItems
+    h.assertTrue(type(pending) == 'table', 'entitlement must be part of the initial persisted metadata')
+    h.assertEqual(pending.phone, true, 'configured amount must not turn an entitlement into a quantity')
+    h.assertEqual(pending.id_card, true)
+    h.assertEqual(pending.custom_starter, true)
+    h.assertEqual(pending.forged, nil, 'client-provided metadata must never define entitlements')
+    starters.phone.item = 'changed_after_creation'
+    h.assertEqual(Core.player.getPlayerData(51, { 'metadata', 'starterItems', 'phone' }), true)
+    h.assertEqual(Core.player.getPlayerData(51, { 'metadata', 'starterItems', 'changed_after_creation' }), nil)
+end)
+
+h.test('consumed starter state and granted inventory queue in the same player save', function()
+    h.assertTrue(Core.player.setPath(51, { 'metadata', 'starterItems', 'phone' }, false))
+    h.assertTrue(Core.player.setPath(51, { 'items', 1 }, { name = 'phone', amount = 1, slot = 1 }))
+    Core.persistence.saveNow(CoreInternal.player.handle(51))
+    local call = handle.sqlCalls.enqueue[#handle.sqlCalls.enqueue]
+    h.assertEqual(call.table, 'players')
+    h.assertEqual(call.row.pk, Core.player.getPlayerData(51, { 'citizenid' }))
+    h.assertEqual(json.decode(call.row.cols.metadata).starterItems.phone, false)
+    h.assertEqual(json.decode(call.row.cols.inventory)[1].name, 'phone')
+    h.assertEqual(call.opts.priority, 'immediate', 'save remains queued, not a SQL acknowledgment')
+end)
+
+h.test('loading and adopting an old character never creates starter entitlements', function()
+    local sql = 'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL'
+    handle.sqlResponses.single[sql] = {
+        citizenid = 'OLD-STARTER', license = LICENSE, cid = 1, name = 'Old Character',
+        charinfo = '{"firstname":"Old","lastname":"Character"}', metadata = '{}', inventory = '{}',
+    }
+    local data = assert(Core.persistence._load('OLD-STARTER'))
+    handle.sqlResponses.single[sql] = nil
+    h.assertEqual(data.metadata.starterItems, nil)
+    h.assertTrue(Core.player.login(52, 'OLD-STARTER', data))
+    h.assertEqual(Core.player.getPlayerData(52, { 'metadata', 'starterItems' }), nil)
+end)
+
 h.test('new-character insert binds SQL NULL when phone allocation is unavailable', function()
     local data = CoreInternal.player.freshData('CID-no-phone', LICENSE, 1, { firstname = 'No', lastname = 'Phone' })
     local ok, err = Core.persistence._insertNew('CID-no-phone', LICENSE, 1, data)

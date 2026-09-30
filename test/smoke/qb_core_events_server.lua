@@ -28,6 +28,23 @@ dofile('compat/server/qb-core-events.lua')
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 
+h.test('client metadata writes cannot reopen starter entitlements even when allow-listed', function()
+    Core.metadata.setMetaData(1, 'starterItems', { phone = false })
+    Config.compat.clientMetadataKeys.starterItems = true
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'starterItems', { phone = true, forged = true })
+    Config.compat.clientMetadataKeys.starterItems = nil
+    local pending = Core.metadata.getMetaData(1, 'starterItems')
+    h.assertEqual(pending.phone, false)
+    h.assertEqual(pending.forged, nil)
+end)
+
+h.test('ordinary allow-listed metadata writes keep their existing behavior', function()
+    Config.compat.clientMetadataKeys.testClientValue = true
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'testClientValue', 42)
+    Config.compat.clientMetadataKeys.testClientValue = nil
+    h.assertEqual(Core.metadata.getMetaData(1, 'testClientValue'), 42)
+end)
+
 h.test('generic client duty compatibility event is not registered', function()
     Core.jobs.setJobDuty(1, false)
     handle.fireEvent('QBCore:ToggleDuty', 1)

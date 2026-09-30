@@ -472,6 +472,16 @@ local function createCharacterUnlocked(src, charinfo, cid)
     local citizenid = Core.identity.generateCitizenId()
     local data = PI.freshData(citizenid, license, cid, normalizedCharinfo)
 
+    -- Only authoritative creation grants eligibility; loading an old character
+    -- must never recreate a consumed cityhall starter entitlement.
+    data.metadata.starterItems = {}
+    local starterItems = QBCore and QBCore.Shared and QBCore.Shared.StarterItems or {}
+    for _, starterItem in pairs(starterItems) do
+        if type(starterItem) == 'table' and type(starterItem.item) == 'string' then
+            data.metadata.starterItems[starterItem.item] = true
+        end
+    end
+
     local ok, err = Core.persistence._insertNew(citizenid, license, cid, data)
     if not ok then return nil, err end
 

@@ -8,7 +8,8 @@ local PI = CoreInternal.player
 
 RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
     local src = source
-    if type(key) ~= 'string' or Config.compat.clientMetadataKeys[key] ~= true then
+    -- Starter eligibility is created and consumed exclusively by the server.
+    if type(key) ~= 'string' or key == 'starterItems' or Config.compat.clientMetadataKeys[key] ~= true then
         print(("^3[qbcore]^7 rejected client metadata write from %s for key '%s'"):format(src, tostring(key)))
         return
     end
