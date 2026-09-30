@@ -210,6 +210,12 @@ local function taxFor(account, amount, action, ignoreTax)
     return tax
 end
 
+---Preview the tax actually applied while the banking provider is available.
+---Unlike calculateTax, this follows the money APIs' untaxed outage behavior.
+function Core.money.getTransactionTax(amount, account, action)
+    return taxFor(account, amount, action)
+end
+
 AddEventHandler('onResourceStop', function(resource)
     local cfg = Config.money.tax
     if type(cfg) == 'table' and resource == cfg.provider then taxAccountReady = false end

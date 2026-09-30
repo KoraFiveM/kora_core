@@ -20,6 +20,12 @@ Returns a player's balance for an account, or `nil` if there is no such player.
 local cash = exports.qbcore:getMoney(src, 'cash')
 ```
 
+### `Core.money.getTransactionTax(amount, account, action)`
+Returns the tax the money APIs would apply with the banking provider's current
+availability. This server-only query returns `0` while that provider is stopped;
+`calculateTax` continues to return the configured estimate. It does not reserve
+a balance or guarantee that a later tax deposit succeeds.
+
 ### `Core.money.addMoney(src, account, amount, reason, ignoreTax)`
 Adds a **positive** amount to an account. `amount` is the **gross** figure: when
 the [transaction tax](#transaction-tax) applies, the player receives

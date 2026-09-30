@@ -75,6 +75,17 @@ h.test('getTaxRate / calculateTax reflect config and floor the tax', function()
     h.assertEqual(Core.money.getTaxAccount(), 'government')
 end)
 
+h.test('getTransactionTax follows actual provider availability without changing configured estimates', function()
+    h.assertEqual(Core.money.getTransactionTax(100, 'bank', 'add'), 5)
+    h.assertEqual(Core.money.getTransactionTax(19, 'bank', 'add'), 0)
+    h.assertEqual(Core.money.getTransactionTax(100, 'crypto', 'add'), 0)
+    handle.resourceStates['qb-banking'] = 'stopped'
+    h.assertEqual(Core.money.getTransactionTax(100, 'bank', 'add'), 0)
+    h.assertEqual(Core.money.calculateTax(100, 'bank', 'add'), 5)
+    handle.resourceStates['qb-banking'] = 'started'
+    h.assertEqual(Core.money.getTransactionTax(100, 'bank', 'add'), 5)
+end)
+
 h.test('addMoney withholds the tax and banks it', function()
     Core.money.setMoney(1, 'bank', 0)
     h.assertTrue(Core.money.addMoney(1, 'bank', 100, 'paycheck'))
