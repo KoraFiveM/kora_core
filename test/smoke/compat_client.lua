@@ -164,6 +164,32 @@ h.test('Progressbar forwards legacy prop and propTwo descriptors to qblib', func
     h.assertEqual(captured.props[1].model, 'prop_second_only')
 end)
 
+h.test('Progressbar forwards useWhileDead through object and direct export entry points', function()
+    local exportedProgress
+    TriggerEvent('__cfx_export_qb-core_Progressbar', function(fn) exportedProgress = fn end)
+    h.assertEqual(exportedProgress, QBCore.Functions.Progressbar)
+    local captured
+    local originalStart = QB.progressbar.start
+    QB.progressbar.start = function(payload) captured = payload; return true end
+    for _, progressbar in ipairs({ QBCore.Functions.Progressbar, exportedProgress }) do
+        for _, setting in ipairs({ true, false, 'nil' }) do
+            local allowed = setting
+            if setting == 'nil' then allowed = nil end
+            local finished = 0
+            captured = nil
+            local returns = table.pack(progressbar('legacy', 'Working', 100, allowed, false,
+                nil, nil, nil, nil, function() finished = finished + 1 end))
+            h.assertEqual(returns.n, 0, 'legacy call still returns no values')
+            h.assertEqual(captured, nil, 'progress still starts asynchronously')
+            handle.step()
+            h.assertEqual(captured.useWhileDead, allowed)
+            h.assertEqual(captured.canCancel, false)
+            h.assertEqual(finished, 1, 'success still invokes the finish callback once')
+        end
+    end
+    QB.progressbar.start = originalStart
+end)
+
 h.test('client SpawnVehicle stops cleanly when its model cannot load', function()
     local requested, released, created = 0, 0, 0
     _G.IsModelInCdimage = function() return true end

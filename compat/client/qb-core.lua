@@ -328,6 +328,7 @@ function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableCo
     local payload = {
         label = label,
         duration = duration,
+        useWhileDead = useWhileDead,
         canCancel = canCancel,
     }
     if disableControls then
