@@ -19,6 +19,12 @@ dofile('shared/weapons.lua')
 dofile('shared/locations.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
+local ownershipRegistry
+local serverRegistry = QB.resources.serverRegistry
+QB.resources.serverRegistry = function(onDispose)
+    ownershipRegistry = serverRegistry(onDispose)
+    return ownershipRegistry
+end
 dofile('modules/registry/server.lua')
 
 local RI = CoreInternal.registry
@@ -139,17 +145,43 @@ h.test('onChange fires with add/remove and the resource-stop sweep removes recor
     Core.registry.registerShared('items', 'plugin_item', { name = 'plugin_item', label = 'P' })
     h.assertTrue(Core.registry.getShared('items', 'plugin_item') ~= nil)
 
-    -- Fire the resource-stop sweep for that owner via the serverRegistry handle.
-    -- The registry created its own serverRegistry; trigger dispose through the
-    -- mock's tracked owner. We reach it by re-running the onDispose the module
-    -- registered: emulate by calling unregister as the sweep would.
     _G.GetInvokingResource = function() return nil end
-
-    -- Drive the actual sweep: the mock serverRegistry exposes _dispose, but the
-    -- module holds its own handle. Simulate the stop by invoking the module's
-    -- exported internal unregister for the owned key (what the sweep does).
-    Core.registry._unregisterInternal('items', 'plugin_item')
+    ownershipRegistry._dispose('some-plugin')
     h.assertTrue(Core.registry.getShared('items', 'plugin_item') == nil, 'swept record should be gone')
+end)
+
+h.test('replacement belongs to the latest owner even when both register the same table', function()
+    local record = { name = 'shared_item', label = 'Shared' }
+    _G.GetInvokingResource = function() return 'owner-a' end
+    h.assertTrue(Core.registry.registerShared('items', record.name, record))
+    _G.GetInvokingResource = function() return 'owner-b' end
+    h.assertTrue(Core.registry.registerShared('items', record.name, record))
+    local before = #handle.clientEvents
+    ownershipRegistry._dispose('owner-a')
+    h.assertEqual(Core.registry.getShared('items', record.name), record)
+    h.assertEqual(#handle.clientEvents, before, 'previous owner emits no removal delta')
+    ownershipRegistry._dispose('owner-b')
+    h.assertEqual(Core.registry.getShared('items', record.name), nil)
+    h.assertEqual(#handle.clientEvents, before + 1, 'current owner emits one removal delta')
+    _G.GetInvokingResource = function() return nil end
+end)
+
+h.test('public and internal removal clear ownership before a different resource re-registers', function()
+    for _, remove in ipairs({ Core.registry.unregisterShared, Core.registry._unregisterInternal }) do
+        _G.GetInvokingResource = function() return 'removal-owner-a' end
+        h.assertTrue(Core.registry.registerShared('items', 'readded', { name = 'readded' }))
+        _G.GetInvokingResource = function() return 'foreign-remover' end
+        h.assertTrue(remove('items', 'readded'), 'foreign removal remains allowed')
+        h.assertFalse(remove('items', 'readded'), 'missing removal return stays false')
+        _G.GetInvokingResource = function() return 'removal-owner-b' end
+        local replacement = { name = 'readded', label = 'New' }
+        h.assertTrue(Core.registry.registerShared('items', 'readded', replacement))
+        ownershipRegistry._dispose('removal-owner-a')
+        h.assertEqual(Core.registry.getShared('items', 'readded'), replacement)
+        ownershipRegistry._dispose('removal-owner-b')
+        h.assertEqual(Core.registry.getShared('items', 'readded'), nil)
+    end
+    _G.GetInvokingResource = function() return nil end
 end)
 
 h.test('reseed refreshes the allShared list IN PLACE (stable reference)', function()

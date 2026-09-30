@@ -56,7 +56,7 @@ Returns a snapshot of every registry — `{ [name] = { epoch, keyField, records 
 - `table`
 
 ### `Core.registry.registerShared(name, key, record)` — server
-Registers or updates one record. `record[keyField]` is filled in from `key` if absent, and must match `key` if present. The write is applied, subscribers fire, and a delta is broadcast to every other server resource and every client. The registration is **owner-tracked**: if the calling resource stops, the record is swept.
+Registers or updates one record. `record[keyField]` is filled in from `key` if absent, and must match `key` if present. The write is applied, subscribers fire, and a delta is broadcast to every other server resource and every client. The registration is **owner-tracked**: the latest successful registering resource owns the record, and its stop sweeps the record. Stopping a previous owner leaves the replacement intact.
 
 #### Parameters
 - `name: string`
@@ -86,7 +86,7 @@ Registers many records at once. Each record must carry its own key field. Return
 - `integer` — Count registered.
 
 ### `Core.registry.unregisterShared(name, key)` — server
-Removes `key` from `name`, dispatches a `'remove'` to subscribers, and broadcasts the removal. Clears the calling resource's ownership record for that key.
+Removes `key` from `name`, dispatches a `'remove'` to subscribers, and broadcasts the removal. Clears the record's current ownership regardless of which resource calls unregister.
 
 #### Parameters
 - `name: string`

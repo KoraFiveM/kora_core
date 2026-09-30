@@ -17,6 +17,15 @@ RI.create('weapons', 'name')
 RI.create('locations', 'key')
 
 local ownedRecords = {}   -- resource -> { [name] = { key = true } }
+local recordOwners = {}   -- name -> { [key] = resource }
+
+local function clearOwnership(name, key)
+    local owners = recordOwners[name]
+    local owner = owners and owners[key]
+    if not owner then return end
+    ownedRecords[owner][name][key] = nil
+    owners[key] = nil
+end
 
 -- Jobs and gangs use one-based grade arrays internally.  Resources written for
 -- legacy QBCore commonly supply an equivalent map keyed by "0", "1", …;
@@ -88,6 +97,8 @@ function Core.registry.registerShared(name, key, record)
     local action = RI.apply(name, key, record)
 
     local owner = GetInvokingResource() or GetCurrentResourceName()
+    -- A replacement belongs to its latest owner, even if it reuses the table.
+    clearOwnership(name, key)
     if owner then
         -- subRegistry only needs one dispose call per resource (its callback
         -- does its own manual sweep below, not per-id cleanup), so the
@@ -97,6 +108,8 @@ function Core.registry.registerShared(name, key, record)
         ownedRecords[owner] = ownedRecords[owner] or {}
         ownedRecords[owner][name] = ownedRecords[owner][name] or {}
         ownedRecords[owner][name][key] = true
+        recordOwners[name] = recordOwners[name] or {}
+        recordOwners[name][key] = owner
     end
 
     RI.dispatch(name, action, key, record, previous)
@@ -118,8 +131,9 @@ function Core.registry.registerManyShared(name, records)
     return n
 end
 
--- Internal unregister used by the owner-stop sweep (no owner bookkeeping).
+-- Common removal path for explicit unregister and the owner-stop sweep.
 function Core.registry._unregisterInternal(name, key)
+    clearOwnership(name, key)
     local removed = RI.remove(name, key)
     if not removed then return false end
     RI.dispatch(name, 'remove', key, nil, removed)
@@ -131,10 +145,6 @@ end
 ---@param key string
 ---@return boolean
 function Core.registry.unregisterShared(name, key)
-    local owner = GetInvokingResource() or GetCurrentResourceName()
-    if owner and ownedRecords[owner] and ownedRecords[owner][name] then
-        ownedRecords[owner][name][key] = nil
-    end
     return Core.registry._unregisterInternal(name, key)
 end
 
