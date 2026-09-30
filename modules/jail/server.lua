@@ -30,6 +30,21 @@ local function deferToExternal(src, minutes, reason)
     return false
 end
 
+local function scheduleRelease(src, player, releaseAt)
+    SetTimeout(math.max(0, releaseAt - os.time()) * 1000, function()
+        local current = PI.handle(src)
+        -- A source can reconnect or receive a new sentence before this timer fires.
+        if current ~= player or current.PlayerData.metadata.jailed ~= releaseAt then return end
+
+        if releaseAt > os.time() then
+            scheduleRelease(src, player, releaseAt)
+            return
+        end
+
+        Core.jail.release(src)
+    end)
+end
+
 ---@param src integer
 ---@param minutes number
 ---@param reason string|nil
@@ -49,6 +64,7 @@ function Core.jail.jailPlayer(src, minutes, reason)
     Core.player.setPath(src, { 'metadata', 'injail' }, releaseAt) -- legacy mirror, see header comment
     TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, minutes * 60)
     TriggerEvent('qbcore:server:playerJailed', src, minutes, reason)
+    scheduleRelease(src, p, releaseAt)
 
     return true
 end
@@ -91,14 +107,21 @@ end
 -- covers a relog/crash mid-sentence. Skipped if an external prison resource
 -- is now running; that resource is expected to own its own rejoin handling.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
-    local remaining = Core.jail.getRemaining(src)
-    if remaining <= 0 then return end
+    local p = PI.handle(src)
+    if not p or (p.PlayerData.metadata.jailed or 0) == 0 then return end
 
     for _, resourceName in ipairs(Config.jail.deferToResources) do
         if GetResourceState(resourceName) == 'started' then return end
     end
 
+    local remaining = Core.jail.getRemaining(src)
+    if remaining <= 0 then
+        Core.jail.release(src)
+        return
+    end
+
     TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, remaining)
+    scheduleRelease(src, p, p.PlayerData.metadata.jailed)
 end)
 
 Core.commands.addCommand('jail', 'Jail a player', {

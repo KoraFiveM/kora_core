@@ -2,6 +2,22 @@
 -- deference to an external prison resource when one is detected running.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
+local realTime = os.time
+local now = 1800000000
+os.time = function() return now end
+
+local scheduled = {}
+local originalSetTimeout = SetTimeout
+SetTimeout = function(delay, callback)
+    if delay == 0 then return originalSetTimeout(delay, callback) end
+    scheduled[#scheduled + 1] = { delay = delay, callback = callback }
+end
+
+local releases = {}
+AddEventHandler('qbcore:server:playerReleased', function(src)
+    releases[src] = (releases[src] or 0) + 1
+end)
+
 dofile('config.lua')
 dofile('shared/items.lua'); dofile('shared/jobs.lua'); dofile('shared/gangs.lua')
 dofile('shared/vehicles.lua'); dofile('shared/weapons.lua'); dofile('shared/locations.lua')
@@ -17,10 +33,20 @@ dofile('modules/jail/server.lua')
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 
-local function eventsFor(name)
+local function eventsFor(name, src)
     local out = {}
-    for _, e in ipairs(handle.clientEvents) do if e.name == name then out[#out + 1] = e end end
+    for _, e in ipairs(handle.clientEvents) do
+        if e.name == name and (not src or e.target == src) then out[#out + 1] = e end
+    end
     return out
+end
+
+local function loginAs(src, cid, releaseAt)
+    local playerData = CoreInternal.player.freshData(cid, 'license:' .. cid, 1, { firstname = 'Jail', lastname = 'Test' })
+    playerData.metadata.jailed = releaseAt or 0
+    playerData.metadata.injail = releaseAt or 0
+    h.assertTrue(Core.player.login(src, cid, playerData))
+    return CoreInternal.player.handle(src)
 end
 
 h.test('jailPlayer teleports and sets a future release timestamp', function()
@@ -73,11 +99,13 @@ h.test('defers to an external prison resource when one is running, applying noth
     end }
 
     local before = #eventsFor('qbcore:client:jailTeleport')
+    local timersBefore = #scheduled
     local ok = Core.jail.jailPlayer(1, 15)
     h.assertTrue(ok, 'jailPlayer still reports success -- the external resource is expected to have handled it')
     h.assertTrue(requested, 'onJailRequest should have fired for the external resource')
     h.assertEqual(#eventsFor('qbcore:client:jailTeleport'), before, 'Core.jail must not apply its own teleport when deferring')
     h.assertFalse(Core.jail.isJailed(1), 'Core.jail must not set its own metadata.jailed when deferring')
+    h.assertEqual(#scheduled, timersBefore, 'external prison owns the release timer')
 
     handle.resourceStates['xt-prison'] = 'missing'
 end)
@@ -95,4 +123,134 @@ h.test('rejoin re-applies the teleport if still jailed, but not once released', 
     h.assertEqual(#eventsFor('qbcore:client:jailTeleport'), afterRelease, 'no longer jailed -- rejoin should not re-teleport')
 end)
 
+h.test('sentence expiry clears both metadata fields and releases once', function()
+    local p = loginAs(2, 'JAIL-EXPIRY')
+    h.assertTrue(Core.jail.jailPlayer(2, 1))
+    local timer = scheduled[#scheduled]
+    h.assertEqual(timer.delay, 60000)
+
+    now = now + 60
+    timer.callback()
+    h.assertEqual(p.PlayerData.metadata.jailed, 0)
+    h.assertEqual(p.PlayerData.metadata.injail, 0)
+    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 2), 1)
+    h.assertEqual(releases[2], 1)
+    timer.callback()
+    h.assertEqual(releases[2], 1, 'an already-released sentence cannot release again')
+end)
+
+h.test('an early timer reschedules until the sentence expires', function()
+    local p = loginAs(3, 'JAIL-EARLY')
+    Core.jail.jailPlayer(3, 1)
+    local releaseAt = p.PlayerData.metadata.jailed
+    local timer = scheduled[#scheduled]
+    timer.callback()
+    h.assertEqual(p.PlayerData.metadata.jailed, releaseAt, 'an early callback must not release')
+    h.assertEqual(releases[3], nil)
+    local retry = scheduled[#scheduled]
+    h.assertTrue(retry ~= timer, 'a new callback is scheduled')
+    h.assertEqual(retry.delay, 60000)
+
+    now = now + 60
+    retry.callback()
+    h.assertEqual(p.PlayerData.metadata.jailed, 0)
+    h.assertEqual(releases[3], 1)
+end)
+
+h.test('a previous sentence timer cannot release a newer sentence', function()
+    local p = loginAs(4, 'JAIL-RESENTENCE')
+    Core.jail.jailPlayer(4, 1)
+    local oldTimer = scheduled[#scheduled]
+    Core.jail.jailPlayer(4, 2)
+    local releaseAt = p.PlayerData.metadata.jailed
+    local newTimer = scheduled[#scheduled]
+
+    now = now + 60
+    oldTimer.callback()
+    h.assertEqual(p.PlayerData.metadata.jailed, releaseAt)
+    h.assertEqual(releases[4], nil)
+    now = now + 60
+    newTimer.callback()
+    h.assertEqual(p.PlayerData.metadata.jailed, 0)
+    h.assertEqual(releases[4], 1)
+end)
+
+h.test('manual release makes the pending sentence timer a no-op', function()
+    loginAs(5, 'JAIL-MANUAL')
+    Core.jail.jailPlayer(5, 1)
+    local timer = scheduled[#scheduled]
+    h.assertTrue(Core.jail.release(5))
+    now = now + 60
+    timer.callback()
+    h.assertEqual(releases[5], 1, 'manual release emits the only release event')
+    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 5), 1)
+end)
+
+h.test('a restored sentence receives its own timer after character relog', function()
+    local p = loginAs(6, 'JAIL-RELOG')
+    Core.jail.jailPlayer(6, 2)
+    local releaseAt = p.PlayerData.metadata.jailed
+    local oldTimer = scheduled[#scheduled]
+    h.assertTrue(Core.player.logout(6))
+    local restored = loginAs(6, 'JAIL-RELOG', releaseAt)
+    local timer = scheduled[#scheduled]
+    h.assertEqual(timer.delay, 120000)
+    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 6), 2)
+
+    now = now + 120
+    oldTimer.callback()
+    h.assertEqual(restored.PlayerData.metadata.jailed, releaseAt, 'the old handle timer cannot release the new session')
+    h.assertEqual(releases[6], nil)
+    timer.callback()
+    h.assertEqual(restored.PlayerData.metadata.jailed, 0)
+    h.assertEqual(restored.PlayerData.metadata.injail, 0)
+    h.assertEqual(releases[6], 1)
+end)
+
+h.test('disconnect and source reuse cannot give an old timer another character', function()
+    local p = loginAs(7, 'JAIL-DROPPED')
+    Core.jail.jailPlayer(7, 2)
+    local releaseAt = p.PlayerData.metadata.jailed
+    local oldTimer = scheduled[#scheduled]
+    Core.player.dropPlayer(7, 'test')
+    oldTimer.callback()
+    h.assertEqual(releases[7], nil, 'a disconnected player cannot be released')
+
+    local replacement = loginAs(7, 'JAIL-REPLACEMENT', releaseAt)
+    local timer = scheduled[#scheduled]
+    now = now + 120
+    oldTimer.callback()
+    h.assertEqual(replacement.PlayerData.metadata.jailed, releaseAt, 'even a matching timestamp belongs to another handle')
+    h.assertEqual(releases[7], nil)
+    timer.callback()
+    h.assertEqual(replacement.PlayerData.metadata.jailed, 0)
+    h.assertEqual(releases[7], 1)
+end)
+
+h.test('an already-expired built-in sentence is cleared when loaded', function()
+    local timersBefore = #scheduled
+    local p = loginAs(8, 'JAIL-EXPIRED', now - 1)
+    h.assertEqual(p.PlayerData.metadata.jailed, 0)
+    h.assertEqual(p.PlayerData.metadata.injail, 0)
+    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 8), 0)
+    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 8), 1)
+    h.assertEqual(releases[8], 1)
+    h.assertEqual(#scheduled, timersBefore, 'an expired sentence needs no timer')
+end)
+
+h.test('external prison ownership skips restored and expired sentence handling', function()
+    handle.resourceStates['xt-prison'] = 'started'
+    local timersBefore = #scheduled
+    local active = loginAs(9, 'JAIL-EXTERNAL-ACTIVE', now + 60)
+    local expired = loginAs(10, 'JAIL-EXTERNAL-EXPIRED', now - 60)
+    h.assertEqual(active.PlayerData.metadata.jailed, now + 60)
+    h.assertEqual(expired.PlayerData.metadata.jailed, now - 60)
+    h.assertEqual(expired.PlayerData.metadata.injail, now - 60, 'external metadata is left untouched')
+    h.assertEqual(#scheduled, timersBefore)
+    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 9), 0)
+    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 10), 0)
+    handle.resourceStates['xt-prison'] = 'missing'
+end)
+
+os.time = realTime
 h.report('jail')
