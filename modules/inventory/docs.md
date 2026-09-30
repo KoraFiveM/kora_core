@@ -114,9 +114,11 @@ Returns the lowest free slot index, or `nil` if full.
 ### `Core.inventory.moveItem(src, fromSlot, toSlot, amount)` — server
 Moves or splits `amount` from one slot to another, stacking into the destination if it holds the same item and refusing if it holds a different one.
 
+The staged fallback requires numeric integer slots within `Config.inventory.slots` and a finite, positive quantity after rounding down. Omitted amounts move the whole stack; numeric strings, fractional rounding, and clamping to the available stack retain their existing behavior. A running qbinventory receives the original arguments and applies its own validation.
+
 #### Returns
 - `boolean`
-- `string | nil` — Failure reason (`'no such player'`, `'empty source slot'`, `'destination occupied'`).
+- `string | nil` — Failure reason (`'no such player'`, `'invalid slot'`, `'empty source slot'`, `'amount must be finite'`, `'amount must be positive'`, `'destination occupied'`).
 
 ### `Core.inventory.clearInventory(src, keep)` — server
 Clears the inventory, optionally keeping items whose names are in `keep`.

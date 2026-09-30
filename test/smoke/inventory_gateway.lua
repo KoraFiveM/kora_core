@@ -87,4 +87,27 @@ h.test('does not fall back when a started provider is incomplete', function()
     h.assertTrue(type(err) == 'string' and err:find("missing required qbcore gateway export 'addItem'", 1, true) ~= nil)
 end)
 
+h.test('move delegates original arguments and provider returns before fallback validation', function()
+    handle.resourceStates.qbinventory = 'started'
+    local arguments
+    _G.exports.qbinventory = { moveItem = function(_, ...)
+        arguments = table.pack(...)
+        return false, 'provider rejected', 'provider detail'
+    end }
+    local before = json.encode(CoreInternal.player.handle(1).PlayerData.items)
+    local results = table.pack(Core.inventory.moveItem(1, '1', false, -1))
+    h.assertEqual(arguments.n, 4)
+    h.assertEqual(arguments[1], 1)
+    h.assertEqual(arguments[2], '1')
+    h.assertEqual(arguments[3], false)
+    h.assertEqual(arguments[4], -1)
+    h.assertEqual(results.n, 3)
+    h.assertEqual(results[1], false)
+    h.assertEqual(results[2], 'provider rejected')
+    h.assertEqual(results[3], 'provider detail')
+    Core.inventory.moveItem(1, 1, 2)
+    h.assertEqual(arguments.n, 3, 'omitted amount stays omitted at the provider')
+    h.assertEqual(json.encode(CoreInternal.player.handle(1).PlayerData.items), before)
+end)
+
 h.report('inventory_gateway')

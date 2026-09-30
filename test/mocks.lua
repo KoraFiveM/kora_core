@@ -177,6 +177,10 @@ function M.install(opts)
     -- --- fake qblib QB ---
     local QB = {}
     QB.util = {
+        isFiniteNumber = function(value)
+            return type(value) == 'number' and value == value and value > -math.huge and value < math.huge
+        end,
+        isInteger = function(value) return QB.util.isFiniteNumber(value) and value % 1 == 0 end,
         isCallable = function(value)
             if type(value) == 'function' then return true end
             if type(value) ~= 'table' then return false end

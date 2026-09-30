@@ -44,6 +44,10 @@ end
 
 local function items(src) local p = PI.handle(src); return p and p.PlayerData.items or nil end
 
+local function validSlot(slot)
+    return QB.util.isInteger(slot) and slot >= 1 and slot <= Config.inventory.slots
+end
+
 ---@param src integer
 ---@return number weight, number maxWeight
 function Core.inventory.getWeight(src)
@@ -98,7 +102,7 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
 
     local unique = II.isUnique(name)
     if slot then
-        if type(slot) ~= 'number' or slot % 1 ~= 0 or slot < 1 or slot > Config.inventory.slots then
+        if not validSlot(slot) then
             return false, 'invalid slot'
         end
         local existing = it[slot]
@@ -257,10 +261,14 @@ end
 function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
+    if not validSlot(fromSlot) or not validSlot(toSlot) then return false, 'invalid slot' end
     local it = p.PlayerData.items
     local from = it[fromSlot]
     if not from then return false, 'empty source slot' end
-    amount = math.min(math.floor(tonumber(amount) or from.amount), from.amount)
+    amount = tonumber(amount) or from.amount
+    if not QB.util.isFiniteNumber(amount) then return false, 'amount must be finite' end
+    amount = math.min(math.floor(amount), from.amount)
+    if amount <= 0 then return false, 'amount must be positive' end
 
     local dest = it[toSlot]
     if dest and dest.name ~= from.name then return false, 'destination occupied' end

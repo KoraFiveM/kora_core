@@ -187,4 +187,69 @@ h.test('createUseable registers against the owning resource without erroring', f
     h.assertTrue(ok2, 'createUseable accepts a cross-resource funcref: ' .. tostring(err2))
 end)
 
+h.test('move rejects invalid source and destination slots without mutation', function()
+    local slots = table.pack(nil, false, true, '1', 0, -1, Config.inventory.slots + 1, 1.5, math.huge, -math.huge, 0 / 0)
+    for index = 1, slots.n do
+        for _, source in ipairs({ true, false }) do
+            player.PlayerData.items = {}
+            Core.inventory.addItem(1, 'water_bottle', 5, 1)
+            player._dirty = {}
+            local before = json.encode(player.PlayerData.items)
+            local fromSlot, toSlot = 1, slots[index]
+            if source then fromSlot, toSlot = slots[index], 2 end
+            local ok, err = Core.inventory.moveItem(1, fromSlot, toSlot, 1)
+            h.assertFalse(ok)
+            h.assertEqual(err, 'invalid slot')
+            h.assertEqual(json.encode(player.PlayerData.items), before)
+            h.assertEqual(next(player._dirty), nil, 'rejected move never reaches the mutation funnel')
+        end
+    end
+    player.PlayerData.items[Config.inventory.slots + 1] = player.PlayerData.items[1]
+    h.assertFalse(Core.inventory.moveItem(1, Config.inventory.slots + 1, 2, 1), 'existing invalid source is also rejected')
+end)
+
+h.test('move rejects nonpositive and nonfinite quantities without mutation', function()
+    for _, amount in ipairs({ -1, 0, 0.5, -0.5, '-1', '0', math.huge, -math.huge, 0 / 0, '1e309' }) do
+        player.PlayerData.items = {}
+        Core.inventory.addItem(1, 'water_bottle', 5, 1)
+        player._dirty = {}
+        local before = json.encode(player.PlayerData.items)
+        local ok, err = Core.inventory.moveItem(1, 1, 2, amount)
+        h.assertFalse(ok)
+        h.assertTrue(type(err) == 'string')
+        h.assertEqual(json.encode(player.PlayerData.items), before)
+        h.assertEqual(next(player._dirty), nil, 'rejected move never reaches the mutation funnel')
+    end
+end)
+
+h.test('move retains default amounts, coercion, flooring, clamping and valid destinations', function()
+    for _, case in ipairs({
+        { amount = nil, moved = 5 }, { amount = false, moved = 5 }, { amount = 'all', moved = 5 },
+        { amount = '2', moved = 2 }, { amount = 2.9, moved = 2 }, { amount = 99, moved = 5 },
+    }) do
+        player.PlayerData.items = {}
+        Core.inventory.addItem(1, 'water_bottle', 5, 1, { batch = 'A' })
+        h.assertTrue(Core.inventory.moveItem(1, 1, Config.inventory.slots, case.amount))
+        local dest = player.PlayerData.items[Config.inventory.slots]
+        h.assertEqual(dest.amount, case.moved)
+        h.assertEqual(dest.slot, Config.inventory.slots)
+        h.assertEqual(dest.info.batch, 'A')
+        h.assertEqual(Core.inventory.getItemCount(1, 'water_bottle'), 5)
+    end
+    player.PlayerData.items = {}
+    Core.inventory.addItem(1, 'water_bottle', 5, 1)
+    Core.inventory.addItem(1, 'water_bottle', 2, 2)
+    h.assertTrue(Core.inventory.moveItem(1, 1, 2, 2))
+    h.assertEqual(player.PlayerData.items[1].amount, 3)
+    h.assertEqual(player.PlayerData.items[2].amount, 4)
+    Core.inventory.addItem(1, 'bread', 1, 3)
+    local before = json.encode(player.PlayerData.items)
+    h.assertFalse(Core.inventory.moveItem(1, 1, 3, 1))
+    h.assertEqual(json.encode(player.PlayerData.items), before, 'different destination item is preserved')
+    local ok, err = Core.inventory.moveItem(1, 2, 4, 1)
+    h.assertTrue(ok)
+    h.assertEqual(err, nil)
+    h.assertFalse(Core.inventory.moveItem(1, 5, 6, 1), 'empty source stays rejected')
+end)
+
 h.report('inventory')
