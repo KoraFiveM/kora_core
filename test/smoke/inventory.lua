@@ -86,6 +86,60 @@ h.test('an exact-fit unique grant succeeds while full inventories can still stac
     h.assertFalse(canUnique, 'a full inventory cannot accept another unique item')
 end)
 
+h.test('explicit occupied slots preserve different items and unique instances', function()
+    player.PlayerData.items = {}
+    Core.inventory.addItem(1, 'phone', 1, 1, { serial = 'original' })
+    local existing = player.PlayerData.items[1]
+    local different = Core.inventory.addItem(1, 'water_bottle', 1, 1)
+    local unique = Core.inventory.addItem(1, 'phone', 1, 1, { serial = 'replacement' })
+    h.assertFalse(different, 'a grant cannot overwrite another item')
+    h.assertFalse(unique, 'unique instances cannot replace or merge into an occupied slot')
+    h.assertEqual(player.PlayerData.items[1], existing)
+    h.assertEqual(existing.info.serial, 'original')
+end)
+
+h.test('explicit slots require whole numbers within the configured range', function()
+    for _, slot in ipairs({ 0, -1, Config.inventory.slots + 1, 1.5, '1', true }) do
+        player.PlayerData.items = {}
+        local ok, err = Core.inventory.addItem(1, 'water_bottle', 1, slot)
+        h.assertFalse(ok, 'invalid slot accepted: ' .. tostring(slot))
+        h.assertEqual(err, 'invalid slot')
+        h.assertEqual(next(player.PlayerData.items), nil, 'invalid slots must not add items')
+    end
+end)
+
+h.test('compatible explicit stacks and automatic slot arguments retain their behavior', function()
+    player.PlayerData.items = {}
+    h.assertTrue(Core.inventory.addItem(1, 'water_bottle', 2, 3))
+    h.assertTrue(Core.inventory.addItem(1, 'water_bottle', 3, 3))
+    h.assertEqual(player.PlayerData.items[3].amount, 5)
+    h.assertTrue(Core.inventory.addItem(1, 'bread', 1, false))
+    h.assertEqual(player.PlayerData.items[1].name, 'bread')
+    h.assertTrue(Core.inventory.addItem(1, 'phone', 1))
+    h.assertEqual(player.PlayerData.items[2].name, 'phone')
+
+    local previousMatch = Config.inventory.matchInfoOnStack
+    Config.inventory.matchInfoOnStack = true
+    player.PlayerData.items = {}
+    Core.inventory.addItem(1, 'water_bottle', 1, 1, { batch = 'A' })
+    local incompatible = Core.inventory.addItem(1, 'water_bottle', 1, 1, { batch = 'B' })
+    local compatible = Core.inventory.addItem(1, 'water_bottle', 1, 1, { batch = 'A' })
+    Config.inventory.matchInfoOnStack = previousMatch
+    h.assertFalse(incompatible, 'the configured metadata rule also applies to explicit stacks')
+    h.assertTrue(compatible)
+    h.assertEqual(player.PlayerData.items[1].amount, 2)
+    h.assertEqual(player.PlayerData.items[1].info.batch, 'A')
+end)
+
+h.test('bulk unique grants retain automatic placement even with a requested occupied slot', function()
+    player.PlayerData.items = {}
+    Core.inventory.addItem(1, 'water_bottle', 1, 1)
+    h.assertTrue(Core.inventory.addItem(1, 'phone', 2, 1))
+    h.assertEqual(player.PlayerData.items[1].name, 'water_bottle')
+    h.assertEqual(player.PlayerData.items[2].name, 'phone')
+    h.assertEqual(player.PlayerData.items[3].name, 'phone')
+end)
+
 h.test('weight rejection returns (false, err) and mutates nothing', function()
     player.PlayerData.items = {}
     -- water_bottle weighs 500g; maxWeight 120000 -> 240 fit, 241 should reject.

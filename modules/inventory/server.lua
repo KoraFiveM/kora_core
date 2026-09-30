@@ -96,10 +96,25 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
     local def = Core.registry.getShared('items', name) or Core.registry.getShared('weapons', name)
     if not def then return false, 'unknown item' end
 
+    local unique = II.isUnique(name)
+    if slot then
+        if type(slot) ~= 'number' or slot % 1 ~= 0 or slot < 1 or slot > Config.inventory.slots then
+            return false, 'invalid slot'
+        end
+        local existing = it[slot]
+        -- Bulk unique grants have always used free slots rather than the requested slot.
+        if existing and (not unique or amount == 1) then
+            if unique or existing.name ~= name then return false, 'slot occupied' end
+            if Config.inventory.matchInfoOnStack and not II.infoEquals(existing.info, info) then
+                return false, 'slot occupied'
+            end
+        end
+    end
+
     local can, err = Core.inventory.canCarry(src, name, amount)
     if not can then return false, err end
 
-    if not II.isUnique(name) then
+    if not unique then
         local stackSlot = slot or II.findStackSlot(it, name, info)
         if stackSlot and it[stackSlot] and it[stackSlot].name == name then
             local merged = it[stackSlot]
@@ -113,7 +128,7 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
     local target = slot or II.firstFreeSlot(it)
     if not target then return false, 'no free slot' end
     -- A unique item added with amount > 1 occupies multiple slots one at a time.
-    if II.isUnique(name) and amount > 1 then
+    if unique and amount > 1 then
         for _ = 1, amount do
             local free = II.firstFreeSlot(p.PlayerData.items)
             if not free then return false, 'no free slot' end
