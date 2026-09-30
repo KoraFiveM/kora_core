@@ -210,6 +210,30 @@ h.test('dropping a player clears them from every index', function()
     equalSets(Core.jobs.getPlayersByJobType('leo'), { 1 }, 'and the type index too')
 end)
 
+h.test('character logout clears every index before a new character loads', function()
+    Core.jobs.setJobDuty(1, true)
+    loginAs(6, 'COP-SWITCH')
+    Core.jobs.setJob(6, 'police', 1)
+    Core.jobs.setJobDuty(6, true)
+    equalSets(Core.jobs.getPlayersByJob('police', true), { 1, 6 }, 'the old character starts on duty')
+
+    h.assertTrue(Core.player.logout(6), 'character logout succeeds without a disconnect')
+    equalSets(Core.jobs.getPlayersByJob('police'), { 1 }, 'logout clears job membership')
+    equalSets(Core.jobs.getPlayersByJob('police', true), { 1 }, 'logout clears job duty membership')
+    equalSets(Core.jobs.getPlayersByJobType('leo'), { 1 }, 'logout clears type membership')
+    equalSets(Core.jobs.getPlayersByJobType('leo', true), { 1 }, 'logout clears type duty membership')
+    h.assertEqual(Core.jobs.getDutyCount('police'), 1, 'job duty count excludes the logged-out character')
+    h.assertEqual(Core.jobs.getDutyCountByType('leo'), 1, 'type duty count excludes the logged-out character')
+
+    loginAs(6, 'CIV-SWITCH')
+    equalSets(Core.jobs.getPlayersByJob('police'), { 1 }, 'the new character does not inherit police membership')
+    equalSets(Core.jobs.getPlayersByJobType('leo', true), { 1 }, 'the new character does not inherit leo duty')
+    equalSets(Core.jobs.getPlayersByJob('unemployed'), { 6 }, 'load seeds the new character job')
+    equalSets(Core.jobs.getPlayersByJob('unemployed', true), { 6 }, 'load seeds the new character duty')
+
+    Core.player.logout(6)
+end)
+
 -- --- gangs ------------------------------------------------------------------
 
 h.test('setGang sets a gang without touching the job indexes', function()

@@ -289,7 +289,7 @@ function Core.jobs.getOnDutyRoster(filter)
 end
 
 -- Keep the index seeded as players load / unload. onChange on the 'job' prefix
--- would double-handle setJob's own writes, so instead we hook the load/drop
+-- would double-handle setJob's own writes, so instead we hook the load/unload/drop
 -- lifecycle events.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
     local p = PI.handle(src)
@@ -302,6 +302,8 @@ AddEventHandler('qbcore:server:playerDropped', function(src)
     -- The handle may already be gone; sweep the src from every set defensively.
     indexForget(src)
 end)
+
+AddEventHandler('QBCore:Server:OnPlayerUnload', indexForget)
 
 -- Reconciler for job writes that DIDN'T come through setJob/setJobDuty.
 --
