@@ -269,6 +269,7 @@ function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     if not QB.util.isFiniteNumber(amount) then return false, 'amount must be finite' end
     amount = math.min(math.floor(amount), from.amount)
     if amount <= 0 then return false, 'amount must be positive' end
+    if fromSlot == toSlot then return true end
 
     local dest = it[toSlot]
     if dest and dest.name ~= from.name then return false, 'destination occupied' end

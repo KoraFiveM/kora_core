@@ -252,4 +252,25 @@ h.test('move retains default amounts, coercion, flooring, clamping and valid des
     h.assertFalse(Core.inventory.moveItem(1, 5, 6, 1), 'empty source stays rejected')
 end)
 
+h.test('moving onto the same slot succeeds without changing items or dirty state', function()
+    for _, amount in ipairs({ 'all', 2, 5, 99 }) do
+        player.PlayerData.items = {}
+        Core.inventory.addItem(1, 'water_bottle', 5, 1, { batch = 'same-slot' })
+        Core.inventory.addItem(1, 'bread', 1, 2)
+        player._dirty = {}
+        local record = player.PlayerData.items[1]
+        local before = json.encode(player.PlayerData.items)
+        local ok, err = Core.inventory.moveItem(1, 1, 1, amount)
+        h.assertTrue(ok)
+        h.assertEqual(err, nil, 'existing success return is retained')
+        h.assertEqual(json.encode(player.PlayerData.items), before, 'full and partial moves conserve the stack')
+        h.assertEqual(player.PlayerData.items[1], record)
+        h.assertEqual(next(player._dirty), nil, 'same-slot move never reaches the mutation funnel')
+    end
+    h.assertTrue(Core.inventory.moveItem(1, 1, 1), 'omitted quantity still succeeds')
+    h.assertEqual(player.PlayerData.items[1].amount, 5)
+    h.assertFalse(Core.inventory.moveItem(1, 1, 1, -1), 'same-slot move still validates quantity')
+    h.assertFalse(Core.inventory.moveItem(1, 3, 3), 'same-slot move still requires an item')
+end)
+
 h.report('inventory')
