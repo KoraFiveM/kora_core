@@ -33,7 +33,7 @@ local function encodeColumn(player, column)
     elseif column == 'name' then
         return tostring(player.PlayerData.name or 'unknown')
     elseif column == 'phone_number' then
-        return player.PlayerData.phone and tostring(player.PlayerData.phone) or nil
+        return player.PlayerData.phone and tostring(player.PlayerData.phone) or QB.sql.NULL
     end
     local srcKey = COLUMN_SOURCE[column]
     return json.encode(player.PlayerData[srcKey] or (srcKey == 'inventory' and {} or {}))

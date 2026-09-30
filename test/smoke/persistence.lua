@@ -145,4 +145,46 @@ h.test('_load re-keys JSON string slot keys back to numbers', function()
     h.assertEqual(next(empty.items), nil, 'an empty inventory decodes to an empty map')
 end)
 
+for _, method in ipairs({ 'flushAll', 'saveNow' }) do
+    h.test(method .. ' writes a cleared phone as SQL NULL and retains the change gate', function()
+        local p = loginTestPlayer()
+        local function save()
+            handle.sqlCalls.enqueueMany = {}
+            handle.sqlCalls.enqueue = {}
+            if method == 'flushAll' then
+                Core.persistence.flushAll()
+                local call = handle.sqlCalls.enqueueMany[1]
+                return call and call.rows[1]
+            end
+            h.assertEqual(Core.persistence.saveNow(p), nil, 'immediate save return stays nil')
+            local call = handle.sqlCalls.enqueue[1]
+            if call then h.assertEqual(call.opts.priority, 'immediate') end
+            return call and call.row
+        end
+        local function savePhone(value, expected)
+            h.assertTrue(Core.player.setPath(1, { 'phone' }, value))
+            h.assertTrue(p._dirty.phone_number, 'phone is dirty before save')
+            local row = save()
+            h.assertTrue(row ~= nil, 'phone update is queued')
+            h.assertEqual(row.pk, p.citizenid)
+            h.assertEqual(row.cols.phone_number, expected)
+            h.assertEqual(p._encoded.phone_number, expected, 'baseline matches the emitted value')
+            h.assertEqual(p._dirty.phone_number, nil, 'dirty phone is cleared after save')
+        end
+
+        savePhone('5551234', '5551234')
+        savePhone(nil, QB.sql.NULL)
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, nil))
+        h.assertEqual(save(), nil, 'repeated clear writes nothing')
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, false))
+        h.assertEqual(save(), nil, 'false retains the existing absent-phone meaning')
+        savePhone('', '')
+        savePhone(0, '0')
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, '5559999'))
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, 0))
+        h.assertEqual(save(), nil, 'reverted phone change writes nothing')
+        savePhone(false, QB.sql.NULL)
+    end)
+end
+
 h.report('persistence')
