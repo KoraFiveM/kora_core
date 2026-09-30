@@ -31,12 +31,12 @@ RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds
         end,
     })
 
-    QB.notify.send({ description = ('You have been jailed for %d minutes.'):format(math.ceil(remainingSeconds / 60)), type = 'error' })
+    QB.notify.send({ message = ('You have been jailed for %d minutes.'):format(math.ceil(remainingSeconds / 60)), type = 'error' })
 end)
 
 RegisterNetEvent('qbcore:client:jailRelease', function()
     clearContainment()
-    QB.notify.send({ description = 'You have been released.', type = 'success' })
+    QB.notify.send({ message = 'You have been released.', type = 'success' })
 end)
 
 AddEventHandler('QBCore:Client:OnPlayerUnload', function()
