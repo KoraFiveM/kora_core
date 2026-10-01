@@ -492,4 +492,40 @@ h.test('legacy server setter shares existence and warp validation', function()
     h.assertEqual(inVehicle, 403)
 end)
 
+h.test('player bucket setters notify after the native and legacy map update', function()
+    local buckets, notifications = {}, {}
+    local previousIdentifiers = Core.identity.getIdentifiers
+    Core.identity.getIdentifiers = function(src) return { license = 'license:' .. src } end
+    local previousPlayerSetter = SetPlayerRoutingBucket
+    local previousGetter = GetPlayerRoutingBucket
+    local previousEntitySetter = SetEntityRoutingBucket
+    SetPlayerRoutingBucket = function(src, bucket) buckets[src] = bucket end
+    GetPlayerRoutingBucket = function(src) return buckets[src] end
+    SetEntityRoutingBucket = function() end
+    AddEventHandler('qbvoice:server:bucketChanged', function(src)
+        local license = QBCore.Functions.GetIdentifier(src, 'license')
+        notifications[#notifications + 1] = {
+            src = src, native = GetPlayerRoutingBucket(src), map = QBCore.Player_Buckets[license].bucket,
+        }
+    end)
+    h.assertEqual(QBCore.Functions.SetPlayerBucket(1, 12), true)
+    h.assertEqual(#notifications, 1)
+    h.assertEqual(notifications[1].src, 1)
+    h.assertEqual(notifications[1].native, 12)
+    h.assertEqual(notifications[1].map, 12)
+    h.assertEqual(QBCore.Functions.SetPlayerBucket(1, 0), true)
+    h.assertEqual(#notifications, 2)
+    h.assertEqual(notifications[2].native, 0)
+    h.assertEqual(notifications[2].map, 0)
+    h.assertEqual(QBCore.Functions.SetPlayerBucket(nil, 12), false)
+    h.assertEqual(QBCore.Functions.SetPlayerBucket(1, nil), false)
+    h.assertEqual(QBCore.Functions.SetEntityBucket(500, 12), true)
+    h.assertEqual(#notifications, 2, 'rejected and entity setters do not notify')
+    SetPlayerRoutingBucket = function() error('controlled native failure') end
+    h.assertThrows(function() QBCore.Functions.SetPlayerBucket(1, 12) end)
+    h.assertEqual(#notifications, 2, 'failed native does not notify')
+    SetPlayerRoutingBucket, GetPlayerRoutingBucket, SetEntityRoutingBucket = previousPlayerSetter, previousGetter, previousEntitySetter
+    Core.identity.getIdentifiers = previousIdentifiers
+end)
+
 h.report('compat')

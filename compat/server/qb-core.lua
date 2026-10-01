@@ -682,6 +682,7 @@ function F.SetPlayerBucket(source, bucket)
     local plicense = F.GetIdentifier(source, 'license')
     SetPlayerRoutingBucket(source, bucket)
     QBCore.Player_Buckets[plicense] = { id = source, bucket = bucket }
+    TriggerEvent('qbvoice:server:bucketChanged', source)
     return true
 end
 function F.SetEntityBucket(entity, bucket)
