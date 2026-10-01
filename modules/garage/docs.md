@@ -39,6 +39,11 @@ Marks the vehicle `garaged` and snapshots its condition. Does not delete the liv
 ### `Core.garage.spawnVehicle(src, plate, coords, heading)`
 Spawns `plate` as a real, networked entity and marks it `out`. Refuses an impounded vehicle — retrieve it via `retrieveImpound` first.
 
+Body health is restored on the server. After take-out succeeds, the requesting
+client waits up to five seconds for the entity and obtains control to restore
+fuel and engine health with client natives. A streaming/control failure is
+logged on that client; it does not roll back the completed take-out.
+
 #### Parameters
 - `src: integer`
 - `plate: string`

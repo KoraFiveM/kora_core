@@ -159,8 +159,6 @@ function Core.garage.spawnVehicle(src, plate, coords, heading)
         SetEntityRoutingBucket(vehicle, GetPlayerRoutingBucket(src))
 
         SetVehicleNumberPlateText(vehicle, row.plate)
-        SetVehicleFuelLevel(vehicle, row.fuel + 0.0)
-        SetVehicleEngineHealth(vehicle, row.engine_health + 0.0)
         SetVehicleBodyHealth(vehicle, row.body_health + 0.0)
 
         local resolvedNetworkId = resolveNetworkId(vehicle)
@@ -181,6 +179,7 @@ function Core.garage.spawnVehicle(src, plate, coords, heading)
             return false, err or 'vehicle is no longer available'
         end
 
+        TriggerClientEvent('qbcore:client:vehicleCondition', src, resolvedNetworkId, row.fuel + 0.0, row.engine_health + 0.0)
         return resolvedNetworkId
     end)
 

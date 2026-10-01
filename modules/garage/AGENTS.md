@@ -17,7 +17,7 @@ SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-f
 
 ## Implementation notes
 - **`spawnVehicle` uses the raw `CreateVehicle` native, never `QB.entities`** — qblib's entity spawner is explicitly local/non-networked, but a duty or owned vehicle must be visible to every player, not just the one who spawned it.
-- **`mods` are opaque JSON, not auto-applied.** Stored/returned as-is; applying them to a spawned vehicle is ~50 `SetVehicleMod` calls of presentation-layer work belonging to whichever job/garage UI wants a tuning system, not to a generic persistence primitive. `fuel`/`engine`/`body` health ARE applied on spawn, since that's cheap and universally wanted.
+- **`mods` are opaque JSON, not auto-applied.** Stored/returned as-is; applying them to a spawned vehicle is presentation-layer work belonging to the caller. Body health is applied on the server; fuel and engine health are restored once by `client.lua` after the take-out commits, because their setters are client-only.
 - **`storeVehicle`/`updateState` both `COALESCE` against the existing column** — an omitted `snapshot`/`patch` field leaves the stored value unchanged rather than nulling it.
 - **Take-out and impound release are atomic state transitions.** `spawnVehicle`
   serializes a plate in-process, resolves a positive network ID within the

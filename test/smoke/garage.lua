@@ -125,8 +125,7 @@ _G.CreateVehicle = function(model, x, y, z, heading) return 42 end
 _G.DoesEntityExist = function() return true end
 _G.DeleteEntity = function(entity) deletedEntities[#deletedEntities + 1] = entity end
 _G.SetVehicleNumberPlateText = function() end
-_G.SetVehicleFuelLevel = function() end
-_G.SetVehicleEngineHealth = function() end
+_G.SetVehicleFuelLevel, _G.SetVehicleEngineHealth = nil, nil
 _G.SetVehicleBodyHealth = function() end
 local networkIdOverride
 _G.NetworkGetNetworkIdFromEntity = function(e)
@@ -172,6 +171,10 @@ h.test('spawnVehicle creates a networked entity and marks the row out', function
     local networkId, err = Core.garage.spawnVehicle(1, 'EMS001', { x = 0, y = 0, z = 0 }, 0.0)
     h.assertTrue(networkId ~= false, 'expected a network id, got error: ' .. tostring(err))
     h.assertEqual(Core.garage.getByPlate('EMS001').state, 'out')
+    local condition = handle.lastClient('qbcore:client:vehicleCondition')
+    h.assertEqual(condition.target, 1)
+    h.assertEqual(condition.args[1], networkId)
+    h.assertEqual(condition.args[2], Config.garage.defaultFuel)
 end)
 
 h.test('spawnVehicle deletes a losing entity when the atomic state transition affects no row', function()

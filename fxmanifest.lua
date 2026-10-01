@@ -129,6 +129,7 @@ server_scripts {
 }
 
 client_scripts {
+    'modules/garage/client.lua',
     'modules/registry/client.lua',
     'modules/pausemenu/client.lua',
     'modules/replication/client.lua',
