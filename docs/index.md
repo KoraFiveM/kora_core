@@ -183,6 +183,12 @@ exports.qbcore:transaction(src, definition) -- true | false, errorString
 `items.add`. Item entries use `item`, `amount`, optional `slot`/`info`; money
 entries use `account` and `amount`. `reason` and `coords` are optional metadata.
 
+An optional `random` list rolls bonus items independently by their percentage
+`chance`. Entries without a chance split 100% equally among themselves. Random
+amounts default to `1` and support positive integer `{ min, max }` ranges.
+An all-miss roll still permits the normal payout; winning bonuses participate
+in the existing capacity checks and rollback. Missing or empty lists do nothing.
+
 ### Jobs / gangs
 ```lua
 exports.qbcore:setJob(src, name, grade)

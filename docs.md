@@ -110,6 +110,14 @@ and `amount`. A later failure triggers best-effort compensation. This is not
 crash-proof atomicity: callers must authorize the operation and validate price,
 ownership, permissions, and distance. `coords` is metadata only.
 
+An optional `random` list adds independently rolled bonus items using
+`QB.rewards.generate` in percent mode with `allowNone = true`. Entries use
+`item`, optional `chance` (percentage), optional `amount` (defaults to `1`, or
+a positive integer `{ min, max }` range), and optional `slot`/`info`. Entries
+without a chance split 100% equally among themselves. Winning bonuses share
+the existing validation and rollback path; missing or empty lists do nothing.
+See [random reward examples](modules/transaction/docs.md).
+
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
 ```lua
 exports.qbcore:getShared(name, key)          -- one record

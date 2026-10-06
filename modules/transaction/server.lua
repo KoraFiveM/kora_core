@@ -33,9 +33,36 @@ end
 function Core.transaction(src, transaction)
     if type(transaction) ~= 'table' then return false, 'transaction must be a table' end
 
+    local itemAdds = transaction.items and transaction.items.add or {}
+    local random = transaction.random
+    if random ~= nil then
+        if type(random) ~= 'table' then return false, 'random must be a table' end
+        for _, entry in pairs(random) do
+            if type(entry) ~= 'table' or type(entry.item) ~= 'string' then return false, 'invalid random item entry' end
+            local minimum, maximum = entry.amount, entry.amount
+            if minimum == nil then
+                minimum, maximum = 1, 1
+            elseif type(minimum) == 'table' then
+                minimum, maximum = minimum.min, minimum.max
+            end
+            if not QB.util.isInteger(minimum) or not QB.util.isInteger(maximum) or minimum <= 0 or maximum < minimum then
+                return false, 'random item amount must be a positive whole number or an integer range'
+            end
+        end
+        if next(random) ~= nil then
+            -- Allow all bonuses to miss rather than forcing a fallback reward.
+            local ok, rewards = pcall(QB.rewards.generate, random, { mode = 'percent', allowNone = true })
+            if not ok then return false, tostring(rewards) end
+            local combined = {}
+            for index, entry in ipairs(entries(itemAdds)) do combined[index] = entry end
+            for _, entry in ipairs(rewards) do combined[#combined + 1] = entry end
+            itemAdds = combined
+        end
+    end
+
     local money = transaction.money or {}
     local removes, removeErr = aggregateItems(transaction.items and transaction.items.remove)
-    local adds, addErr = aggregateItems(transaction.items and transaction.items.add)
+    local adds, addErr = aggregateItems(itemAdds)
     if not removes then return false, removeErr end
     if not adds then return false, addErr end
 
@@ -80,7 +107,7 @@ function Core.transaction(src, transaction)
         if not ok then return fail(err) end
         removedItems[#removedItems + 1] = entry
     end
-    for _, entry in ipairs(transaction.items and transaction.items.add or {}) do
+    for _, entry in ipairs(itemAdds) do
         local ok, err = Core.inventory.addItem(src, entry.item, entry.amount, entry.slot, entry.info, transaction.reason)
         if not ok then return fail(err) end
         addedItems[#addedItems + 1] = entry
