@@ -132,6 +132,35 @@ function Core.player.getPlayer(src)
     return Core.util.deepClone(player.PlayerData)
 end
 
+---@param src integer
+---@param bucket integer
+---@return boolean
+function Core.player.setPlayerBucket(src, bucket)
+    if not (src and bucket) then return false end
+    SetPlayerRoutingBucket(src, bucket)
+    local license = Core.identity.getIdentifiers(src).license
+    if license then
+        QBCore.Player_Buckets = QBCore.Player_Buckets or {}
+        QBCore.Player_Buckets[license] = { id = src, bucket = bucket }
+    end
+    TriggerEvent('qbvoice:server:bucketChanged', src)
+    return true
+end
+
+---@param src integer
+---@return boolean, string|nil
+function Core.player.savePlayer(src)
+    local player = PI.handle(src)
+    if not player then return false, 'no such player' end
+    Core.persistence.saveNow(player)
+    return true
+end
+
+---@return table
+function Core.player.getStarterItems()
+    return Core.util.deepClone(QBCore.Shared.StarterItems)
+end
+
 ---Internal: the LIVE Player handle (never exported; used by compat & modules).
 ---@param src integer
 ---@return table|nil

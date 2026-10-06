@@ -487,6 +487,9 @@ function F.CreateCallback(name, handler)
         return table.unpack(results, 1, results.n)
     end)
 end
+-- Retain the public callback wire for consumers while allowing native callers.
+Core.compat.createCallback = F.CreateCallback
+
 -- Real QBCore's TriggerCallback forwards EVERY value the client handler
 -- returned to `cb`, not just the first -- qblib's QB.callback.trigger (called
 -- here cross-resource, qbcore -> qblib) now supports that end to end, so
@@ -678,12 +681,7 @@ QBCore.Player_Buckets = QBCore.Player_Buckets or {}
 QBCore.Entity_Buckets = QBCore.Entity_Buckets or {}
 function F.GetBucketObjects() return QBCore.Player_Buckets, QBCore.Entity_Buckets end
 function F.SetPlayerBucket(source, bucket)
-    if not (source and bucket) then return false end
-    local plicense = F.GetIdentifier(source, 'license')
-    SetPlayerRoutingBucket(source, bucket)
-    QBCore.Player_Buckets[plicense] = { id = source, bucket = bucket }
-    TriggerEvent('qbvoice:server:bucketChanged', source)
-    return true
+    return Core.player.setPlayerBucket(source, bucket)
 end
 function F.SetEntityBucket(entity, bucket)
     if not (entity and bucket) then return false end

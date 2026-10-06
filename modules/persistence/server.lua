@@ -268,6 +268,40 @@ function Core.persistence._load(citizenid)
     }
 end
 
+---Reads a character without creating a legacy Player object. Yields.
+---@param citizenid string
+---@return table|nil, string|nil
+function Core.persistence.getOfflinePlayerData(citizenid)
+    if type(citizenid) ~= 'string' or citizenid == '' then return nil, 'invalid citizenid' end
+    return Core.persistence._load(citizenid)
+end
+
+---Writes only the requested mutable columns of an offline character. Yields.
+---@param data table
+---@param fields string[]
+---@return boolean, string|nil
+function Core.persistence.saveOfflinePlayer(data, fields)
+    if type(data) ~= 'table' or type(data.citizenid) ~= 'string' then return false, 'invalid player data' end
+    if type(fields) ~= 'table' or #fields == 0 then return false, 'fields are required' end
+    if CoreInternal.player.byCitizenId[data.citizenid] then return false, 'player is online' end
+    local assignments, params = {}, {}
+    for _, field in ipairs(fields) do
+        local column = COLUMN_FOR[field]
+        if not column then return false, 'invalid player field' end
+        assignments[#assignments + 1] = '`' .. column .. '` = ?'
+        params[#params + 1] = encodeColumn({ PlayerData = data }, column)
+    end
+    params[#params + 1] = data.citizenid
+    local result, err = QB.sql.update('UPDATE `players` SET ' .. table.concat(assignments, ', ')
+        .. ' WHERE `citizenid` = ? AND `deleted_at` IS NULL', params)
+    if result == nil then return false, err or 'could not save offline player' end
+    if result == 0 then
+        local row = QB.sql.single('SELECT `citizenid` FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { data.citizenid })
+        if not row then return false, 'player not found' end
+    end
+    return true
+end
+
 -- List a license's characters (multichar select). Yields.
 ---@param license string
 ---@return table[]

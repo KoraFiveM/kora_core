@@ -160,3 +160,7 @@ end
   reconciler cannot retrofit.
 - **`setJob` replaces the whole `job` sub-table** — composed from the registry definition + grade by `CoreInternal.player.buildJob` — so it's one dirty column and one delta op carrying the whole sub-table, not a write per field.
 - **Unknown job/gang is refused.** The name must exist in the `jobs`/`gangs` registry.
+
+## Offline roles
+
+`exports.qbcore:setOfflineJob(citizenid, name, grade)` and `setOfflineGang(citizenid, name, grade)` validate the registry name and persist only the changed role column. Grades are one-based, matching the native online setters. Both yield and return `(true)` or `(false, reason)`.

@@ -180,6 +180,31 @@ function Core.jobs.setJobDuty(src, onDuty)
     return true
 end
 
+---Updates a stored job without a legacy Player object. Grades are one-based.
+---@param citizenid string
+---@param name string
+---@param grade integer|nil
+---@return boolean, string|nil
+function Core.jobs.setOfflineJob(citizenid, name, grade)
+    if not Core.registry.getShared('jobs', name) then return false, 'unknown job' end
+    local data, err = Core.persistence.getOfflinePlayerData(citizenid)
+    if not data then return false, err end
+    data.job = CoreInternal.player.buildJob(name, grade)
+    return Core.persistence.saveOfflinePlayer(data, { 'job' })
+end
+
+---@param citizenid string
+---@param name string
+---@param grade integer|nil
+---@return boolean, string|nil
+function Core.jobs.setOfflineGang(citizenid, name, grade)
+    if not Core.registry.getShared('gangs', name) then return false, 'unknown gang' end
+    local data, err = Core.persistence.getOfflinePlayerData(citizenid)
+    if not data then return false, err end
+    data.gang = CoreInternal.player.buildGang(name, grade)
+    return Core.persistence.saveOfflinePlayer(data, { 'gang' })
+end
+
 ---Sources with a given job. onDutyOnly filters to on-duty. O(1) via the index.
 ---@param name string
 ---@param onDutyOnly boolean|nil

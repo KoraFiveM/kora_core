@@ -186,3 +186,10 @@ Internally each online player is a `Player` handle (never exported — reads clo
 - **Reads clone; the handle never leaves.** `getPlayer`/`getPlayerByCitizenId`/`getPlayerData`/`getAllPlayers` all deep-clone. There is no exported way to get the live handle — that's `CoreInternal.player.handle(src)`, used only by in-resource modules and compat.
 - **`onChange` matches by prefix.** `{ 'money' }` catches every account write; `{ 'metadata', 'hunger' }` catches only hunger. The full changed `path` is passed to the handler so it can tell which leaf changed.
 - **`COLUMN_FOR` decides persistence.** Only root keys present in that map (`charinfo`/`job`/`gang`/`money`/`metadata`/`items`→`inventory`/`position`/`name`/`phone`) persist. `license`/`cid` are deliberately absent and never enter a save write-set.
+
+## Additional native helpers
+
+- `exports.qbcore:setPlayerBucket(src, bucket)` moves the player, updates legacy bucket tracking, and notifies voice subscribers. Returns a boolean.
+- `exports.qbcore:savePlayer(src)` immediately saves the live player handle. Returns `(true)` or `(false, reason)`.
+- `exports.qbcore:getStarterItems()` returns a copy of the configured starter definitions.
+- Client `exports.qbcore:isWearingGloves()` uses the same drawable lists as the legacy check.

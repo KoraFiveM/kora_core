@@ -9,6 +9,19 @@ function Core.player.getPlayerData(path)
     return Core.replication.getData(path)
 end
 
+---Uses the same drawable lists as the legacy glove check.
+---@return boolean
+function Core.player.isWearingGloves()
+    local ped = PlayerPedId()
+    local noGloves
+    if GetEntityModel(ped) == joaat('mp_m_freemode_01') then
+        noGloves = QBCore.Shared.MaleNoGloves
+    else
+        noGloves = QBCore.Shared.FemaleNoGloves
+    end
+    return not (noGloves or {})[GetPedDrawableVariation(ped, 3)]
+end
+
 ---Subscribe to PlayerData changes under a path prefix. handler(path, value).
 ---@param pathPrefix (string|integer)[]
 ---@param handler fun(path:table, value:any)

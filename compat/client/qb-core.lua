@@ -278,21 +278,7 @@ function F.PlayAnim(animDict, animName, upperbodyOnly, duration)
 end
 
 function F.IsWearingGloves()
-    local ped = PlayerPedId()
-    local armIndex = GetPedDrawableVariation(ped, 3)
-    local model = GetEntityModel(ped)
-    -- Keep the nil guard for compatibility with scripts that replace Shared,
-    -- although the stock tables are populated by coreobject.lua.
-    if model == joaat('mp_m_freemode_01') then
-        if (QBCore.Shared.MaleNoGloves or {})[armIndex] then
-            return false
-        end
-    else
-        if (QBCore.Shared.FemaleNoGloves or {})[armIndex] then
-            return false
-        end
-    end
-    return true
+    return Core.player.isWearingGloves()
 end
 
 -- NUI Calls ------------------------------------------------------------------
@@ -1387,9 +1373,16 @@ provideExport('qb-core', 'DrawText', compatDrawText)
 provideExport('qb-core', 'ChangeText', compatDrawText)
 provideExport('qb-core', 'HideText', compatHideText)
 -- Upstream's KeyPressed plays a brief NUI press animation, then hides.
-provideExport('qb-core', 'KeyPressed', function()
+local function compatKeyPressed()
     CreateThread(function()
         Wait(500)
         compatHideText()
     end)
-end)
+end
+
+CoreInternal.compat = CoreInternal.compat or {}
+CoreInternal.compat.drawText = compatDrawText
+CoreInternal.compat.changeText = compatDrawText
+CoreInternal.compat.hideText = compatHideText
+CoreInternal.compat.keyPressed = compatKeyPressed
+provideExport('qb-core', 'KeyPressed', compatKeyPressed)

@@ -3,7 +3,7 @@
 ## Overview
 Saves player data to the database with the **minimum** possible writes: per-column dirty tracking, a byte-identical change gate, position sampling with a movement/age throttle, and a coalescing flush that batches every dirty player into a single `qbsql` `enqueueMany`. Legacy qb-core re-encodes and rewrites all seven JSON columns on every save regardless of what changed; here a column reaches the wire only when it is **both dirty and actually different**. Server only. `migrate.lua` runs the schema migrations at boot.
 
-Most of this module is internal machinery driven by the player funnel and lifecycle — only two functions are public exports. Both are defined on `Core.persistence` and exported flat as `exports.qbcore:<fn>`.
+Most of this module is internal machinery driven by the player funnel and lifecycle — four functions are public exports. Both are defined on `Core.persistence` and exported flat as `exports.qbcore:<fn>`.
 
 ## API
 
@@ -33,3 +33,7 @@ Immediate save of one player (the drop / logout path): samples position, applies
 - **`license`/`cid` are never in a write-set.** They aren't in `COLUMN_FOR`, so nothing can mark them dirty; the collect/save paths also skip them explicitly as belt-and-braces (the schema's two unique keys make writing them a corruption hazard).
 - **Deleted character slots are reusable.** Migration 8 applies uniqueness only to active character slots. Soft-deleted rows remain available for history, but no longer block creating a replacement character in the same slot.
 - **Everything else is internal.** Dirty marking, the encoded baseline, new-character insert, character load/list, and soft-delete are all `_`-prefixed helpers on `CoreInternal`/`Core.persistence` (see AGENTS.md) — not exported, and reached only through the funnel, the player lifecycle, or the multichar module. Migrations run at boot from `migrate.lua`.
+
+## Offline character data
+
+`exports.qbcore:getOfflinePlayerData(citizenid)` returns a decoded character snapshot or `(nil, reason)`. `exports.qbcore:saveOfflinePlayer(data, fields)` saves only the named mutable roots, such as `{ 'job' }`, and returns `(true)` or `(false, reason)`. Both yield. The save refuses online characters, immutable fields, and missing rows; it never inserts a character. Use the live player funnel for online characters.

@@ -329,6 +329,28 @@ function Core.money.getMoney(src, account)
     return player.PlayerData.money[account]
 end
 
+---Credits a stored balance atomically; offline credits retain the untaxed legacy behavior.
+---@param citizenid string
+---@param account string
+---@param amount number
+---@return boolean, string|nil
+function Core.money.addOfflineMoney(citizenid, account, amount)
+    if type(citizenid) ~= 'string' or citizenid == '' then return false, 'invalid citizenid' end
+    if not validAccount(account) then return false, 'invalid account' end
+    amount = tonumber(amount)
+    if not amount or amount ~= amount or amount <= 0 or amount == math.huge then return false, 'amount must be positive and finite' end
+    if PI.byCitizenId[citizenid] then return false, 'player is online' end
+    local path = '$.' .. json.encode(account)
+    local result, err = QB.sql.update(
+        'UPDATE `players` SET `money` = JSON_SET(`money`, ?, '
+            .. 'COALESCE(JSON_EXTRACT(`money`, ?), 0) + ?) '
+            .. 'WHERE `citizenid` = ? AND `deleted_at` IS NULL',
+        { path, path, amount, citizenid }
+    )
+    if result == nil or result == 0 then return false, err or 'player not found' end
+    return true
+end
+
 ---Adds a positive amount. `amount` is the GROSS figure: when the transaction
 ---tax applies the player receives `amount - tax` and the tax is banked.
 ---@param src integer

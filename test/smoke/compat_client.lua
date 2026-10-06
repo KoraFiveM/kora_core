@@ -14,6 +14,7 @@ dofile('shared/vehicles.lua'); dofile('shared/weapons.lua'); dofile('shared/loca
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua'); dofile('modules/registry/client.lua')
 dofile('modules/player/shared.lua')
+dofile('modules/player/client.lua')
 dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core.lua')
 

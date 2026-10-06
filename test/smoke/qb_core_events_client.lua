@@ -52,11 +52,11 @@ end)
 
 h.test('qb-core drawtext event aliases forward to the matching prompt exports', function()
     local calls = {}
-    exports['qb-core'] = {
-        DrawText = function(_, text, position) calls[#calls + 1] = { 'DrawText', text, position } end,
-        ChangeText = function(_, text, position) calls[#calls + 1] = { 'ChangeText', text, position } end,
-        HideText = function() calls[#calls + 1] = { 'HideText' } end,
-        KeyPressed = function() calls[#calls + 1] = { 'KeyPressed' } end,
+    CoreInternal.compat = {
+        drawText = function(text, position) calls[#calls + 1] = { 'DrawText', text, position } end,
+        changeText = function(text, position) calls[#calls + 1] = { 'ChangeText', text, position } end,
+        hideText = function() calls[#calls + 1] = { 'HideText' } end,
+        keyPressed = function() calls[#calls + 1] = { 'KeyPressed' } end,
     }
     TriggerEvent('qb-core:client:DrawText', 'Open bank', 'left')
     TriggerEvent('qb-core:client:ChangeText', 'Close bank', 'right')

@@ -7,6 +7,7 @@ Job / gang / duty mutation over the funnel, plus a maintained reverse index (`jo
 Server:
 - `Core.jobs.getJob(src)` / `getGang(src)` — the sub-table or `nil`.
 - `Core.jobs.setJob(src, name, grade)` / `setGang(src, name, grade)` — set to a registered job/gang. `(true)` / `(false, err)`.
+- `Core.jobs.setOfflineJob(citizenid, name, grade)` / `setOfflineGang(citizenid, name, grade)` — persist the one changed role column with native one-based grades.
 - `Core.jobs.setJobDuty(src, onDuty)` — toggle duty.
 - `Core.jobs.getPlayersByJob(name, onDutyOnly)` — source ids via the index (O(1)).
 - `Core.jobs.getDutyCount(name)` — on-duty count.

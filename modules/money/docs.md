@@ -214,3 +214,7 @@ each successful deposit.
 - **`addMoney`/`removeMoney` take positive amounts only** — pass the magnitude; direction is chosen by which function you call. `setMoney` takes the absolute target.
 - **`transferMoney` is atomic-ish, not transactional.** The remove is committed before the add; a failed add triggers a compensating refund rather than a rollback.
 - **Tax is settled once per transaction.** `transferMoney` computes it up front and runs both legs exempt, so a transfer is never taxed twice.
+
+## Offline credits
+
+`exports.qbcore:addOfflineMoney(citizenid, account, amount)` atomically increments a stored character balance without rewriting other player columns. It validates the account and positive finite amount, refuses online characters, and returns `(true)` or `(false, reason)`. It yields and retains the untaxed behavior of legacy offline credits. Use `addMoney` for online players.

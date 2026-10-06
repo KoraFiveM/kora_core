@@ -12,9 +12,12 @@ Server:
 - `Core.player.onChange(pathPrefix, handler)` / `offChange(id)` — prefix-matched `handler(src, path, value)`.
 - `Core.player.registerPlayerDataField(key, provider)` / `setPlayerDataField(src, key, value)` — resource-owned, replicated-only root fields for client read models backed by another resource's authoritative store.
 - `Core.player.login(src, citizenid, data)` / `createCharacter(src, charinfo, cid)` / `logout(src)` / `drop(src, reason)` — lifecycle.
+- `Core.player.setPlayerBucket(src, bucket)` / `savePlayer(src)` — native routing with legacy tracking, and immediate save of the live player handle.
+- `Core.player.getStarterItems()` — a snapshot of the configured starter item definitions.
 - `Core.player.isCoreReady()` — first-frame readiness marker.
 
 Client:
+- `Core.player.isWearingGloves()` — uses the legacy drawable lists and preserves their behavior.
 - `Core.player.getPlayerData(path)` — read the replicated mirror (wraps `Core.replication.getData`).
 - `Core.player.onPlayerDataChange(pathPrefix, handler)` / `offPlayerDataChange(id)` — wrap `Core.replication.onChange/offChange`.
 

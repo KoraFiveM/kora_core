@@ -339,16 +339,16 @@ end)
 -- two-argument semantics rather than QBCore.Functions.DrawText's world-text
 -- signature.
 RegisterNetEvent('qb-core:client:DrawText', function(text, position)
-    exports['qb-core']:DrawText(text, position)
+    CoreInternal.compat.drawText(text, position)
 end)
 RegisterNetEvent('qb-core:client:ChangeText', function(text, position)
-    exports['qb-core']:ChangeText(text, position)
+    CoreInternal.compat.changeText(text, position)
 end)
 RegisterNetEvent('qb-core:client:HideText', function()
-    exports['qb-core']:HideText()
+    CoreInternal.compat.hideText()
 end)
 RegisterNetEvent('qb-core:client:KeyPressed', function()
-    exports['qb-core']:KeyPressed()
+    CoreInternal.compat.keyPressed()
 end)
 
 -- /me command 3D text --------------------------------------------------------

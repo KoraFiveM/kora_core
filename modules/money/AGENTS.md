@@ -6,6 +6,7 @@ Balance operations over the configured money accounts, implemented as thin wrapp
 ## Public API
 - `Core.money.getMoney(src, account)` — balance or `nil`.
 - `Core.money.addMoney(src, account, amount, reason, ignoreTax)` — add a positive amount. `(true)` / `(false, err)`.
+- `Core.money.addOfflineMoney(citizenid, account, amount)` — atomic credit of a stored character balance; rejects online characters and retains the untaxed legacy offline behavior.
 - `Core.money.removeMoney(src, account, amount, reason, ignoreTax)` — remove a positive amount, respecting the floor. `(true)` / `(false, err)`.
 - `Core.money.setMoney(src, account, amount, reason)` — set an exact amount, respecting the floor. `(true)` / `(false, err)`. Never taxed.
 - `Core.money.transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)` — remove-then-add with refund on failure.

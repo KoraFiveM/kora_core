@@ -291,3 +291,5 @@ concentrates, since qbcore's own `inventory` module is a thin gateway with no
 item logic of its own). `qblib`'s `zones`/`world`/`stream`/etc. modules use
 natives that exist on RedM but weren't audited for this specific question —
 see `qblib`'s own docs for its module-by-module native surface.
+
+Native consumers call `exports.qbcore:<method>`. For existing public callbacks that must retain the QBCore wire, `exports.qbcore:createCallback(name, handler)` registers the same `handler(source, reply, ...)` on both transports. Native clients use `QB.callback.trigger(name, ...)`; new callbacks can use `QB.callback.register` directly.
