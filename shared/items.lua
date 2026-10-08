@@ -280,7 +280,9 @@ QBCoreSeed.items = {
     { name = "wet_cola", label = "Wet Cola", weight = 100, type = "item", image = "wet_cola.png", unique = false, useable = false, shouldClose = true, description = "A freshly harvested cannabis cola that has not been dried." },
     { name = "ephedrine", label = "Ephedrine", weight = 100, type = "item", image = "ephedrine.png", unique = false, useable = false, shouldClose = true, description = "Hmm toxic chemicals?" },
     { name = "acetone", label = "Acetone", weight = 100, type = "item", image = "acetone.png", unique = false, useable = false, shouldClose = true, description = "I use this to remove nail polish" },
-
+    { name = 'shrooms',    label = 'Shrooms',    weight = 100,    type = 'item',    image = 'shrooms.png',    unique = false,    useable = true,    shouldClose = false,    description = ''},
+    { name = 'cactus_bulb',    label = 'Cactus Bulb',    weight = 100,    type = 'item',    image = 'cactus_bulb.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
+    { name = 'dried_mescaline',    label = 'Dried Mescaline',    weight = 100,    type = 'item',    image = 'dried_mescaline.png',    unique = false,    useable = true,    shouldClose = false,    description = ''},
     -- Fishing
      { name = 'bass',                label = 'Bass',                weight = 100, type = 'item', image = 'bass.png',                unique = false, useable = false, shouldClose = false, description = 'A feisty freshwater bass, hooked fresh from the water.' },
     { name = 'blue_fish',           label = 'Blue Fish',           weight = 100, type = 'item', image = 'blue_fish.png',           unique = false, useable = false, shouldClose = false, description = 'A slick, silvery bluefish with a sharp bite.' },
@@ -338,4 +340,5 @@ QBCoreSeed.items = {
     { name = 'ruby_ring_md',    label = 'Found Ruby Ring ',    weight = 100,    type = 'item',    image = 'ruby_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'silver_ring_md',    label = ' Found Silver Ring',    weight = 100,    type = 'item',    image = 'silver_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'toy_car',    label = 'Toy Car',    weight = 100,    type = 'item',    image = 'toy_car.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
-}
+
+   }
