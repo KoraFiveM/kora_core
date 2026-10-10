@@ -23,6 +23,14 @@ local function opKey(path)
     return table.concat(path, '\31')   -- unit separator; item/meta keys may contain '.'
 end
 
+local function isParentPath(parent, path)
+    if #parent >= #path then return false end
+    for i = 1, #parent do
+        if parent[i] ~= path[i] then return false end
+    end
+    return true
+end
+
 local function scheduleFlush()
     if flushScheduled then return end
     flushScheduled = true
@@ -51,6 +59,18 @@ end
 ---@param path (string|integer)[]
 ---@param value any
 function Core.replication._queueOp(player, path, value)
+    -- Overlapping paths must collapse so unordered flushing cannot replay a
+    -- stale slot after an inventory replacement, or delete a revived root.
+    for pendingKey, op in pairs(player._pendingOps) do
+        if isParentPath(op.p, path) then
+            op.v = Core.util.pathGet(player.PlayerData, op.p)
+            op.d = op.v == nil and true or nil
+            return
+        end
+        if isParentPath(path, op.p) then
+            player._pendingOps[pendingKey] = nil
+        end
+    end
     local key = opKey(path)
     -- Copy the path array (the caller may reuse/mutate it).
     local pcopy = {}

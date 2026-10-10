@@ -53,6 +53,79 @@ h.test('seq increments per batch', function()
     h.assertEqual(player._seq, before + 1)
 end)
 
+local overlappingBatches = {}
+local inventoryWriteCases = {
+    {
+        name = 'a root replacement supersedes an earlier slot write',
+        writes = {
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 4 } } },
+            { p = { 'items' }, v = { [1] = { name = 'weapon_pistol', info = { ammo = 30 } } } },
+        },
+        ammo = 30,
+    },
+    {
+        name = 'a later slot write updates a pending root replacement',
+        writes = {
+            { p = { 'items' }, v = { [1] = { name = 'weapon_pistol', info = { ammo = 30 } } } },
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 29 } } },
+        },
+        ammo = 29,
+    },
+    {
+        name = 'a slot write revives a pending root deletion',
+        writes = {
+            { p = { 'items' } },
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 10 } } },
+        },
+        ammo = 10,
+    },
+    {
+        name = 'repeated slot writes around a root deletion retain the final slot',
+        writes = {
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 4 } } },
+            { p = { 'items' } },
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 10 } } },
+        },
+        ammo = 10,
+    },
+    {
+        name = 'a root deletion supersedes an earlier slot write',
+        writes = {
+            { p = { 'items', 1 }, v = { name = 'weapon_pistol', info = { ammo = 4 } } },
+            { p = { 'items' } },
+        },
+    },
+}
+
+for _, case in ipairs(inventoryWriteCases) do
+    h.test(case.name, function()
+        player.PlayerData.items = { [1] = { name = 'weapon_pistol', info = { ammo = 5 } }, [2] = { name = 'water' } }
+        local initialItems = Core.util.deepClone(player.PlayerData.items)
+        for _, write in ipairs(case.writes) do
+            h.assertTrue(Core.player.setPath(1, write.p, Core.util.deepClone(write.v)))
+        end
+        handle.drainTimeouts()
+        local delta = handle.lastClient('qbcore:rep:delta')
+        local ops = delta.args[2]
+        h.assertEqual(#ops, 1, 'overlapping paths must produce one authoritative root op')
+        h.assertEqual(#ops[1].p, 1)
+        h.assertEqual(ops[1].p[1], 'items')
+        if case.ammo then
+            h.assertTrue(not ops[1].d, 'a revived root must clear the pending deletion flag')
+            h.assertEqual(ops[1].v[1].info.ammo, case.ammo)
+        else
+            h.assertEqual(ops[1].d, true)
+            h.assertEqual(ops[1].v, nil)
+        end
+        overlappingBatches[#overlappingBatches + 1] = {
+            initialItems = initialItems,
+            seq = delta.args[1],
+            ops = Core.util.deepClone(ops),
+            ammo = case.ammo,
+        }
+    end)
+end
+
 -- Now exercise the CLIENT realm in a fresh Core, so its Core.replication.* does
 -- not collide with the server one captured above.
 _G.Core = setmetatable({}, { __index = function(self, k) local m = {}; rawset(self, k, m); return m end })
@@ -60,6 +133,21 @@ _G.CoreInternal = {}
 _G.source = nil
 dofile('modules/replication/client.lua')
 local clientRep = Core.replication
+
+h.test('coalesced inventory root and slot writes reproduce server state on the client', function()
+    h.assertEqual(#overlappingBatches, #inventoryWriteCases, 'every server case must produce a client batch')
+    for _, batch in ipairs(overlappingBatches) do
+        TriggerEvent('qbcore:rep:snapshot', batch.seq - 1, { items = batch.initialItems })
+        TriggerEvent('qbcore:rep:delta', batch.seq, batch.ops)
+        local items = clientRep.getData({ 'items' })
+        if batch.ammo then
+            h.assertEqual(items[1].info.ammo, batch.ammo)
+            h.assertEqual(items[2], nil, 'a replaced root must not retain an old sibling slot')
+        else
+            h.assertEqual(items, nil)
+        end
+    end
+end)
 
 h.test('client applies a snapshot then a delta batch to its mirror', function()
     -- Snapshot at seq 0 primes the mirror.
