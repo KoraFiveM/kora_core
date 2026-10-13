@@ -59,6 +59,31 @@ end
 -- dispatch timing. Legacy handlers take only `data`, so the extra argument is
 -- invisible to them.
 local REFIRE_TOKEN = 'qbcore:rep:refire'
+local pendingLegacy = nil
+
+local function announceLegacyPlayerData(data, inventoryOnly)
+    if not Config.compat.fireLegacyPlayerDataEvent then
+        pendingLegacy = nil
+        return
+    end
+
+    local interval = tonumber(Config.compat.inventoryPlayerDataEventInterval) or 0
+    if inventoryOnly and interval > 0 then
+        if pendingLegacy then return end
+        -- Anchor the timer to the first change so continuous fire cannot defer it forever.
+        local token = {}
+        pendingLegacy = token
+        SetTimeout(interval, function()
+            if pendingLegacy ~= token then return end
+            Core.replication.reannounceFull()
+        end)
+        return
+    end
+
+    pendingLegacy = nil
+    local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', data, REFIRE_TOKEN)
+    if not ok then error(err, 0) end
+end
 
 -- Fire the legacy full-blob events LOCALLY from the mirror. Every legacy
 -- resource listening for QBCore:Player:SetPlayerData keeps working unchanged.
@@ -71,7 +96,7 @@ local REFIRE_TOKEN = 'qbcore:rep:refire'
 -- never mutates `mirror` itself). Guarded on the specific FUNCTION (not
 -- `Core.compat` itself -- Core is an auto-vivifying proxy, see build/
 -- initiate.lua, so merely referencing `Core.compat` always returns a table).
-local function fireLegacy(changedRoots)
+local function fireLegacy(changedRoots, inventoryOnly)
     local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
 
     -- Real qb-core keeps a plain global `QBCore.PlayerData` table, updated on
@@ -83,10 +108,7 @@ local function fireLegacy(changedRoots)
     -- dofiles only replication/client.lua in isolation).
     if QBCore then QBCore.PlayerData = legacyData end
 
-    if Config.compat.fireLegacyPlayerDataEvent then
-        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', legacyData, REFIRE_TOKEN)
-        if not ok then error(err, 0) end
-    end
+    announceLegacyPlayerData(legacyData, inventoryOnly)
     if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
         TriggerEvent('QBCore:Client:OnJobUpdate', legacyData.job)
     end
@@ -129,13 +151,11 @@ end
 ---and ignored by the acceptor.
 ---@return boolean  -- false if there is no mirror yet (nothing to announce)
 function Core.replication.reannounceFull()
+    pendingLegacy = nil
     if not mirror then return false end
     local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
     if QBCore then QBCore.PlayerData = legacyData end
-    if Config.compat.fireLegacyPlayerDataEvent then
-        local ok, err = pcall(TriggerEvent, 'QBCore:Player:SetPlayerData', legacyData, REFIRE_TOKEN)
-        if not ok then error(err, 0) end
-    end
+    announceLegacyPlayerData(legacyData)
     return true
 end
 
@@ -166,6 +186,7 @@ RegisterNetEvent('qbcore:rep:delta', function(seq, ops)
     stats.lastDeltaAt = GetGameTimer()
 
     local changedRoots = {}
+    local inventoryOnly = #ops > 0
     for _, op in ipairs(ops) do
         if op.d then
             pathSet(mirror, op.p, nil)
@@ -173,10 +194,11 @@ RegisterNetEvent('qbcore:rep:delta', function(seq, ops)
             pathSet(mirror, op.p, op.v)
         end
         changedRoots[op.p[1]] = true
+        if op.p[1] ~= 'items' then inventoryOnly = false end
         stats.opsApplied = stats.opsApplied + 1
         dispatch(op.p, op.v)
     end
-    fireLegacy(changedRoots)
+    fireLegacy(changedRoots, inventoryOnly)
 end)
 
 -- Inbound legacy write: a foreign resource TriggerEvent's the full-blob event.
@@ -193,6 +215,7 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(data, token)
     local writer = GetInvokingResource and GetInvokingResource() or nil
     if writer == GetCurrentResourceName() then return end
     if data == mirror or type(data) ~= 'table' then return end
+    pendingLegacy = nil
 
     print(('^3[qbcore:rep]^7 %s wrote PlayerData directly via the legacy event -- it bypassed the '
         .. 'delta stream and will be overwritten on the next server snapshot.')
@@ -244,6 +267,7 @@ function Core.replication.offChange(id)
 end
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+    pendingLegacy = nil
     if mirror then
         for key in pairs(mirror) do mirror[key] = nil end
     end

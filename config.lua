@@ -104,6 +104,7 @@ Config.consumables = {
 
 Config.compat = {
     fireLegacyPlayerDataEvent = true,     -- fire QBCore:Player:SetPlayerData client-side from the mirror
+    inventoryPlayerDataEventInterval = 250, -- ms; coalesce inventory-only legacy notifications; 0 fires every delta
     jobUpdateEventSource = 'client',      -- 'client' | 'server' | 'both' -- who emits QBCore:Client:OnJobUpdate
     coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
