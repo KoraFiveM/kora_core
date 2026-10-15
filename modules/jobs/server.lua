@@ -1,6 +1,11 @@
 -- Core.jobs (server realm) -- job/gang/duty changes via the funnel, plus a
 -- MAINTAINED job index (jobName -> {src set}) so getPlayersByJob is O(1) lookup
 -- rather than the O(n) scan legacy qb-core does on every dispatch/paycheck tick.
+--
+-- On top of the index this file keeps live on-duty COUNTERS (+1 when a player
+-- enters an on-duty set, -1 when they leave it) and publishes them as
+-- GlobalState.OnDuty = { police = 1, leo = 2, ... }. Every 5 minutes the whole
+-- index and the counters are rebuilt from PlayerData and any drift is logged.
 
 local PI = CoreInternal.player
 
@@ -23,14 +28,59 @@ local byTypeOnDuty = {}
 -- the O(n) sweep this index exists to avoid.
 local typeOfSrc = {}
 
+-- Live on-duty counters (the +1 / -1 bookkeeping).
+local jobCounts, typeCounts = {}, {}
+
+GlobalState.OnDuty = {}
+
+local publishQueued = false
+local function publish()
+    publishQueued = false
+    -- One table, e.g. { police = 1, leo = 2 }. Types first, jobs second, so a
+    -- job whose name equals its type (ems/ems) reports the job's own count.
+    local merged = {}
+    for k, v in pairs(typeCounts) do merged[k] = v end
+    for k, v in pairs(jobCounts) do merged[k] = v end
+    -- Must assign a whole new table; mutating GlobalState.OnDuty in place
+    -- does not replicate.
+    GlobalState.OnDuty = merged
+end
+
+-- Coalesce bursts (setJob = remove + add) into a single replication.
+local function queuePublish()
+    if publishQueued then return end
+    publishQueued = true
+    SetTimeout(100, publish)
+end
+
+local function bump(counts, key, delta)
+    local n = (counts[key] or 0) + delta
+    counts[key] = n > 0 and n or nil
+    queuePublish()
+end
+
+-- Only counts on a real membership change, so it is safe to call repeatedly.
+local function setDuty(set, counts, key, src, onDuty)
+    local had = set[src] == true
+    if onDuty and not had then
+        set[src] = true
+        bump(counts, key, 1)
+    elseif not onDuty and had then
+        set[src] = nil
+        bump(counts, key, -1)
+    end
+end
+
 local function indexRemove(src, jobName)
-    if jobName and byJob[jobName] then byJob[jobName][src] = nil end
-    if jobName and byJobOnDuty[jobName] then byJobOnDuty[jobName][src] = nil end
+    if jobName then
+        if byJob[jobName] then byJob[jobName][src] = nil end
+        if byJobOnDuty[jobName] then setDuty(byJobOnDuty[jobName], jobCounts, jobName, src, false) end
+    end
 
     local jobType = typeOfSrc[src]
     if jobType then
         if byType[jobType] then byType[jobType][src] = nil end
-        if byTypeOnDuty[jobType] then byTypeOnDuty[jobType][src] = nil end
+        if byTypeOnDuty[jobType] then setDuty(byTypeOnDuty[jobType], typeCounts, jobType, src, false) end
         typeOfSrc[src] = nil
     end
 end
@@ -41,23 +91,25 @@ end
 ---@param src integer
 local function indexForget(src)
     for _, set in pairs(byJob) do set[src] = nil end
-    for _, set in pairs(byJobOnDuty) do set[src] = nil end
     for _, set in pairs(byType) do set[src] = nil end
-    for _, set in pairs(byTypeOnDuty) do set[src] = nil end
+    for name, set in pairs(byJobOnDuty) do setDuty(set, jobCounts, name, src, false) end
+    for name, set in pairs(byTypeOnDuty) do setDuty(set, typeCounts, name, src, false) end
     typeOfSrc[src] = nil
 end
 
 local function indexAdd(src, jobName, onDuty, jobType)
+    onDuty = onDuty and true or false
+    jobType = jobType or 'none'
+
     byJob[jobName] = byJob[jobName] or {}
     byJob[jobName][src] = true
     byJobOnDuty[jobName] = byJobOnDuty[jobName] or {}
-    byJobOnDuty[jobName][src] = onDuty or nil
+    setDuty(byJobOnDuty[jobName], jobCounts, jobName, src, onDuty)
 
-    jobType = jobType or 'none'
     byType[jobType] = byType[jobType] or {}
     byType[jobType][src] = true
     byTypeOnDuty[jobType] = byTypeOnDuty[jobType] or {}
-    byTypeOnDuty[jobType][src] = onDuty or nil
+    setDuty(byTypeOnDuty[jobType], typeCounts, jobType, src, onDuty)
     typeOfSrc[src] = jobType
 end
 
@@ -66,15 +118,16 @@ end
 ---@param jobName string|nil
 ---@param onDuty boolean
 local function indexSetDuty(src, jobName, onDuty)
+    onDuty = onDuty and true or false
     if jobName then
         byJobOnDuty[jobName] = byJobOnDuty[jobName] or {}
-        byJobOnDuty[jobName][src] = onDuty or nil
+        setDuty(byJobOnDuty[jobName], jobCounts, jobName, src, onDuty)
     end
 
     local jobType = typeOfSrc[src]
     if jobType then
         byTypeOnDuty[jobType] = byTypeOnDuty[jobType] or {}
-        byTypeOnDuty[jobType][src] = onDuty or nil
+        setDuty(byTypeOnDuty[jobType], typeCounts, jobType, src, onDuty)
     end
 end
 
@@ -227,17 +280,13 @@ end
 ---@param name string
 ---@return integer
 function Core.jobs.getDutyCount(name)
-    local n = 0
-    for _ in pairs(byJobOnDuty[name] or {}) do n = n + 1 end
-    return n
+    return jobCounts[name] or 0
 end
 
 ---@param jobType string
 ---@return integer
 function Core.jobs.getDutyCountByType(jobType)
-    local n = 0
-    for _ in pairs(byTypeOnDuty[jobType] or {}) do n = n + 1 end
-    return n
+    return typeCounts[jobType] or 0
 end
 
 ---Every job type currently held by an online player, with how many of them are
@@ -325,6 +374,7 @@ end)
 
 AddEventHandler('qbcore:server:playerDropped', function(src)
     -- The handle may already be gone; sweep the src from every set defensively.
+    -- indexForget also decrements the on-duty counters.
     indexForget(src)
 end)
 
@@ -366,4 +416,47 @@ Core.player.onChange({ 'job' }, function(src)
 
     -- Only duty drifted (the SetJobData('onduty', ...) case).
     indexSetDuty(src, job.name, onDuty)
+end)
+
+-- Every 5 minutes: throw the index and counters away and rebuild them from
+-- what players' PlayerData actually says right now. Anything that drifted
+-- (missed drop, direct SetJobData write, etc.) is corrected and logged.
+local function snapshot(t)
+    local keys = {}
+    for k, v in pairs(t) do keys[#keys + 1] = ('%s=%d'):format(k, v) end
+    table.sort(keys)
+    return table.concat(keys, ',')
+end
+
+local function verifyCounts()
+    local before = snapshot(jobCounts) .. '|' .. snapshot(typeCounts)
+
+    byJob, byJobOnDuty, byType, byTypeOnDuty = {}, {}, {}, {}
+    typeOfSrc = {}
+    jobCounts, typeCounts = {}, {}
+
+    for _, id in ipairs(GetPlayers()) do
+        local src = tonumber(id)
+        local p = src and PI.handle(src)
+        local job = p and p.PlayerData and p.PlayerData.job
+        if job and job.name then
+            indexAdd(src, job.name, job.onduty, job.type)
+        end
+    end
+
+    publish() -- always push the verified result
+
+    local after = snapshot(jobCounts) .. '|' .. snapshot(typeCounts)
+    if before ~= after then
+        print(('[Core.jobs] on-duty counts drifted, corrected.\n  before: %s\n  after:  %s'):format(before, after))
+    end
+end
+
+CreateThread(function()
+    Wait(2000)
+    verifyCounts() -- covers a resource restart with players already online
+    while true do
+        Wait(5 * 60 * 1000)
+        verifyCounts()
+    end
 end)
