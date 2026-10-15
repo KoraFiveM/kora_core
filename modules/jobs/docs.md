@@ -143,6 +143,13 @@ end
 ```
 
 ## Notes
+- **`GlobalState.OnDuty` publishes on-duty counts to clients.** Updates are
+  coalesced over 100 ms. Keys are job names and job types; a registered job name
+  takes precedence over an identically named type, even when that job has zero
+  on-duty players. Other zero counts can be absent, so read them with `or 0`.
+  Use `getDutyCountByType` server-side when you need the type total despite a
+  name collision. The index is rebuilt from connected players after two seconds
+  and every five minutes thereafter, correcting and logging count drift.
 - **`PlayerData.job.type` is the service grouping.** `CoreInternal.player.buildJob`
   copies `type` off the registry record (defaulting to `'none'`), and
   `Core.persistence._load` backfills it for characters saved before the field

@@ -37,9 +37,15 @@ local publishQueued = false
 local function publish()
     publishQueued = false
     -- One table, e.g. { police = 1, leo = 2 }. Types first, jobs second, so a
-    -- job whose name equals its type (ems/ems) reports the job's own count.
+    -- registered job name always reports that job's count, including zero.
     local merged = {}
-    for k, v in pairs(typeCounts) do merged[k] = v end
+    for name, count in pairs(typeCounts) do
+        if Core.registry.getShared('jobs', name) then
+            merged[name] = jobCounts[name] or 0
+        else
+            merged[name] = count
+        end
+    end
     for k, v in pairs(jobCounts) do merged[k] = v end
     -- Must assign a whole new table; mutating GlobalState.OnDuty in place
     -- does not replicate.
@@ -444,7 +450,7 @@ local function verifyCounts()
         end
     end
 
-    publish() -- always push the verified result
+    queuePublish() -- also publish empty results, without a second queued write
 
     local after = snapshot(jobCounts) .. '|' .. snapshot(typeCounts)
     if before ~= after then
