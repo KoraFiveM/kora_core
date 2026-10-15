@@ -93,6 +93,7 @@ end
 function Core.inventory.addItem(src, name, amount, slot, info, reason)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
+    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
     if amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
@@ -154,6 +155,7 @@ end
 function Core.inventory.removeItem(src, name, amount, slot, reason)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
+    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
     if amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
@@ -185,6 +187,7 @@ end
 -- Remove `amount` from one slot, clearing the slot if it empties.
 function Core.inventory._removeFromSlot(src, slot, amount)
     local p = PI.handle(src)
+    if p and Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     local item = p.PlayerData.items[slot]
     if not item then return false, 'empty slot' end
     if item.amount <= amount then
@@ -261,6 +264,7 @@ end
 function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
+    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     if not validSlot(fromSlot) or not validSlot(toSlot) then return false, 'invalid slot' end
     local it = p.PlayerData.items
     local from = it[fromSlot]
@@ -298,6 +302,7 @@ end
 function Core.inventory.clearInventory(src, keep)
     local p = PI.handle(src)
     if not p then return false end
+    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     local keepSet = {}
     if keep then for _, n in ipairs(keep) do keepSet[n] = true end end
     for slot, item in pairs(p.PlayerData.items) do
@@ -315,8 +320,7 @@ end
 function Core.inventory.setItems(src, newItems)
     local p = PI.handle(src)
     if not p then return false end
-    Core.player.setPath(src, { 'items' }, newItems or {})
-    return true
+    return Core.player.setPath(src, { 'items' }, newItems or {})
 end
 
 -- --- useable items ---

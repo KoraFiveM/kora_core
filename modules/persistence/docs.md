@@ -37,3 +37,27 @@ Immediate save of one player (the drop / logout path): samples position, applies
 ## Offline character data
 
 `exports.qbcore:getOfflinePlayerData(citizenid)` returns a decoded character snapshot or `(nil, reason)`. `exports.qbcore:saveOfflinePlayer(data, fields)` saves only the named mutable roots, such as `{ 'job' }`, and returns `(true)` or `(false, reason)`. Both yield. The save refuses online characters, immutable fields, and missing rows; it never inserts a character. Use the live player funnel for online characters.
+
+## Durable provider column operations
+
+Only `qbbanking` and `Config.inventory.provider` may use these flat server exports:
+
+- `beginPlayerColumnOperation(key, citizenids, columns)` returns a token or
+  `(nil, code, message)`. Columns are SQL names `money` and `inventory`.
+  A ready existing operation returns `(token, 'resumed')`.
+- `finishPlayerColumnOperation(token, values)` publishes confirmed database
+  values and releases the fence; `values[citizenid][column]` must be a table for
+  every requested character and column. Returns `(true)` or `(false, reason)`.
+- `abortPlayerColumnOperation(token)` releases after confirmed rollback only.
+- `getPlayerColumnOperations()` yields and returns the calling provider's
+  `{token, operationKey, citizenids, columns, preparing}` records, including
+  locks recovered from migration 10 after a core restart. Storage failure raises.
+
+These calls yield. Begin fences ordinary mutations first, drains queued player
+saves, then durably records the fence. Saves skip held columns; offline writes,
+login and deletion cannot cross a pending operation. Finish updates live state and
+its encoded baseline before deleting the durable fence. An uncertain begin,
+transaction, finish or abort must remain pending until reconciliation succeeds.
+A provider restart must join its old checked SQL worker before treating an absent
+or pending receipt as rollback. Store the operation receipt atomically with both
+source and destination changes, and never expose these calls as client events.

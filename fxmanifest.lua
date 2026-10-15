@@ -101,6 +101,7 @@ server_scripts {
     'modules/users/server.lua',
     'modules/replication/server.lua',
     'modules/persistence/server.lua',
+    'modules/persistence/operations.lua',
     'modules/persistence/migrate.lua',
     'modules/player/server.lua',
     'modules/money/server.lua',

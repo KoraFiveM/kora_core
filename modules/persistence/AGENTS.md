@@ -8,6 +8,7 @@ Public functions are exported flat:
 - `Core.persistence.flushAll()` — sample positions, collect dirty rows, one batched enqueue; returns count.
 - `Core.persistence.getOfflinePlayerData(citizenid)` — decoded character snapshot, without a legacy Player object.
 - `Core.persistence.saveOfflinePlayer(data, fields)` — update only requested mutable columns of an offline character; never inserts or changes license/cid.
+- `Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)` / `finishPlayerColumnOperation(token, values)` / `abortPlayerColumnOperation(token)` / `getPlayerColumnOperations()` — yielding durable-provider fence API; see docs.md.
 - `Core.persistence.saveNow(player)` — immediate single-player flush (drop/logout), immediate priority.
 
 ## Internal (not exported)
@@ -41,9 +42,13 @@ Gate 1 alone would still write "set to same value" churn; Gate 2 eliminates it. 
 - **Legacy `players` tables are upgraded in place.** `sql/006_legacy_players.sql` adds the scalar phone and soft-delete columns expected by this rebuild when migration v1 previously encountered an existing qb-core table. Both columns are nullable, so old character rows remain intact; `_load` falls back to the phone embedded in legacy `charinfo`.
 - **Legacy vehicle finance stays loadable.** `sql/007_legacy_vehicle_finance.sql` idempotently adds qb-vehicleshop's financing columns to `player_vehicles`, preventing an imported or core-created table from breaking the stock vehicleshop's startup finance query.
 - **Database startup races recover in place.** The migration worker retries its readiness wait instead of permanently skipping schema setup after 60 seconds. qbsql reconnects transient network failures; once it becomes ready, migrations continue without restarting FXServer.
-- **The internal helpers stay internal.** Genuinely private cross-file helpers elsewhere use `CoreInternal.<module>`; here the persistence internals sit on `Core.persistence` but are `_`-prefixed, which `build/finalise.lua` skips just the same. Only `saveNow`, `flushAll`, `getOfflinePlayerData`, and `saveOfflinePlayer` are public.
+- **The internal helpers stay internal.** Genuinely private cross-file helpers elsewhere use `CoreInternal.<module>`; here the persistence internals sit on `Core.persistence` but are `_`-prefixed, which `build/finalise.lua` skips just the same. The ordinary save APIs and the four durable-provider fence APIs above are public.
 
 ## Best practices
 - Don't call `flushAll`/`saveNow` on a hot path — the funnel + periodic flush already do the right thing. Reserve `saveNow` for genuine "must be on disk now" moments.
 - If you add a new persisted root key, add it to `COLUMN_FOR` (player/shared) *and* give it an encoder path here, or it silently won't save.
 - Set `Config.persistence.interval` with the bounded-loss caveat in mind — it's your worst-case crash window.
+
+- `operations.lua` fences money/inventory against queued saves and ordinary writers.
+  Migration 10 persists fences across core restarts. Never release an uncertain
+  operation without joining the old SQL worker and reconciling a durable receipt.

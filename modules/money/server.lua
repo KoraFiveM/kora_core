@@ -340,13 +340,22 @@ function Core.money.addOfflineMoney(citizenid, account, amount)
     amount = tonumber(amount)
     if not amount or amount ~= amount or amount <= 0 or amount == math.huge then return false, 'amount must be positive and finite' end
     if PI.byCitizenId[citizenid] then return false, 'player is online' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(citizenid)
+        if not available then return false, err end
+    end
+    if PI.byCitizenId[citizenid] then return false, 'player is online' end
     local path = '$.' .. json.encode(account)
-    local result, err = QB.sql.update(
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(citizenid) then return false, 'player data is busy' end
+    local called, result, err = pcall(QB.sql.update,
         'UPDATE `players` SET `money` = JSON_SET(`money`, ?, '
             .. 'COALESCE(JSON_EXTRACT(`money`, ?), 0) + ?) '
             .. 'WHERE `citizenid` = ? AND `deleted_at` IS NULL',
         { path, path, amount, citizenid }
     )
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(citizenid) end
+    if not called then return false, 'offline money provider failed' end
     if result == nil or result == 0 then return false, err or 'player not found' end
     return true
 end
@@ -387,7 +396,8 @@ function Core.money.addMoney(src, account, amount, reason, ignoreTax)
     if not player then return false, 'no such player' end
     if net > 0 then
         local newValue = (player.PlayerData.money[account] or 0) + net
-        Core.player.setPath(src, { 'money', account }, newValue)
+        local changed, err = Core.player.setPath(src, { 'money', account }, newValue)
+        if not changed then return false, err end
         emitMoneyChange(src, account, net, 'add', reason)
     end
     dispatchTax(tax, reason, refund)
@@ -430,7 +440,8 @@ function Core.money.removeMoney(src, account, amount, reason, ignoreTax)
     if newValue < floorFor(account) then
         return false, 'insufficient funds'
     end
-    Core.player.setPath(src, { 'money', account }, newValue)
+    local changed, err = Core.player.setPath(src, { 'money', account }, newValue)
+    if not changed then return false, err end
     emitMoneyChange(src, account, amount, 'remove', reason)
     dispatchTax(tax, reason, nil)
     return true
@@ -463,7 +474,8 @@ function Core.money.setMoney(src, account, amount, reason)
     if amount < floorFor(account) then return false, 'below account floor' end
     local player = PI.handle(src)
     if not player then return false, 'no such player' end
-    Core.player.setPath(src, { 'money', account }, amount)
+    local changed, err = Core.player.setPath(src, { 'money', account }, amount)
+    if not changed then return false, err end
     emitMoneyChange(src, account, amount, 'set', reason)
     return true
 end
@@ -478,7 +490,7 @@ end
 ---@param reason string|nil
 ---@param ignoreTax boolean|nil -- true exempts this call from the transaction tax
 ---@return boolean, string|nil
-function Core.money.transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
+local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
     amount = tonumber(amount)
     if not validAccount(account) or not amount or amount <= 0 then return false, 'invalid transfer' end
     local provider, providerErr = providerFor(account)
@@ -527,4 +539,16 @@ function Core.money.transferMoney(fromSrc, toSrc, account, amount, reason, ignor
     end
     dispatchTax(tax, reason, refund)
     return true
+end
+
+function Core.money.transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
+    if not Core.persistence._beginMoneyTransfer then return transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax) end
+    local from, to = PI.handle(fromSrc), PI.handle(toSrc)
+    if not from or not to then return false, 'no such player' end
+    local citizenids = { from.citizenid, to.citizenid }
+    if not Core.persistence._beginMoneyTransfer(citizenids) then return false, 'player data is busy' end
+    local result = table.pack(pcall(transferMoney, fromSrc, toSrc, account, amount, reason, ignoreTax))
+    Core.persistence._endMoneyTransfer(citizenids)
+    if not result[1] then error(result[2], 0) end
+    return table.unpack(result, 2, result.n)
 end

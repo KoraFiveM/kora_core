@@ -106,12 +106,14 @@ local function collectRows()
     for cid in pairs(dirty) do
         local player = PI.byCitizenId[cid]
         if player then
-            local cols
+            local cols, remaining = nil, {}
             for column in pairs(player._dirty) do
                 -- Never persist license/cid (immutable; the two-unique-key
                 -- corruption hazard). They are not in COLUMN_FOR, so a mutation
                 -- can't mark them dirty -- this is a belt-and-braces skip.
-                if column ~= 'license' and column ~= 'cid' then
+                if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(cid, column) then
+                    remaining[column] = true
+                elseif column ~= 'license' and column ~= 'cid' then
                     local encoded = encodeColumn(player, column)
                     -- Gate 2: byte-identical JSON means nothing actually
                     -- changed -> drop it, never reaches the wire.
@@ -126,10 +128,13 @@ local function collectRows()
                 n = n + 1
                 rows[n] = { pk = cid, cols = cols }
             end
-            player._dirty = {}
+            player._dirty = remaining
         end
     end
-    dirty = {}
+    for cid in pairs(dirty) do
+        local player = PI.byCitizenId[cid]
+        if not player or not next(player._dirty) then dirty[cid] = nil end
+    end
     return rows
 end
 
@@ -156,9 +161,11 @@ end
 ---@param player table
 function Core.persistence.saveNow(player)
     samplePosition(player)
-    local cols
+    local cols, remaining = nil, {}
     for column in pairs(player._dirty) do
-        if column ~= 'license' and column ~= 'cid' then
+        if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(player.citizenid, column) then
+            remaining[column] = true
+        elseif column ~= 'license' and column ~= 'cid' then
             local encoded = encodeColumn(player, column)
             if encoded ~= player._encoded[column] then
                 cols = cols or {}
@@ -167,8 +174,8 @@ function Core.persistence.saveNow(player)
             end
         end
     end
-    player._dirty = {}
-    dirty[player.citizenid] = nil
+    player._dirty = remaining
+    if not next(remaining) then dirty[player.citizenid] = nil end
     if cols then
         QB.sql.enqueue('players', 'citizenid', { pk = player.citizenid, cols = cols }, {
             priority = 'immediate', mode = 'assign', writeMode = 'update',
@@ -201,7 +208,14 @@ end
 ---@param citizenid string
 ---@return table|nil, string|nil
 function Core.persistence._load(citizenid)
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return nil, 'player data is busy' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(citizenid)
+        if not available then return nil, err end
+    end
+    local epoch = Core.persistence._columnEpoch and Core.persistence._columnEpoch(citizenid)
     local row, err = QB.sql.single('SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { citizenid })
+    if epoch and (Core.persistence._hasColumnOperation(citizenid) or epoch ~= Core.persistence._columnEpoch(citizenid)) then return nil, 'player data changed while loading' end
     if not row then return nil, err or 'not found' end
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
     local charinfo = dec(row.charinfo, {})
@@ -284,6 +298,12 @@ function Core.persistence.saveOfflinePlayer(data, fields)
     if type(data) ~= 'table' or type(data.citizenid) ~= 'string' then return false, 'invalid player data' end
     if type(fields) ~= 'table' or #fields == 0 then return false, 'fields are required' end
     if CoreInternal.player.byCitizenId[data.citizenid] then return false, 'player is online' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(data.citizenid) then return false, 'player data is busy' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(data.citizenid)
+        if not available then return false, err end
+    end
+    if CoreInternal.player.byCitizenId[data.citizenid] then return false, 'player is online' end
     local assignments, params = {}, {}
     for _, field in ipairs(fields) do
         local column = COLUMN_FOR[field]
@@ -292,8 +312,11 @@ function Core.persistence.saveOfflinePlayer(data, fields)
         params[#params + 1] = encodeColumn({ PlayerData = data }, column)
     end
     params[#params + 1] = data.citizenid
-    local result, err = QB.sql.update('UPDATE `players` SET ' .. table.concat(assignments, ', ')
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(data.citizenid) then return false, 'player data is busy' end
+    local called, result, err = pcall(QB.sql.update, 'UPDATE `players` SET ' .. table.concat(assignments, ', ')
         .. ' WHERE `citizenid` = ? AND `deleted_at` IS NULL', params)
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(data.citizenid) end
+    if not called then return false, 'could not save offline player' end
     if result == nil then return false, err or 'could not save offline player' end
     if result == 0 then
         local row = QB.sql.single('SELECT `citizenid` FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { data.citizenid })
@@ -316,8 +339,12 @@ end
 ---@param citizenid string
 ---@return boolean
 function Core.persistence._deleteCharacterRow(citizenid)
-    local r = QB.sql.execute('UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
-    return r ~= nil
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false end
+    if Core.persistence._persistentColumnsAvailable and not Core.persistence._persistentColumnsAvailable(citizenid) then return false end
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(citizenid) then return false end
+    local called, r = pcall(QB.sql.execute, 'UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(citizenid) end
+    return called and r ~= nil
 end
 
 -- --- the flush loop + shutdown hooks ---

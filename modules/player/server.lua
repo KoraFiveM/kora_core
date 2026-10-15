@@ -55,6 +55,9 @@ function Core.player.setPath(src, path, value, opts)
     local player = bySource[src]
     if not player then return false, 'no such player' end
     if type(path) ~= 'table' or #path == 0 then return false, 'path must be a non-empty array' end
+    if Core.persistence._canWriteColumn and not Core.persistence._canWriteColumn(player.citizenid, COLUMN_FOR[path[1]], opts and opts._columnOperationToken) then
+        return false, 'player data is busy'
+    end
 
     local field = playerDataFields[path[1]]
     if field and not (opts and opts._playerDataFieldWriteToken == playerDataFieldWriteToken) then
@@ -381,6 +384,21 @@ end
 ---@return boolean, string|nil
 function Core.player.login(src, citizenid, data)
     if bySource[src] then return false, 'source already logged in' end
+    if byCitizenId[citizenid] then return false, 'character already logged in' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(citizenid)
+        if not available then return false, err end
+    end
+    if Core.persistence._columnEpoch and Core.persistence._columnEpoch(citizenid) > 0 then
+        local latest, err = Core.persistence._load(citizenid)
+        if not latest then return false, err end
+        data.money, data.items = latest.money, latest.items
+    end
+    -- The durable-storage checks yield; another session may have won meanwhile.
+    if bySource[src] then return false, 'source already logged in' end
+    if byCitizenId[citizenid] then return false, 'character already logged in' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
     data.source = src
     data.citizenid = citizenid
     local player = {

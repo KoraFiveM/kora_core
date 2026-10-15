@@ -103,7 +103,7 @@ end
 ---live entity -- the caller (which has the entity handle) does that itself
 ---after this succeeds.
 ---@param plate string
----@param snapshot table|nil {fuel?, engineHealth?, bodyHealth?, mods?, position?}
+---@param snapshot table|nil {fuel?, engineHealth?, bodyHealth?, mods?, position?, garageId?, ownerCitizenId?}
 ---@return boolean, string|nil
 function Core.garage.storeVehicle(plate, snapshot)
     local row = Core.garage.getByPlate(plate)
@@ -111,6 +111,20 @@ function Core.garage.storeVehicle(plate, snapshot)
     if row.state == 'impounded' then return false, 'vehicle is impounded' end
 
     snapshot = snapshot or {}
+    if snapshot.garageId ~= nil then
+        if type(snapshot.garageId) ~= 'string' or #snapshot.garageId < 1 or #snapshot.garageId > 50 then return false, 'invalid garage id' end
+        if snapshot.ownerCitizenId and row.citizenid ~= snapshot.ownerCitizenId then return false, 'vehicle ownership changed' end
+        local values = { snapshot.garageId, snapshot.fuel or QB.sql.NULL, snapshot.engineHealth or QB.sql.NULL,
+            snapshot.bodyHealth or QB.sql.NULL, snapshot.mods and json.encode(snapshot.mods) or QB.sql.NULL, plate }
+        if snapshot.ownerCitizenId then values[#values + 1] = snapshot.ownerCitizenId end
+        local affected, err = QB.sql.update(
+            'UPDATE `player_vehicles` SET `state`=\'garaged\', `garage_id`=?, '
+            .. '`fuel`=COALESCE(?,`fuel`), `engine_health`=COALESCE(?,`engine_health`), '
+            .. '`body_health`=COALESCE(?,`body_health`), `mods`=COALESCE(?,`mods`) '
+            .. 'WHERE `plate`=? AND `state`=\'out\' AND `deleted_at` IS NULL' .. (snapshot.ownerCitizenId and ' AND `citizenid`=?' or ''), values)
+        if err or affected ~= 1 then return false, err or 'vehicle is no longer available' end
+        return true
+    end
     local ok, err = QB.sql.execute(
         'UPDATE `player_vehicles` SET `state` = \'garaged\', '
         .. '`fuel` = COALESCE(?, `fuel`), `engine_health` = COALESCE(?, `engine_health`), '
@@ -134,9 +148,10 @@ end
 ---@param plate string
 ---@param coords vector3 | {x: number, y: number, z: number}
 ---@param heading number
+---@param expectedOwner? string Optional owner precondition for trusted property providers.
 ---@return integer|false networkId
 ---@return string? error
-function Core.garage.spawnVehicle(src, plate, coords, heading)
+function Core.garage.spawnVehicle(src, plate, coords, heading, expectedOwner)
     local plateKey = normalizePlate(plate)
     if not plateKey then return false, 'invalid plate' end
     if spawningByPlate[plateKey] then return false, 'vehicle spawn already in progress' end
@@ -146,6 +161,7 @@ function Core.garage.spawnVehicle(src, plate, coords, heading)
     local callOk, networkId, spawnErr = pcall(function()
         local row = Core.garage.getByPlate(plateKey)
         if not row then return false, 'unknown vehicle' end
+        if expectedOwner and row.citizenid ~= expectedOwner then return false, 'vehicle ownership changed' end
         if row.state == 'impounded' then return false, 'vehicle is impounded' end
         if row.state == 'out' then return false, 'vehicle is already out' end
 
@@ -168,10 +184,12 @@ function Core.garage.spawnVehicle(src, plate, coords, heading)
             return false, 'failed to network vehicle'
         end
 
+        local values = { row.plate }
+        if expectedOwner then values[#values + 1] = expectedOwner end
         local affected, err = QB.sql.update(
             'UPDATE `player_vehicles` SET `state` = \'out\' '
-            .. 'WHERE `plate` = ? AND `state` = \'garaged\' AND `deleted_at` IS NULL',
-            { row.plate }
+            .. 'WHERE `plate` = ? AND `state` = \'garaged\' AND `deleted_at` IS NULL' .. (expectedOwner and ' AND `citizenid`=?' or ''),
+            values
         )
         if err or affected ~= 1 then
             deleteSpawnedVehicle(vehicle)

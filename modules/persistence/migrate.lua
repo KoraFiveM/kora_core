@@ -105,6 +105,7 @@ MIGRATIONS[#MIGRATIONS + 1] = { version = 6, name = 'legacy_players', file = 'sq
 MIGRATIONS[#MIGRATIONS + 1] = { version = 7, name = 'legacy_vehicle_finance', file = 'sql/007_legacy_vehicle_finance.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 8, name = 'active_character_slots', file = 'sql/008_active_character_slots.sql' }
 MIGRATIONS[#MIGRATIONS + 1] = { version = 9, name = 'legacy_vehicle_model', file = 'sql/009_legacy_vehicle_model.sql' }
+MIGRATIONS[#MIGRATIONS + 1] = { version = 10, name = 'player_column_operations', file = 'sql/010_player_column_operations.sql' }
 
 CreateThread(function()
     -- MySQL may still be starting alongside FXServer. Keep the migration
