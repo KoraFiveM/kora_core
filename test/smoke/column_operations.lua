@@ -180,4 +180,20 @@ h.test('a core restart recovers durable fences before login and publishes curren
     QB.sql.query, QB.sql.single, QB.sql.transactionChecked, QB.sql.update = query, single, checked, update
 end)
 
+h.test('trusted inventory operations fence money, items and metadata together', function()
+    caller = Config.inventory.provider
+    local token = assert(Core.persistence.beginPlayerColumnOperation('dealer-settlement', { 'DURABLE' }, { 'money', 'inventory', 'metadata' }))
+    h.assertFalse(Core.player.setPath(1, { 'metadata', 'rep' }, { dealer = 500 }))
+    h.assertFalse(Core.inventory.addItem(1, 'water_bottle', 1))
+    h.assertFalse(Core.money.addMoney(1, 'cash', 1))
+    local data = Core.player.getPlayerData(1)
+    data.metadata.rep = { dealer = 8 }
+    h.assertTrue(Core.persistence.finishPlayerColumnOperation(token, { DURABLE = { money = data.money, inventory = data.items, metadata = data.metadata } }))
+    h.assertEqual(Core.player.getPlayerData(1, { 'metadata', 'rep', 'dealer' }), 8)
+    h.assertTrue(Core.player.setPath(1, { 'metadata', 'rep', 'dealer' }, 9))
+    caller = 'untrusted'
+    h.assertEqual(Core.persistence.beginPlayerColumnOperation('dealer-forged', { 'DURABLE' }, { 'metadata' }), nil)
+    caller = 'qbbanking'
+end)
+
 h.report('durable column operations')

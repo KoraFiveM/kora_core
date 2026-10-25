@@ -111,11 +111,13 @@ function Core.jobs.setJob(src, name, grade)
     if not Core.registry.getShared('jobs', name) then return false, 'unknown job' end
     grade = math.max(1, math.floor(tonumber(grade) or 1))
 
-    indexRemove(src, p.PlayerData.job and p.PlayerData.job.name)
+    local previousJob = p.PlayerData.job and p.PlayerData.job.name
     local job = CoreInternal.player.buildJob(name, grade)
     -- Whole `job` root replaced in one funnel write (one dirty column, one
     -- delta op carrying the whole sub-table).
-    Core.player.setPath(src, { 'job' }, job)
+    local changed, err = Core.player.setPath(src, { 'job' }, job)
+    if not changed then return false, err end
+    indexRemove(src, previousJob)
     indexAdd(src, name, job.onduty, job.type)
 
     -- QBCore:*:OnJobUpdate are NOT real qb-core's own event names (verified
@@ -155,7 +157,8 @@ function Core.jobs.setGang(src, name, grade)
     if not Core.registry.getShared('gangs', name) then return false, 'unknown gang' end
     grade = math.max(1, math.floor(tonumber(grade) or 1))
     local gang = CoreInternal.player.buildGang(name, grade)
-    Core.player.setPath(src, { 'gang' }, gang)
+    local changed, err = Core.player.setPath(src, { 'gang' }, gang)
+    if not changed then return false, err end
     local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
     TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'gang', legacyGang)
@@ -173,7 +176,8 @@ function Core.jobs.setJobDuty(src, onDuty)
     local p = PI.handle(src)
     if not p then return false end
     onDuty = onDuty and true or false
-    Core.player.setPath(src, { 'job', 'onduty' }, onDuty)
+    local changed, err = Core.player.setPath(src, { 'job', 'onduty' }, onDuty)
+    if not changed then return false, err end
     indexSetDuty(src, p.PlayerData.job and p.PlayerData.job.name, onDuty)
     TriggerEvent('QBCore:Server:SetDuty', src, onDuty)
     TriggerClientEvent('QBCore:Client:SetDuty', src, onDuty)

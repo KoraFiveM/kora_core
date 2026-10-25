@@ -49,6 +49,6 @@ Gate 1 alone would still write "set to same value" churn; Gate 2 eliminates it. 
 - If you add a new persisted root key, add it to `COLUMN_FOR` (player/shared) *and* give it an encoder path here, or it silently won't save.
 - Set `Config.persistence.interval` with the bounded-loss caveat in mind — it's your worst-case crash window.
 
-- `operations.lua` fences money/inventory against queued saves and ordinary writers.
+- `operations.lua` fences money/inventory/metadata against queued saves and ordinary writers.
   Migration 10 persists fences across core restarts. Never release an uncertain
   operation without joining the old SQL worker and reconciling a durable receipt.

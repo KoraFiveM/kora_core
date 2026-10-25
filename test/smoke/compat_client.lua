@@ -119,59 +119,50 @@ h.test('GetCoreObject filters the client object exactly like the server export',
     h.assertTrue(filtered.Config == nil, 'unrequested namespaces must not be returned')
 end)
 
-h.test('Progressbar forwards legacy prop and propTwo descriptors to qblib', function()
-    local captured
-    local finished = false
-    QB.progressbar.start = function(payload)
-        captured = payload
-        return true
-    end
-
-    QBCore.Functions.Progressbar('repair', 'Repairing', 1500, false, true,
-        { disableMovement = true, disableCarMovement = true, disableCombat = true },
-        { animDict = 'anim@test', anim = 'loop', flags = 49 },
-        {
-            model = 'prop_one',
-            bone = 60309,
-            coords = { x = 1, y = 2, z = 3 },
-            rotation = { x = 4, y = 5, z = 6 },
-        },
-        {
-            model = 'prop_two',
-            bone = 28422,
-            coords = { x = 7, y = 8, z = 9 },
-            rotation = { x = 10, y = 11, z = 12 },
-        },
-        function() finished = true end)
-
-    handle.step()
-
-    h.assertTrue(captured ~= nil, 'the qblib progressbar should be invoked from the compatibility thread')
-    h.assertEqual(#captured.props, 2, 'prop and propTwo should become two qblib props')
-    h.assertEqual(captured.props[1].model, 'prop_one')
-    h.assertEqual(captured.props[1].offset.x, 1, 'legacy coords should map to offset')
-    h.assertEqual(captured.props[2].rotation.z, 12, 'legacy rotation should pass through')
-    h.assertTrue(captured.props[1].collision, 'legacy props should retain qb-progressbar collision behavior')
-    h.assertTrue(captured.props[1].softPinning and captured.props[1].syncRotation,
-        'legacy attachment defaults should be explicit')
-    h.assertEqual(captured.props[1].rotationOrder, 0)
-    h.assertTrue(finished, 'a successful qblib result should still invoke onFinish')
-
-    captured = nil
-    QBCore.Functions.Progressbar('second-only', 'Working', 500, false, false, nil, nil, nil,
-        { model = 'prop_second_only', bone = 28422 })
-    handle.step()
-    h.assertEqual(#captured.props, 1, 'propTwo should still forward when prop is nil')
-    h.assertEqual(captured.props[1].model, 'prop_second_only')
+h.test('Progressbar forwards raw legacy actions and the original owner to the shared adapter', function()
+    local captured, owner, complete
+    local invoking = GetInvokingResource
+    GetInvokingResource = function() return 'legacy_repair' end
+    exports.progressbar = { Progress = function(_, action, finish, caller)
+        captured, owner, complete = action, caller, finish
+    end }
+    local controls = { disableMovement = true, disableCarMovement = true, disableMouse = true, disableCombat = true }
+    local animation = { task = 'WORLD_HUMAN_WELDING' }
+    local prop = { model = 'prop_one', bone = 60309, coords = { x = 1, y = 2, z = 3 } }
+    local propTwo = { model = 'prop_two', bone = 28422, rotation = { x = 4, y = 5, z = 6 } }
+    local finished, cancelled = 0, 0
+    local results = table.pack(QBCore.Functions.Progressbar('repair', 'Repairing', 1500, false, true,
+        controls, animation, prop, propTwo,
+        function() finished = finished + 1 end, function() cancelled = cancelled + 1 end))
+    h.assertEqual(results.n, 0)
+    h.assertEqual(owner, 'legacy_repair', 'capture attribution before entering the provider export')
+    h.assertEqual(captured.controlDisables, controls)
+    h.assertEqual(captured.animation, animation)
+    h.assertEqual(captured.prop, prop)
+    h.assertEqual(captured.propTwo, propTwo)
+    h.assertEqual(captured.name, 'repair')
+    h.assertEqual(captured.props, nil, 'normalization belongs only to the adapter')
+    complete(false)
+    h.assertEqual(finished, 1)
+    h.assertEqual(cancelled, 0)
+    QBCore.Functions.Progressbar('cancel', 'Working', 500, false, true, nil, nil, nil, propTwo,
+        function() finished = finished + 1 end, function() cancelled = cancelled + 1 end)
+    h.assertEqual(captured.prop, nil)
+    h.assertEqual(captured.propTwo, propTwo)
+    complete(true)
+    h.assertEqual(finished, 1)
+    h.assertEqual(cancelled, 1)
+    GetInvokingResource = invoking
 end)
 
-h.test('Progressbar forwards useWhileDead through object and direct export entry points', function()
+h.test('Progressbar preserves flags and async completion through object and direct export entry points', function()
     local exportedProgress
     TriggerEvent('__cfx_export_qb-core_Progressbar', function(fn) exportedProgress = fn end)
     h.assertEqual(exportedProgress, QBCore.Functions.Progressbar)
     local captured
-    local originalStart = QB.progressbar.start
-    QB.progressbar.start = function(payload) captured = payload; return true end
+    exports.progressbar = { Progress = function(_, action, finish)
+        CreateThread(function() captured = action; finish(false) end)
+    end }
     for _, progressbar in ipairs({ QBCore.Functions.Progressbar, exportedProgress }) do
         for _, setting in ipairs({ true, false, 'nil' }) do
             local allowed = setting
@@ -181,14 +172,13 @@ h.test('Progressbar forwards useWhileDead through object and direct export entry
             local returns = table.pack(progressbar('legacy', 'Working', 100, allowed, false,
                 nil, nil, nil, nil, function() finished = finished + 1 end))
             h.assertEqual(returns.n, 0, 'legacy call still returns no values')
-            h.assertEqual(captured, nil, 'progress still starts asynchronously')
+            h.assertEqual(captured, nil, 'progress still completes asynchronously')
             handle.step()
             h.assertEqual(captured.useWhileDead, allowed)
             h.assertEqual(captured.canCancel, false)
             h.assertEqual(finished, 1, 'success still invokes the finish callback once')
         end
     end
-    QB.progressbar.start = originalStart
 end)
 
 h.test('client SpawnVehicle stops cleanly when its model cannot load', function()

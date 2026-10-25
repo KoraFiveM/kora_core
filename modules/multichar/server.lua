@@ -64,10 +64,15 @@ end
 function Core.multichar.deleteCharacter(src, citizenid)
     local license = Core.identity.primary(src)
     local data = Core.persistence._load(citizenid)
+    if not data then return false, 'character not found' end
+    if Core.identity.primary(src) ~= license then return false, 'player session changed' end
     if data and data.license ~= license then return false, 'not your character' end
     -- If they're currently on this character, log them out first.
     local player = PI.byCitizenId[citizenid]
-    if player then Core.player.logout(player.source) end
+    if player then
+        local loggedOut, err = Core.player.logout(player.source)
+        if not loggedOut then return false, err or 'character logout failed' end
+    end
     return Core.persistence._deleteCharacterRow(citizenid)
 end
 

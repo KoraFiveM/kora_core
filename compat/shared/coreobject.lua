@@ -228,6 +228,61 @@ local function buildVehicleHashesView()
     return view
 end
 
+-- Upstream Items includes inventory weapons. Native registries keep weapons
+-- separate; merge their current records here with explicit item overrides first
+-- in precedence, including after either registry changes or a snapshot arrives.
+local function buildLegacyItemsView()
+    local view = {}
+    local function refresh()
+        for key in pairs(view) do view[key] = nil end
+        for _, registry in ipairs({ 'weapons', 'items' }) do
+            for _, record in ipairs(Core.registry.allShared(registry)) do
+                view[record.name] = record
+            end
+        end
+    end
+    refresh()
+    if Core.registry.onSharedChange then
+        Core.registry.onSharedChange('items', refresh)
+        Core.registry.onSharedChange('weapons', refresh)
+    end
+    AddEventHandler('qbcore:registry:synced', refresh)
+    return view
+end
+
+-- Weapons is indexed by the native hash returned by GetSelectedPedWeapon and
+-- GetPedCauseOfDeath. String aliases would duplicate entries in legacy pairs()
+-- loops. Upstream's damage catalog is independent of Items: removing inventory
+-- stock must not erase medical history for that weapon. Environmental damage
+-- causes remain metadata only, never grantable inventory records.
+local function buildLegacyWeaponsView()
+    local view = {}
+    local metadata = QBCoreSeed.legacyWeaponMetadata or {}
+    local function refresh()
+        for key in pairs(view) do view[key] = nil end
+        for name, record in pairs(metadata) do
+            local copy = {}
+            for key, value in pairs(record) do copy[key] = value end
+            view[joaat(name)] = copy
+        end
+        for _, record in ipairs(Core.registry.allShared('weapons')) do
+            local copy = {}
+            for key, value in pairs(metadata[record.name] or {}) do copy[key] = value end
+            for key, value in pairs(record) do copy[key] = value end
+            -- Newer/custom native weapons have no entry in the pinned catalog.
+            -- Legacy medical logging still requires a textual death reason.
+            copy.damagereason = copy.damagereason or 'Died'
+            view[joaat(record.name)] = copy
+        end
+    end
+    refresh()
+    if Core.registry.onSharedChange then
+        Core.registry.onSharedChange('weapons', refresh)
+    end
+    AddEventHandler('qbcore:registry:synced', refresh)
+    return view
+end
+
 -- QBCore.Shared data maps are compatibility-only views. A metatable here makes
 -- an early read build the live view once its registry exists, then caches that
 -- stable view for legacy scripts which captured it at startup.
@@ -247,7 +302,14 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
             return view
         end
 
-        local map = { Items = 'items', Vehicles = 'vehicles', Weapons = 'weapons', Locations = 'locations' }
+        if (k == 'Items' or k == 'Weapons') and CoreInternal and CoreInternal.registry
+            and CoreInternal.registry.registries.items and CoreInternal.registry.registries.weapons then
+            local view = k == 'Items' and buildLegacyItemsView() or buildLegacyWeaponsView()
+            rawset(t, k, view)
+            return view
+        end
+
+        local map = { Vehicles = 'vehicles', Locations = 'locations' }
         local regName = map[k]
         if regName and CoreInternal and CoreInternal.registry and CoreInternal.registry.registries[regName] then
             local view = buildLegacyView(regName)

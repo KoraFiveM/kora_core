@@ -33,7 +33,7 @@ Loads and logs in an existing character, after verifying it belongs to this sour
 - `string | nil` — Failure reason (a load error, or `'character does not belong to this player'`).
 
 ### `Core.multichar.deleteCharacter(src, citizenid)` — server
-Soft-deletes a character (after an ownership check), logging the player out first if they're currently on it. **Yields.**
+Soft-deletes a character after an ownership check, logging the player out first if they are currently on it. **Yields.** A failed logout aborts deletion. The row cannot be deleted while a player is online or a durable provider operation is pending; ownership is rechecked after the initial storage wait.
 
 #### Parameters
 - `src: integer`

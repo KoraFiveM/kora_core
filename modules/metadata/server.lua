@@ -23,7 +23,8 @@ function Core.metadata.setMetaData(src, key, value)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
     if type(key) ~= 'string' then return false, 'metadata key must be a string' end
-    Core.player.setPath(src, { 'metadata', key }, value)
+    local ok, err = Core.player.setPath(src, { 'metadata', key }, value)
+    if not ok then return false, err end
     TriggerEvent('QBCore:Server:OnMetaDataChange', src, key, value)
     return true
 end
@@ -44,7 +45,8 @@ function Core.metadata.incrementMetaData(src, key, delta, min, max)
     local newValue = current + delta
     if min and newValue < min then newValue = min end
     if max and newValue > max then newValue = max end
-    Core.player.setPath(src, { 'metadata', key }, newValue)
+    local ok, err = Core.player.setPath(src, { 'metadata', key }, newValue)
+    if not ok then return nil, err end
     -- Fire the same legacy event setMetaData does, so a listener sees every
     -- metadata mutation regardless of which entry point produced it.
     TriggerEvent('QBCore:Server:OnMetaDataChange', src, key, newValue)

@@ -17,11 +17,68 @@ local isCallable = QB.util.isCallable
 -- qbtarget/client/compat/ox-target.lua).
 local provideExport = QB.compat.provideExport
 
+-- Built-ins accept modern colon calls and the direct dot calls used by older
+-- resources. A receiver may be a msgpack copy after crossing a CFX export.
+local function exposePlayerMethods(player, handle)
+    for name, fn in pairs(player.Functions) do
+        if handle then
+            local method = fn
+            fn = function(...)
+                if PI.handle(handle.source) ~= handle then return false, 'player is no longer loaded' end
+                return method(...)
+            end
+            player.Functions[name] = fn
+        end
+        if player[name] == nil then
+            player[name] = function(first, ...)
+                if first == player or (type(first) == 'table' and type(first.PlayerData) == 'table'
+                    and first.Functions and first.PlayerData.citizenid == player.PlayerData.citizenid
+                    and first.PlayerData.source == player.PlayerData.source) then
+                    return fn(...)
+                end
+                return fn(first, ...)
+            end
+        end
+    end
+end
+
+local function sameValue(a, b)
+    if a == b then return true end
+    if type(a) ~= 'table' or type(b) ~= 'table' then return false end
+    for key, value in pairs(a) do if not sameValue(value, b[key]) then return false end end
+    for key in pairs(b) do if a[key] == nil then return false end end
+    return true
+end
+
+local immutableRoots = { source = true, citizenid = true, license = true, cid = true }
+
+local function writeLegacyRoot(src, key, value)
+    if type(key) ~= 'string' then return false, 'player data key must be a string' end
+    if immutableRoots[key] then return false, 'player identity is immutable' end
+    local handle = PI.handle(src)
+    if not handle then return false, 'no such player' end
+    local data = Core.compat.fromLegacyPlayerData({ [key] = value })
+    if key == 'money' then
+        local current = handle.PlayerData.money or {}
+        if type(value) ~= 'table' then return false, 'money must be a table' end
+        for account, amount in pairs(current) do
+            if Core.money.isPhysicalCash(account) and value[account] ~= amount then
+                return false, 'physical cash account is inventory-owned'
+            end
+        end
+        for account, amount in pairs(value) do
+            if Core.money.isPhysicalCash(account) and current[account] ~= amount then
+                return false, 'physical cash account is inventory-owned'
+            end
+        end
+    end
+    return Core.player.setPath(src, { key }, data[key])
+end
+
 -- --- the per-player QBPlayer compat object -----------------------------------
 
--- Build the legacy QBPlayer for a source: PlayerData (a LIVE reference to the
--- internal blob, so same-VM reads stay fresh) + a Functions method table whose
--- methods are two-line wrappers onto the funnel.
+-- The legacy view stays current through the funnel hook. Its nested tables
+-- are detached so direct edits must be reconciled before entering authority.
 local function buildQBPlayer(src)
     local handle = PI.handle(src)
     if not handle then return nil end
@@ -33,9 +90,14 @@ local function buildQBPlayer(src)
     -- Core.compat.onPlayerDataChanged (registered below), which
     -- Core.player.setPath calls on every write, so this never goes stale --
     -- including root-level replacements like SetJob/SetGang/SetInventory.
-    local self = { PlayerData = Core.compat.toLegacyPlayerData(handle.PlayerData), Offline = false }
+    local self = { PlayerData = Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData)), Offline = false }
     local F = {}
     self.Functions = F
+
+    local function publishWrite(ok, err, key)
+        if ok then F.UpdateClient(key) end
+        return ok, err
+    end
 
     function F.GetName() return handle.PlayerData.name end
     function F.GetPlayerData() return Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData)) end
@@ -51,11 +113,18 @@ local function buildQBPlayer(src)
     -- writes, but going through the real function keeps the duty EVENTS
     -- (QBCore:Server:SetDuty / QBCore:Client:SetDuty) firing too, which the
     -- reconciler cannot retrofit.
+    local function setRoleData(kind, key, value)
+        if type(key) ~= 'string' then return false end
+        local role = Core.compat.toLegacyJobOrGang(Core.util.deepClone(handle.PlayerData[kind]))
+        role[key] = value
+        local ok, err = writeLegacyRoot(src, kind, role)
+        return publishWrite(ok, err, kind)
+    end
     function F.SetJobData(k, v)
         if k == 'onduty' then return Core.jobs.setJobDuty(src, v and true or false) end
-        return Core.player.setPath(src, { 'job', k }, v)
+        return setRoleData('job', k, v)
     end
-    function F.SetGangData(k, v) return Core.player.setPath(src, { 'gang', k }, v) end
+    function F.SetGangData(k, v) return setRoleData('gang', k, v) end
 
     -- `ignoreTax` is a qbcore addition past stock qb-core's 3-arg signature, so
     -- an unported resource simply passes nil and is taxed like any other
@@ -70,14 +139,22 @@ local function buildQBPlayer(src)
     function F.GetItemByName(name) return Core.inventory.getItemByName(src, name) end
     function F.GetItemsByName(name) return Core.inventory.getItemsByName(src, name) end
     function F.GetItemBySlot(slot) return Core.inventory.getItemBySlot(src, slot) end
+    F.GetItemInSlot = F.GetItemBySlot
     function F.ClearInventory(keep) return Core.inventory.clearInventory(src, keep) end
     function F.SetInventory(items) return Core.inventory.setItems(src, items) end
 
-    function F.SetMetaData(k, v) return Core.metadata.setMetaData(src, k, v) end
+    function F.SetMetaData(k, v)
+        if k == 'hunger' or k == 'thirst' then v = math.min(100, math.max(0, tonumber(v) or 0)) end
+        local ok, err = Core.metadata.setMetaData(src, k, Core.util.deepClone(v))
+        return publishWrite(ok, err, 'metadata')
+    end
     function F.GetMetaData(k) return Core.metadata.getMetaData(src, k) end
 
-    function F.SetCharInfo(k, v) return Core.player.setPath(src, { 'charinfo', k }, v) end
-    function F.SetCreditCard(number) return Core.player.setPath(src, { 'charinfo', 'card' }, number) end
+    function F.SetCharInfo(k, v)
+        local ok, err = Core.player.setPath(src, { 'charinfo', k }, Core.util.deepClone(v))
+        return publishWrite(ok, err, 'charinfo')
+    end
+    function F.SetCreditCard(number) return F.SetCharInfo('card', number) end
 
     -- Legacy full-data writers. SetPlayerData(key, value) targets a root key.
     function F.SetPlayerData(key, value)
@@ -86,11 +163,68 @@ local function buildQBPlayer(src)
             print(("^3[qbcore:qb-core-bridge]^7 SetPlayerData('%s', ...) targets an unknown root key with no DB "
                 .. "column mapping; it will not persist."):format(tostring(key)))
         end
-        return Core.player.setPath(src, { key }, value)
+        local ok, err = writeLegacyRoot(src, key, value)
+        return publishWrite(ok, err, key)
     end
-    function F.UpdatePlayerData() --[[ no-op: data is always live here ]] end
 
-    function F.Save() Core.persistence.saveNow(handle); return true end
+    -- Reconcile legacy direct edits only when explicitly requested. Detached
+    -- views keep uncommitted edits behind the authoritative funnel's fences.
+    local function reconcilePlayerData(key, ...)
+        if PI.handle(src) ~= handle then return false, 'player is no longer loaded' end
+        if key == 'all' then key = nil end
+        if key ~= nil and type(key) ~= 'string' then return false, 'player data key must be a string' end
+        if key and select('#', ...) > 0 then self.PlayerData[key] = Core.util.deepClone((...)) end
+        local current = Core.compat.toLegacyPlayerData(handle.PlayerData)
+        local roots = {}
+        if key then roots[key] = true else
+            for root in pairs(current) do roots[root] = true end
+            for root in pairs(self.PlayerData) do roots[root] = true end
+        end
+        for root in pairs(roots) do
+            if not sameValue(current[root], self.PlayerData[root]) then
+                local ok, err = writeLegacyRoot(src, root, self.PlayerData[root])
+                if not ok then
+                    self.PlayerData[root] = Core.util.deepClone(current[root])
+                    return false, err
+                end
+            end
+        end
+        return true
+    end
+
+    function F.UpdateClient(key, ...)
+        if key == 'all' then key = nil end
+        local ok, err = reconcilePlayerData(key, ...)
+        if not ok then return false, err end
+        local data = Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData))
+        local eventKey, value = key or 'all', data
+        if key then value = data[key] end
+        if not key then TriggerEvent('QBCore:Player:SetPlayerData', data) end
+        TriggerEvent('QBCore:Server:OnPlayerUpdated', src, eventKey, value)
+        -- The funnel's queued delta must reach the client before this legacy
+        -- notification reads the authoritative mirror there.
+        local derivedFromDelta = false
+        if (key == 'job' or key == 'gang') and Config.compat.jobUpdateEventSource ~= 'server' then
+            for _, op in pairs(handle._pendingOps) do
+                if op.p[1] == key then derivedFromDelta = true; break end
+            end
+        end
+        if derivedFromDelta then return true end
+        SetTimeout(0, function()
+            if PI.handle(src) == handle then
+                TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, eventKey, value)
+            end
+        end)
+        return true
+    end
+    F.UpdatePlayerData = F.UpdateClient
+
+    function F.Save()
+        local ok, err = reconcilePlayerData()
+        if not ok then return false, err end
+        Core.persistence.saveNow(handle)
+        return true
+    end
     function F.Logout() return Core.player.logout(src) end
 
     -- --- methods present on CURRENT qb-core's player object (server/player.lua's
@@ -101,6 +235,20 @@ local function buildQBPlayer(src)
     function F.Notify(text, type_, length) TriggerClientEvent('QBCore:Notify', src, text, type_, length) end
     function F.HasItem(items, amount) return Core.inventory.hasItem(src, items, amount) end
 
+    -- Older job scripts use a separate jobrep map keyed by the CURRENT job,
+    -- including signed increments. Keep it distinct from modern metadata.rep.
+    function F.AddJobReputation(amount)
+        amount = tonumber(amount)
+        if not amount or amount ~= amount or math.abs(amount) == math.huge then return end
+        local job = handle.PlayerData.job.name
+        local reps = Core.util.deepClone(Core.metadata.getMetaData(src, 'jobrep') or {})
+        reps[job] = (tonumber(reps[job]) or 0) + amount
+        local ok, err = Core.player.setPath(src, { 'metadata', 'jobrep' }, reps)
+        if not ok then return false, err end
+        F.UpdatePlayerData()
+    end
+    F.AddJobRep = F.AddJobReputation
+
     -- Reputation lives in metadata.rep (a name->number map), matching qb-core.
     function F.GetRep(rep)
         local reps = Core.metadata.getMetaData(src, 'rep') or {}
@@ -109,23 +257,19 @@ local function buildQBPlayer(src)
     function F.AddRep(rep, amount)
         amount = tonumber(amount)
         if not rep or not amount then return end
-        local reps = Core.metadata.getMetaData(src, 'rep') or {}
+        local reps = Core.util.deepClone(Core.metadata.getMetaData(src, 'rep') or {})
         reps[rep] = math.max(0, (reps[rep] or 0) + amount)
-        Core.metadata.setMetaData(src, 'rep', reps)
+        local ok, err = Core.metadata.setMetaData(src, 'rep', reps)
+        if not ok then return false, err end
     end
     function F.RemoveRep(rep, amount)
         amount = tonumber(amount)
         if not rep or not amount then return end
-        local reps = Core.metadata.getMetaData(src, 'rep') or {}
+        local reps = Core.util.deepClone(Core.metadata.getMetaData(src, 'rep') or {})
         reps[rep] = math.max(0, (reps[rep] or 0) - amount)
-        Core.metadata.setMetaData(src, 'rep', reps)
+        local ok, err = Core.metadata.setMetaData(src, 'rep', reps)
+        if not ok then return false, err end
     end
-
-    -- UpdateClient pushes PlayerData to the owning client. Our replication does
-    -- that automatically on every setPath, so there's nothing to force here --
-    -- kept as a no-op alias pair so both legacy names resolve. (UpdatePlayerData
-    -- above is the same no-op for the identical reason.)
-    function F.UpdateClient() --[[ data is already live via delta replication ]] end
 
     -- Extension hooks: qb-core lets a resource bolt a custom method/field onto a
     -- player object at runtime. AddMethod adds to THIS player's Functions table;
@@ -141,28 +285,7 @@ local function buildQBPlayer(src)
         return true
     end
 
-    -- Real qb-core's Player class defines these as DIRECT colon methods on the
-    -- player object (`function Player:SetMetaData(meta, val)` etc, server/
-    -- player.lua) -- self.Functions is a SEPARATE table built alongside them
-    -- (buildMethodTable), not the only place they live. A script that calls
-    -- `Player.SetMetaData(meta, val)` (a dot-call, missing `self` -- itself a
-    -- bug even against real qb-core, which would silently misalign the
-    -- arguments rather than crash) still reaches a real function either way
-    -- there. Here, before this mirror, `Player.SetMetaData` didn't exist as a
-    -- top-level field at all -- only `Player.Functions.SetMetaData` did -- so
-    -- the same call hit a hard "attempt to call a nil value" instead.
-    -- Confirmed live against real qb-policejob/qb-ambulancejob: both dot-call
-    -- Player.SetMetaData(...) in their own server/main.lua and crashed on
-    -- every player connect. Mirroring every Functions method directly onto
-    -- `self` (pre-bound via the F.* closures above, so no `self` argument is
-    -- even needed) matches real qb-core's actual dual-exposure shape and
-    -- makes the dot-call work correctly, not just avoid crashing.
-    -- AddMethod added AFTER this point lands in F but not automatically here
-    -- too -- acceptable: this is qb-core's rarely-used dynamic-extension path,
-    -- not the reported bug, which used the fixed methods below.
-    for name, fn in pairs(F) do
-        if self[name] == nil then self[name] = fn end
-    end
+    exposePlayerMethods(self, handle)
 
     return self
 end
@@ -259,6 +382,7 @@ local function buildOfflinePlayer(data)
 
     local function itemMatches(item, name) return item and item.name == name end
     function F.GetItemBySlot(slot) return (self.PlayerData.items or {})[tonumber(slot)] end
+    F.GetItemInSlot = F.GetItemBySlot
     function F.GetItemByName(name)
         for _, item in pairs(self.PlayerData.items or {}) do if itemMatches(item, name) then return item end end
     end
@@ -301,6 +425,17 @@ local function buildOfflinePlayer(data)
         return true
     end
 
+    function F.AddJobReputation(amount)
+        amount = tonumber(amount)
+        if not amount or amount ~= amount or math.abs(amount) == math.huge then return end
+        self.PlayerData.metadata = self.PlayerData.metadata or {}
+        local reps = self.PlayerData.metadata.jobrep or {}
+        local job = self.PlayerData.job.name
+        reps[job] = (tonumber(reps[job]) or 0) + amount
+        self.PlayerData.metadata.jobrep = reps
+    end
+    F.AddJobRep = F.AddJobReputation
+
     function F.GetRep(rep) return ((self.PlayerData.metadata or {}).rep or {})[rep] or 0 end
     function F.AddRep(rep, amount)
         self.PlayerData.metadata = self.PlayerData.metadata or {}
@@ -322,7 +457,7 @@ local function buildOfflinePlayer(data)
         return true
     end
 
-    for name, fn in pairs(F) do if self[name] == nil then self[name] = fn end end
+    exposePlayerMethods(self)
     return self
 end
 
@@ -362,11 +497,19 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
     if not player then return end
 
     local root = path[1]
+    value = Core.util.deepClone(value)
     if root == 'job' or root == 'gang' then
-        Core.util.pathSet(player.PlayerData, path, #path == 1 and Core.compat.toLegacyJobOrGang(value) or value)
-    else
-        Core.util.pathSet(player.PlayerData, path, value)
+        if #path == 1 then
+            value = Core.compat.toLegacyJobOrGang(value)
+        elseif path[2] == 'grade' and value ~= nil then
+            if #path == 2 and type(value) == 'table' then
+                value.level = Core.compat.toLegacyGradeLevel(value.level)
+            elseif #path == 3 and path[3] == 'level' then
+                value = Core.compat.toLegacyGradeLevel(value)
+            end
+        end
     end
+    Core.util.pathSet(player.PlayerData, path, value)
 end
 
 -- --- QBCore.Functions.* ------------------------------------------------------
@@ -421,7 +564,7 @@ end
 function F.GetOfflinePlayerByCitizenId(cid)
     local data = Core.persistence._load(cid)
     if not data then return nil end
-    return QBCore.Player.CheckPlayerData(nil, data)
+    return QBCore.Player.CheckPlayerData(nil, Core.compat.toLegacyPlayerData(data))
 end
 
 function F.GetIdentifier(src, kind)
@@ -523,8 +666,24 @@ RegisterNetEvent('QBCore:Server:TriggerCallback', function(name, ...)
 end)
 
 -- Useable items.
-function F.CreateUseableItem(name, cb) Core.inventory.createUseable(name, cb) end
-function F.CanUseItem(name) return Core.registry.getShared('items', name) ~= nil end
+QBCore.UsableItems = QBCore.UsableItems or {}
+function F.CreateUseableItem(name, cb)
+    if type(cb) == 'table' and not isCallable(cb) then cb = cb.cb or cb.callback end
+    if type(name) ~= 'string' or not isCallable(cb) then return end
+    local ok, err = Core.inventory.createUseable(name, cb)
+    if err or ok == false then return ok, err end
+    QBCore.UsableItems[name] = Core.inventory.getUseable(name)
+end
+function F.CanUseItem(name)
+    local useable = Core.inventory.getUseable(name)
+    QBCore.UsableItems[name] = useable
+    return useable
+end
+AddEventHandler('onResourceStop', function(resource)
+    for name, record in pairs(QBCore.UsableItems) do
+        if record.resource == resource then QBCore.UsableItems[name] = nil end
+    end
+end)
 function F.UseItem(src, item) return Core.inventory.useItem(src, type(item) == 'table' and item.name or item) end
 
 -- Permissions / admin.
@@ -967,27 +1126,55 @@ end
 local REGISTRY_FOR = { item = 'items', job = 'jobs', gang = 'gangs' }
 local SHARED_KEY = { item = 'Items', job = 'Jobs', gang = 'Gangs' }
 
+-- The legacy Items view includes both native registries. Resolve the same
+-- items-first definition for writes, rather than admitting duplicate names or
+-- reporting an existing weapon missing. Registration keeps caller ownership.
+local function sharedRecord(kind, key)
+    local registry = REGISTRY_FOR[kind]
+    local record = Core.registry.getShared(registry, key)
+    if kind == 'item' and not record then
+        registry = 'weapons'
+        record = Core.registry.getShared(registry, key)
+    end
+    return record, registry
+end
+
 local function sharedAdd(kind, key, record)
     if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
-    if Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_exists' end
-    local ok, err = Core.registry.registerShared(REGISTRY_FOR[kind], key, record)
+    if sharedRecord(kind, key) then return false, kind .. '_exists' end
+    local ok, err = Core.registry.registerShared(REGISTRY_FOR[kind], key, Core.util.deepClone(record))
     if not ok then return false, err end
-    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, record)
+    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key,
+        QBCore.Shared[SHARED_KEY[kind]][key])
     TriggerEvent('QBCore:Server:UpdateObject')
     return true, 'success'
 end
 local function sharedUpdate(kind, key, record)
     if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
-    if not Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_not_exists' end
-    Core.registry.registerShared(REGISTRY_FOR[kind], key, record)
-    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, record)
+    local existing, registry = sharedRecord(kind, key)
+    if not existing then return false, kind .. '_not_exists' end
+    local ok, err = Core.registry.registerShared(registry, key, Core.util.deepClone(record))
+    if not ok then return false, err end
+    TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key,
+        QBCore.Shared[SHARED_KEY[kind]][key])
     TriggerEvent('QBCore:Server:UpdateObject')
     return true, 'success'
 end
 local function sharedRemove(kind, key)
     if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
-    if not Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_not_exists' end
-    Core.registry.unregisterShared(REGISTRY_FOR[kind], key)
+    if not sharedRecord(kind, key) then return false, kind .. '_not_exists' end
+    -- Removing the visible legacy item also removes its shadowed weapon
+    -- definition; otherwise a successful removal immediately exposes it again.
+    local registries = kind == 'item' and { 'items', 'weapons' } or { REGISTRY_FOR[kind] }
+    for _, registry in ipairs(registries) do
+        if Core.registry.getShared(registry, key) then
+            local ok, err = Core.registry.unregisterShared(registry, key)
+            if not ok then return false, err or kind .. '_remove_failed' end
+        end
+    end
+    -- Subscribers can synchronously change the registry. Never announce a
+    -- successful removal while a replacement remains visible.
+    if sharedRecord(kind, key) then return false, kind .. '_remove_failed' end
     TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, nil)
     TriggerEvent('QBCore:Server:UpdateObject')
     return true, 'success'
@@ -995,10 +1182,15 @@ end
 local function sharedAddMany(kind, records)
     for key in pairs(records) do
         if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
-        if Core.registry.getShared(REGISTRY_FOR[kind], key) then return false, kind .. '_exists', key end
+        if sharedRecord(kind, key) then return false, kind .. '_exists', key end
     end
-    for key, record in pairs(records) do Core.registry.registerShared(REGISTRY_FOR[kind], key, record) end
-    TriggerClientEvent('QBCore:Client:OnSharedUpdateMultiple', -1, SHARED_KEY[kind], records)
+    local legacyRecords = {}
+    for key, record in pairs(records) do
+        local ok, err = Core.registry.registerShared(REGISTRY_FOR[kind], key, Core.util.deepClone(record))
+        if not ok then return false, err, key end
+        legacyRecords[key] = QBCore.Shared[SHARED_KEY[kind]][key]
+    end
+    TriggerClientEvent('QBCore:Client:OnSharedUpdateMultiple', -1, SHARED_KEY[kind], legacyRecords)
     TriggerEvent('QBCore:Server:UpdateObject')
     return true, 'success'
 end
@@ -1041,7 +1233,7 @@ local function applyPlayerDefaults(data, defaults)
             if type(default) == 'function' then
                 data[key] = default()
             elseif type(default) == 'table' then
-                data[key] = Core.util.deepClone(default)
+                data[key] = {}
                 applyPlayerDefaults(data[key], default)
             else
                 data[key] = default
@@ -1082,7 +1274,9 @@ function P.Login(src, citizenid, newData)
     if citizenid then
         local data = Core.persistence._load(citizenid)
         local license = F.GetIdentifier(src, 'license')
-        if data and license == data.license then return P.CheckPlayerData(src, data) ~= nil end
+        if data and license == data.license then
+            return P.CheckPlayerData(src, Core.compat.toLegacyPlayerData(data)) ~= nil
+        end
         DropPlayer(src, 'Dropped for character joining exploit')
         TriggerEvent('qb-log:server:CreateLog', 'anticheat', 'Anti-Cheat', 'white',
             (GetPlayerName(src) or tostring(src)) .. ' Has Been Dropped For Character Joining Exploit', false)
@@ -1091,25 +1285,35 @@ function P.Login(src, citizenid, newData)
     return P.CheckPlayerData(src, newData) ~= nil
 end
 function P.Logout(src) return Core.player.logout(src) end
-function P.Save(src) local h = PI.handle(src); if h then Core.persistence.saveNow(h) end end
+function P.Save(src)
+    local player = F.GetPlayer(src)
+    if player then return player.Functions.Save() end
+end
 function P.SaveOffline(playerData)
-    if not playerData or not playerData.citizenid then return false end
+    if type(playerData) ~= 'table' or not playerData.citizenid then return false, 'invalid player data' end
     local data = Core.compat.fromLegacyPlayerData(playerData)
-    local result = QB.sql.query(
-        'INSERT INTO `players` (`citizenid`,`cid`,`license`,`name`,`money`,`charinfo`,`job`,`gang`,'
-            .. '`position`,`metadata`,`inventory`,`phone_number`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) '
-            .. 'ON DUPLICATE KEY UPDATE `cid`=VALUES(`cid`),`name`=VALUES(`name`),`money`=VALUES(`money`),'
-            .. '`charinfo`=VALUES(`charinfo`),`job`=VALUES(`job`),`gang`=VALUES(`gang`),'
-            .. '`position`=VALUES(`position`),`metadata`=VALUES(`metadata`),'
-            .. '`inventory`=VALUES(`inventory`),`phone_number`=VALUES(`phone_number`)',
-        {
-            data.citizenid, tonumber(data.cid) or 1, data.license, data.name or 'unknown',
-            json.encode(data.money or {}), json.encode(data.charinfo or {}), json.encode(data.job or {}),
-            json.encode(data.gang or {}), json.encode(data.position or {}), json.encode(data.metadata or {}),
-            json.encode(data.items or {}), data.phone or (data.charinfo and data.charinfo.phone),
-        }
-    )
-    return result ~= nil
+    data.phone = data.phone or (data.charinfo and data.charinfo.phone)
+    local ok, err = Core.persistence.saveOfflinePlayer(data,
+        { 'name', 'money', 'charinfo', 'job', 'gang', 'position', 'metadata', 'items', 'phone' })
+    if ok or err ~= 'player not found' then return ok, err end
+
+    -- Legacy CheckPlayerData/CreatePlayer can save a NEW offline character.
+    -- A plain insert preserves that contract without an upsert ever rewriting
+    -- another character's immutable license/cid or an active player's data.
+    if PI.byCitizenId[data.citizenid] then return false, 'player is online' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, reason = Core.persistence._persistentColumnsAvailable(data.citizenid)
+        if not available then return false, reason end
+    end
+    if PI.byCitizenId[data.citizenid] then return false, 'player is online' end
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(data.citizenid) then
+        return false, 'player data is busy'
+    end
+    local called, inserted, insertError = pcall(Core.persistence._insertNew,
+        data.citizenid, data.license, tonumber(data.cid) or 1, data)
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(data.citizenid) end
+    if not called then return false, tostring(inserted) end
+    return inserted, insertError
 end
 
 function P.CreatePlayer(srcOrData, charinfo, cid)
@@ -1141,7 +1345,14 @@ function P.CheckPlayerData(src, playerData)
     applyPlayerDefaults(playerData, QBCore.Config.Player.PlayerDefaults)
     return P.CreatePlayer(playerData, offline)
 end
-function P.ForceUpdatePlayerData() --[[ live data; no-op ]] end
+function P.ForceUpdatePlayerData(src)
+    if src then
+        local player = F.GetPlayer(src)
+        if player then return player.Functions.UpdatePlayerData() end
+        return false
+    end
+    for _, player in pairs(QBCore.Players) do player.Functions.UpdatePlayerData() end
+end
 
 function P.GetOfflinePlayer(citizenid) return F.GetOfflinePlayerByCitizenId(citizenid) end
 function P.GetPlayerByLicense(license)
@@ -1198,8 +1409,21 @@ local function rebuildCommandList()
     end
 end
 QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
+    -- Stock resources also use { { 'id', 'description' } } suggestions. Adapt
+    -- that legacy shape here, leaving the native command contract strict and
+    -- retaining the caller's original params in the public legacy command list.
+    local nativeArgs = args
+    if type(args) == 'table' then
+        nativeArgs = Core.util.deepClone(args)
+        for _, argument in ipairs(nativeArgs) do
+            if type(argument) == 'table' and argument.name == nil then
+                argument.name = argument[1]
+                argument.help = argument.help or argument[2]
+            end
+        end
+    end
+    Core.commands.addCommand(name, help, nativeArgs, argsRequired, cb, permission)
     commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb }
-    Core.commands.addCommand(name, help, args, argsRequired, cb, permission)
     rebuildCommandList()
 end
 QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src); rebuildCommandList() end

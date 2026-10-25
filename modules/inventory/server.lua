@@ -14,10 +14,8 @@ local II = CoreInternal.inventory
 -- handlers behind (its handlers would otherwise fire against a stale closure).
 local useables = {}
 
-local useableRegistry = QB.resources.serverRegistry(function(owner)
-    for name, u in pairs(useables) do
-        if u.resource == owner then useables[name] = nil end
-    end
+local useableRegistry = QB.resources.serverRegistry(function(name)
+    useables[name] = nil
 end)
 
 -- Build a full item record from a registry definition.
@@ -93,7 +91,7 @@ end
 function Core.inventory.addItem(src, name, amount, slot, info, reason)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
-    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
+    if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
     if amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
@@ -155,7 +153,7 @@ end
 function Core.inventory.removeItem(src, name, amount, slot, reason)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
-    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
+    if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
     if amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
@@ -187,7 +185,8 @@ end
 -- Remove `amount` from one slot, clearing the slot if it empties.
 function Core.inventory._removeFromSlot(src, slot, amount)
     local p = PI.handle(src)
-    if p and Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
+    if not p then return false, 'no such player' end
+    if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     local item = p.PlayerData.items[slot]
     if not item then return false, 'empty slot' end
     if item.amount <= amount then
@@ -264,7 +263,7 @@ end
 function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
-    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
+    if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     if not validSlot(fromSlot) or not validSlot(toSlot) then return false, 'invalid slot' end
     local it = p.PlayerData.items
     local from = it[fromSlot]
@@ -302,7 +301,7 @@ end
 function Core.inventory.clearInventory(src, keep)
     local p = PI.handle(src)
     if not p then return false end
-    if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
+    if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     local keepSet = {}
     if keep then for _, n in ipairs(keep) do keepSet[n] = true end end
     for slot, item in pairs(p.PlayerData.items) do
@@ -336,10 +335,18 @@ function Core.inventory.createUseable(name, handler)
     if owner then useableRegistry.track(owner, name) end
 end
 
+---Return the registered callback record, not whether an item definition exists.
+function Core.inventory.getUseable(name)
+    local record = useables[name]
+    if record then return { func = record.handler, resource = record.resource } end
+end
+
 ---@param src integer
 ---@param slotOrName integer|string
 ---@return boolean
 function Core.inventory.useItem(src, slotOrName)
+    local p = PI.handle(src)
+    if not p or p._loggingOut then return false end
     local item
     if type(slotOrName) == 'number' then
         item = Core.inventory.getItemBySlot(src, slotOrName)

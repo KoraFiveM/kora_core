@@ -74,7 +74,8 @@ end
 -- Sample a player's position at flush time (server-side, OneSync). Marks the
 -- position column dirty only if the player moved past the epsilon or the max
 -- age elapsed -- so a parked player never re-writes position.
-local function samplePosition(player)
+local function samplePosition(player, logoutSample)
+    if player._loggingOut and not logoutSample then return end
     local src = player.source
     local ped = GetPlayerPed(src)
     if not ped or ped == 0 then return end
@@ -181,6 +182,32 @@ function Core.persistence.saveNow(player)
             priority = 'immediate', mode = 'assign', writeMode = 'update',
         })
     end
+end
+
+-- Logout keeps its live handle until the asynchronous SQL queue confirms the
+-- final write. Ped sampling must not replace a validated housing exterior.
+function Core.persistence._saveForLogout(player, positionOverride)
+    local called, saved, err = pcall(function()
+        if not positionOverride then samplePosition(player, true) end
+        -- The normal baseline records enqueue, not commit. An earlier queued
+        -- save may already have exhausted retries, so logout must publish a
+        -- fresh complete mutable snapshot before asking for acknowledgement.
+        for _, column in pairs(COLUMN_FOR) do
+            player._encoded[column] = nil
+            Core.persistence._markDirty(player, column)
+        end
+        Core.persistence.saveNow(player)
+        return QB.sql.flush('players')
+    end)
+    if called and saved == true then return true end
+    -- saveNow advances its enqueue baseline before SQL finishes. A rejected or
+    -- thrown flush must leave every mutable column retryable, even if the SQL
+    -- queue discarded a failed row; immutable account keys remain excluded.
+    for _, column in pairs(COLUMN_FOR) do
+        player._encoded[column] = nil
+        Core.persistence._markDirty(player, column)
+    end
+    return false, tostring(err or saved or 'player save failed')
 end
 
 -- Insert a brand-new character row with a plain INSERT (NOT an upsert), so a
@@ -339,8 +366,10 @@ end
 ---@param citizenid string
 ---@return boolean
 function Core.persistence._deleteCharacterRow(citizenid)
+    if PI.byCitizenId[citizenid] then return false, 'player is online' end
     if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false end
     if Core.persistence._persistentColumnsAvailable and not Core.persistence._persistentColumnsAvailable(citizenid) then return false end
+    if PI.byCitizenId[citizenid] then return false, 'player is online' end
     if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(citizenid) then return false end
     local called, r = pcall(QB.sql.execute, 'UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
     if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(citizenid) end

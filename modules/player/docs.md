@@ -121,14 +121,16 @@ UTF-8 text; birth date is a real non-future `YYYY-MM-DD`; gender is `0` or
 - `string | nil` — The citizenid.
 - `string | nil` — Failure reason.
 
-### `Core.player.logout(src)` — server
-Logs a source out (keeps the connection, drops the character). Flushes to DB first, replicates `Player(src).state['qbcore:loggedIn'] = false`, fires unload events, and evicts from every cache.
+### `Core.player.logout(src, options)` — server
+Logs a source out while keeping the connection. **Yields** until qbsql confirms a fresh snapshot of every mutable player column. Only then clears the logged-in state, fires unload events and evicts the character. Writes and durable provider operations are fenced while the save is pending. Failure or an uncertain save result retains the character and makes the snapshot retryable; callers must check the result before proceeding. A reused connection cannot be unloaded by an older pending call.
 
 #### Parameters
 - `src: integer`
+- `options: table | nil` — Optional `{ position = { x, y, z, h } }` from `qbhousing` or core itself. Coordinates must be finite numbers; omitted `h` defaults to zero. Housing supplies its server-validated exterior, which bypasses ped sampling inside the shell. Never forward client coordinates here. Other callers retain ordinary server-side position sampling.
 
 #### Returns
 - `boolean`
+- `string | nil` — Failure reason, including unavailable storage, a pending player operation or a changed session.
 
 ### `Core.player.drop(src, reason)` — server
 Handles a hard disconnect: immediate flush, then eviction. Wired to the `playerDropped` event, so you rarely call it directly.

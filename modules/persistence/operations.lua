@@ -1,7 +1,7 @@
 -- Durable providers fence the same columns that ordinary saves would overwrite.
 local PI = CoreInternal.player
 local operations, locks, ordinary, epochs = {}, {}, {}, {}
-local roots = { money = 'money', inventory = 'items' }
+local roots = { money = 'money', inventory = 'items', metadata = 'metadata' }
 
 local function provider()
     local caller = GetInvokingResource()
@@ -64,7 +64,7 @@ function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
     local caller = provider()
     if not caller then return nil, 'rejected', 'Only configured durable providers may fence player data.' end
     if type(key) ~= 'string' or #key < 1 or #key > 240 or type(citizenids) ~= 'table' or type(columns) ~= 'table'
-        or #citizenids > 128 or #columns < 1 or #columns > 2 then return nil, 'rejected', 'Invalid player operation.' end
+        or #citizenids > 128 or #columns < 1 or #columns > 3 then return nil, 'rejected', 'Invalid player operation.' end
     local ids, fields, seen = {}, {}, {}
     for _, cid in ipairs(citizenids) do
         if type(cid) ~= 'string' or #cid < 1 or #cid > 50 then return nil, 'rejected', 'Invalid character ID.' end

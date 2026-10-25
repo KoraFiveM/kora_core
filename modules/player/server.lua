@@ -20,6 +20,8 @@ PI.byCitizenId = byCitizenId
 -- never exported, so another resource cannot forge the exception accepted by
 -- setPath below.
 local physicalCashWriteToken = {}
+local logoutWriteToken = {}
+local sourceSessions = {}
 
 -- Resource-owned, replicated-only PlayerData roots. These fields let a domain
 -- resource expose a read model to client UI without putting that domain's
@@ -54,6 +56,9 @@ end
 function Core.player.setPath(src, path, value, opts)
     local player = bySource[src]
     if not player then return false, 'no such player' end
+    if player._loggingOut and not (opts and opts._logoutWriteToken == logoutWriteToken) then
+        return false, 'player logout is in progress'
+    end
     if type(path) ~= 'table' or #path == 0 then return false, 'path must be a non-empty array' end
     if Core.persistence._canWriteColumn and not Core.persistence._canWriteColumn(player.citizenid, COLUMN_FOR[path[1]], opts and opts._columnOperationToken) then
         return false, 'player data is busy'
@@ -151,10 +156,18 @@ function Core.player.setPlayerBucket(src, bucket)
 end
 
 ---@param src integer
+---@param requiredField string|nil Refuse a partial save when this field is fenced.
 ---@return boolean, string|nil
-function Core.player.savePlayer(src)
+function Core.player.savePlayer(src, requiredField)
     local player = PI.handle(src)
     if not player then return false, 'no such player' end
+    if requiredField ~= nil then
+        local column = type(requiredField) == 'string' and PI.COLUMN_FOR[requiredField]
+        if not column then return false, 'invalid player field' end
+        if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(player.citizenid, column) then
+            return false, 'player data is busy'
+        end
+    end
     Core.persistence.saveNow(player)
     return true
 end
@@ -393,7 +406,7 @@ function Core.player.login(src, citizenid, data)
     if Core.persistence._columnEpoch and Core.persistence._columnEpoch(citizenid) > 0 then
         local latest, err = Core.persistence._load(citizenid)
         if not latest then return false, err end
-        data.money, data.items = latest.money, latest.items
+        for field in pairs(COLUMN_FOR) do data[field] = latest[field] end
     end
     -- The durable-storage checks yield; another session may have won meanwhile.
     if bySource[src] then return false, 'source already logged in' end
@@ -555,23 +568,82 @@ function Core.player.createCharacter(src, charinfo, cid)
     return table.unpack(results, 2, results.n)
 end
 
----Log a player out (keep the connection, drop the character). Flushes first.
+---Log a player out only after the final player save is confirmed durable.
 ---@param src integer
----@return boolean
-function Core.player.logout(src)
+---@param options table|nil Trusted qbhousing/core callers may supply an exterior position.
+---@return boolean, string|nil
+function Core.player.logout(src, options)
     local player = bySource[src]
     if not player then return false end
-    Core.persistence.saveNow(player)
+    if player._loggingOut then return false, 'player logout is in progress' end
+    if options ~= nil and type(options) ~= 'table' then return false, 'invalid logout options' end
+    local position = options and options.position
+    if position ~= nil then
+        local caller = GetInvokingResource() or GetCurrentResourceName()
+        if caller ~= 'qbhousing' and caller ~= GetCurrentResourceName() then
+            return false, 'logout position is restricted to housing'
+        end
+        if type(position) ~= 'table' or not QB.util.isFiniteNumber(position.x)
+            or not QB.util.isFiniteNumber(position.y) or not QB.util.isFiniteNumber(position.z)
+            or (position.h ~= nil and not QB.util.isFiniteNumber(position.h)) then
+            return false, 'invalid logout position'
+        end
+        position = { x = position.x, y = position.y, z = position.z, h = position.h or 0.0 }
+    end
+    local session = sourceSessions[src] or 0
+    local function current()
+        return bySource[src] == player and byCitizenId[player.citizenid] == player
+            and (sourceSessions[src] or 0) == session
+    end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(player.citizenid) then
+        return false, 'player data is busy'
+    end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(player.citizenid)
+        if not available then return false, err end
+    end
+    if not current() then return false, 'player session changed' end
+    -- Reuse the ordinary-write reservation so a durable inventory/bank operation
+    -- cannot begin while logout drains queued player writes.
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(player.citizenid) then
+        return false, 'player data is busy'
+    end
+    player._loggingOut = true
+    local previousPosition = Core.util.deepClone(player.PlayerData.position)
+    local called, saved, err = pcall(function()
+        if position then
+            local changed, changeErr = Core.player.setPath(src, { 'position' }, position,
+                { silent = true, _logoutWriteToken = logoutWriteToken })
+            if not changed then return false, changeErr end
+        end
+        return Core.persistence._saveForLogout(player, position ~= nil)
+    end)
+    local sameSession = current()
+    if not called or saved ~= true or not sameSession then
+        if position and sameSession then
+            Core.player.setPath(src, { 'position' }, previousPosition,
+                { silent = true, _logoutWriteToken = logoutWriteToken })
+        end
+        player._loggingOut = nil
+        if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
+        return false, not sameSession and 'player session changed' or tostring(err or saved or 'player save failed')
+    end
     -- Clear this before any legacy unload notifications or cache teardown so
     -- state-bag consumers immediately stop rendering character-only UI.
     Player(src).state:set('qbcore:loggedIn', false, true)
     Player(src).state:set('isLoggedIn', false, true) -- legacy mirror, see login()
     TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
-    byCitizenId[player.citizenid] = nil
-    bySource[src] = nil
-    Core.replication._forget(player)
-    Core.persistence._forget(player)
+    -- An unload subscriber can yield or drop the connection. Never evict a
+    -- replacement session that acquired this source while it was running.
+    if bySource[src] == player then bySource[src] = nil end
+    if byCitizenId[player.citizenid] == player then
+        byCitizenId[player.citizenid] = nil
+        Core.replication._forget(player)
+        Core.persistence._forget(player)
+    end
+    player._loggingOut = nil
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
     return true
 end
 
@@ -595,7 +667,12 @@ function Core.player.dropPlayer(src, reason)
 end
 
 AddEventHandler('playerDropped', function(reason)
+    sourceSessions[source] = (sourceSessions[source] or 0) + 1
     Core.player.dropPlayer(source, reason)
+end)
+
+AddEventHandler('playerJoining', function()
+    sourceSessions[source] = (sourceSessions[source] or 0) + 1
 end)
 
 -- Readiness marker so @qbcore/init.lua / consumers can detect the core is up.

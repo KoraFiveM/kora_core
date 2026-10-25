@@ -28,7 +28,15 @@ h.test('weapon seed records are canonical, unique inventory definitions', functi
         seen[definition.name] = true
         h.assertEqual(definition.type, 'weapon', definition.name .. ' type')
         h.assertTrue(definition.unique, definition.name .. ' must be unique')
-        h.assertTrue(definition.useable, definition.name .. ' must be useable')
+        local legacyUtility = {
+            weapon_bread = true, weapon_briefcase = true, weapon_briefcase_02 = true,
+            weapon_garbagebag = true, weapon_handcuffs = true, weapon_remotesniper = true,
+        }
+        if legacyUtility[definition.name] then
+            h.assertEqual(definition.useable, false, definition.name .. ' pinned utility flag')
+        else
+            h.assertTrue(definition.useable, definition.name .. ' must be useable')
+        end
         h.assertTrue(type(definition.weight) == 'number' and definition.weight >= 0, definition.name .. ' invalid weight')
         h.assertTrue(Core.registry.getShared('weapons', definition.name) == definition, definition.name .. ' missing from registry')
     end

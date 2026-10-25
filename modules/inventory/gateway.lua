@@ -94,6 +94,10 @@ for name in pairs(legacy) do
         if fallbackDepth > 0 then return legacy[name](...) end
 
         if providerState() == 'started' then
+            if name == 'createUseable' then
+                local itemName, handler = ...
+                return callProvider(name, itemName, handler, GetInvokingResource() or GetCurrentResourceName())
+            end
             return callProvider(name, ...)
         end
 
