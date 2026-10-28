@@ -72,7 +72,7 @@ function Core.player.setPath(src, path, value, opts)
         end
     end
 
-    -- Once qbinventory owns a physical cash account, a generic direct write
+    -- Once kora_inventory owns a physical cash account, a generic direct write
     -- here would create a second balance beside the cash item. The only
     -- exception is Core.money's one-way, preflighted ledger-to-item migration.
     if path[1] == 'money' and Core.money and Core.money.isPhysicalCash
@@ -86,7 +86,7 @@ function Core.player.setPath(src, path, value, opts)
     -- to third-party resources across the export boundary, so it must be a
     -- real table, never a live metatable proxy -- those don't survive
     -- msgpack marshaling) incrementally in sync with every write this funnel
-    -- makes, without qbcore's own modules knowing compat exists. nil unless
+    -- makes, without kora_core's own modules knowing compat exists. nil unless
     -- compat/shared/coreobject.lua has registered it. See its own comment for
     -- why this is the single correct hook point (every mutation, including
     -- job/gang, routes through here).
@@ -117,7 +117,7 @@ function Core.player.setPath(src, path, value, opts)
     end
 
     -- Inventory authorities may keep session revisions independently of
-    -- PlayerData persistence. This generic notification preserves qbcore's
+    -- PlayerData persistence. This generic notification preserves kora_core's
     -- ownership while allowing them to invalidate stale views after an item
     -- write made directly through the funnel.
     if path[1] == 'items' then
@@ -239,7 +239,7 @@ end
 
 ---Register a resource-owned, replicated-only root field. The provider is run
 ---before each initial snapshot and receives (source, citizenid). Its returned
----value is never persisted by qbcore.
+---value is never persisted by kora_core.
 ---@param key string
 ---@param provider fun(src:integer, citizenid:string):any, string|nil
 ---@return boolean, string|nil
@@ -350,7 +350,7 @@ local function adopt(src, player)
         end
     end
 
-    -- qbinventory may own the physical cash account. Convert any persisted
+    -- kora_inventory may own the physical cash account. Convert any persisted
     -- ledger balance before a snapshot or legacy load event can expose it;
     -- failure is fail-closed, avoiding a hidden or duplicated balance.
     if Core.money and Core.money.migratePhysicalCash then
@@ -378,7 +378,7 @@ local function adopt(src, player)
     -- Legacy mirror. Real qb-core sets a bare 'isLoggedIn' key, which legacy
     -- consumers read directly as LocalPlayer.state['isLoggedIn'] (real
     -- qb-doorlock's client.lua gates its whole main loop on it). The
-    -- namespaced key above stays the one qbcore's own resources use; this is
+    -- namespaced key above stays the one kora_core's own resources use; this is
     -- purely the legacy-facing alias, same "rebuilt legacy view alongside the
     -- modern shape" pattern compat/shared/coreobject.lua uses for grades.
     Player(src).state:set('isLoggedIn', true, true)
@@ -570,7 +570,7 @@ end
 
 ---Log a player out only after the final player save is confirmed durable.
 ---@param src integer
----@param options table|nil Trusted qbhousing/core callers may supply an exterior position.
+---@param options table|nil Trusted kora_housing/core callers may supply an exterior position.
 ---@return boolean, string|nil
 function Core.player.logout(src, options)
     local player = bySource[src]
@@ -580,7 +580,7 @@ function Core.player.logout(src, options)
     local position = options and options.position
     if position ~= nil then
         local caller = GetInvokingResource() or GetCurrentResourceName()
-        if caller ~= 'qbhousing' and caller ~= GetCurrentResourceName() then
+        if caller ~= 'kora_housing' and caller ~= GetCurrentResourceName() then
             return false, 'logout position is restricted to housing'
         end
         if type(position) ~= 'table' or not QB.util.isFiniteNumber(position.x)
@@ -675,7 +675,7 @@ AddEventHandler('playerJoining', function()
     sourceSessions[source] = (sourceSessions[source] or 0) + 1
 end)
 
--- Readiness marker so @qbcore/init.lua / consumers can detect the core is up.
+-- Readiness marker so @kora_core/init.lua / consumers can detect the core is up.
 local coreReady = false
 function Core.player.isCoreReady() return coreReady end
 CreateThread(function() Wait(0); coreReady = true end)

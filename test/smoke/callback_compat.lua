@@ -1,7 +1,7 @@
 -- Pins the legacy CreateCallback responder-bridge fix. Real qb-core hands the
 -- handler a RESPONDER function as its second argument -- function(source, cb,
 -- ...) ... cb(result) end -- and expects the handler to CALL it, not return a
--- value. qblib's QB.callback.register instead ships back whatever the
+-- value. kora_lib's QB.callback.register instead ships back whatever the
 -- registered function RETURNS. Before this fix, `cb` was silently bound to
 -- the callback's first data argument (or nil), producing exactly the
 -- qb-banking symptom: "attempt to call a nil value (local 'cb')", and the
@@ -10,8 +10,8 @@
 -- The shared test/mocks.lua QB.callback.register is a total no-op (doesn't
 -- even store the handler), so it can't exercise this bridge. This file
 -- installs its own QB.callback fake that captures the registered handler and
--- invokes it exactly the way qblib's real transport does --
--- table.pack(pcall(handler, src, ...)) -- see qblib/local/callback/server.lua.
+-- invokes it exactly the way kora_lib's real transport does --
+-- table.pack(pcall(handler, src, ...)) -- see kora_lib/local/callback/server.lua.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()

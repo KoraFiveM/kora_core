@@ -4,7 +4,7 @@
 --   server->client: QBCore:Client:TriggerClientCallback / QBCore:Server:TriggerClientCallback
 --
 -- The design is compat-local handler registries (legacyCallbacks on the
--- server, legacyClientCallbacks on the client) that BOTH the qblib bridge and
+-- server, legacyClientCallbacks on the client) that BOTH the kora_lib bridge and
 -- the raw wire dispatch through -- one registration (CreateCallback /
 -- CreateClientCallback), reachable over either transport, never invoked twice
 -- for one incoming request. This file loads the server compat first and

@@ -2,13 +2,15 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
-name 'qbcore'
+name 'kora_core'
+-- Keep the legacy resource name resolvable for exports['qbcore'] callers.
+provide 'qbcore'
 author 'Jamie'
 version '1.0.0'
 description 'Player/framework core built on qblib, persisted through qbsql'
 
-dependency 'qblib'
-dependency 'qbsql'
+dependency 'kora_lib'
+dependency 'kora_sql'
 
 -- Only identities this resource actually implements. Deliberately NOT providing
 -- 'qb-multicharacter' -- that compat is event-level only, and hijacking the name
@@ -24,15 +26,15 @@ dependency 'qbsql'
 provide 'qb-core'
 
 -- Both are shared_script (not shared_scripts) so they resolve BEFORE the table
--- below, qblib strictly before qbsql: '@qbsql/init.lua' extends and asserts on
--- the QB table '@qblib/init.lua' creates. '@qbcore/init.lua' is NOT included
+-- below, kora_lib strictly before qbsql: '@kora_sql/init.lua' extends and asserts on
+-- the QB table '@kora_lib/init.lua' creates. '@kora_core/init.lua' is NOT included
 -- here -- it's for OTHER resources to pull QB.shared.* into their own VM. It
 -- must still be listed in `files` below so FiveM can resolve that @-import.
-shared_script '@qblib/init.lua'
-shared_script '@qbsql/init.lua'
+shared_script '@kora_lib/init.lua'
+shared_script '@kora_sql/init.lua'
 
 files {
-    'init.lua' -- '@qbcore/init.lua' -- shared registry mirror for consumers
+    'init.lua' -- '@kora_core/init.lua' -- shared registry mirror for consumers
     , 'shared/locale.lua' -- '@qb-core/shared/locale.lua' -- real qb-core's Locale class, for compat consumers
 }
 
@@ -78,7 +80,7 @@ shared_scripts {
 --   persistence  player.login/create call adopt()/insertNew(); migrate.lua runs here
 --   player       the funnel + lifecycle (depends on replication + persistence)
 --   money/jobs/metadata/inventory  wrappers over the funnel
---   inventory/gateway              delegates inventory operations to qbinventory
+--   inventory/gateway              delegates inventory operations to kora_inventory
 --                                  when it is running; keeps the legacy engine as
 --                                  a staged-rollout fallback only
 --   dispatch/paycheck  need Core.jobs' index (dispatch also needs money for
@@ -116,6 +118,7 @@ server_scripts {
     'modules/transaction/server.lua',
     'modules/multichar/server.lua',
     'modules/permissions/server.lua',
+    'modules/permissions/txadmin.lua',
     'modules/commands/server.lua',
     'modules/logging/server.lua',
     'modules/garage/server.lua',

@@ -1,7 +1,7 @@
 -- Core.registry (server realm) -- the AUTHORITATIVE side. Registration mutates
 -- the structures, dispatches subscribers, and broadcasts a delta on two
 -- channels: a plain local TriggerEvent (reaches every OTHER server resource's
--- @qbcore/init.lua mirror) and TriggerClientEvent(-1) (reaches every client).
+-- @kora_core/init.lua mirror) and TriggerClientEvent(-1) (reaches every client).
 --
 -- Subscriptions and registered records are OWNER-TRACKED via
 -- QB.resources.serverRegistry so a resource that registered items and then

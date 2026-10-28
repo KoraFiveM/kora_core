@@ -121,7 +121,7 @@ function QBCoreSeed.imageUrl(name)
     return path and (QBCoreSeed.itemImageBaseUrl .. path) or nil
 end
 
--- Native ammo type -> qbinventory item id. The six magazine records use the
+-- Native ammo type -> kora_inventory item id. The six magazine records use the
 -- long-standing QB names (`snp_ammo` is deliberately retained for backwards
 -- compatibility). Specialised ammunition is included as stockable data too,
 -- but shops decide what to sell; defining it here does not make it available.
@@ -176,21 +176,21 @@ QBCoreSeed.items = {
     { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
 
     -- Further consumables (food/drink/alcohol/drugs). Their actual hunger/
-    -- thirst/stress/drunk/high effects live in qbinventory's own useable
+    -- thirst/stress/drunk/high effects live in kora_inventory's own useable
     -- handler (server/useables.lua), not here -- this registry only carries
     -- display/weight/useable metadata, same as every other item.
     { name = 'chocolate_bar', label = 'Chocolate Bar', weight = 80,  type = 'item', image = 'chocolate_bar.png', imageUrl = QBCoreSeed.imageUrl('chocolate_bar'), unique = false, useable = true, shouldClose = true, description = 'A quick snack.' },
     { name = 'soda',          label = 'Soda',          weight = 350, type = 'item', image = 'soda.png',          imageUrl = QBCoreSeed.imageUrl('soda'),          unique = false, useable = true, shouldClose = true, description = 'Sweet and fizzy.' },
 
-    -- A unique item because qbinventory binds one durable secondary inventory
+    -- A unique item because kora_inventory binds one durable secondary inventory
     -- to each physical backpack. Its capacity/access policy lives in
-    -- qbinventory's server-side container configuration.
+    -- kora_inventory's server-side container configuration.
     { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
     { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
     -- Recycling plant rewards are a public civilian activity,
-    -- but its server-side payout still travels through qbcore's shared item
-    -- registry and qbinventory's authoritative add/remove path. Keeping these
+    -- but its server-side payout still travels through kora_core's shared item
+    -- registry and kora_inventory's authoritative add/remove path. Keeping these
     -- here means a completed package can be received, displayed, and sold
     -- instead of failing as an unknown item.
     { name = 'metalscrap', label = 'Metal Scrap', weight = 100, type = 'item', image = 'metalscrap.png', imageUrl = QBCoreSeed.imageUrl('metalscrap'), unique = false, useable = false, shouldClose = true, description = 'Salvaged mixed metal.' },
@@ -204,7 +204,7 @@ QBCoreSeed.items = {
     { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = QBCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
 
     -- Crafting components and finished workshop supplies. Recipes and access
-    -- policy live in qbcrafting; these records only define inventory metadata.
+    -- policy live in kora_crafting; these records only define inventory metadata.
     { name = 'wire_bundle',        label = 'Wire Bundle',        weight = 180,  type = 'item', image = 'wire_bundle.png',        imageUrl = QBCoreSeed.imageUrl('wire_bundle'),        unique = false, useable = false, shouldClose = true, description = 'Insulated copper wiring for electrical projects.' },
     { name = 'metal_bracket',      label = 'Metal Bracket',      weight = 350,  type = 'item', image = 'metal_bracket.png',      imageUrl = QBCoreSeed.imageUrl('metal_bracket'),      unique = false, useable = false, shouldClose = true, description = 'A reinforced bracket for mechanical assemblies.' },
     { name = 'electronics_kit',    label = 'Electronics Kit',    weight = 650,  type = 'item', image = 'electronics_kit.png',    imageUrl = QBCoreSeed.imageUrl('electronics_kit'),    unique = false, useable = false, shouldClose = true, description = 'Packaged wiring and components for electronic repairs.' },
@@ -212,7 +212,7 @@ QBCoreSeed.items = {
 
     -- Standard Ammu-Nation ammunition. These are ordinary stackable inventory
     -- items, allowing shops and a future weapon system to move them through the
-    -- same authoritative qbinventory transfer path as every other item.
+    -- same authoritative kora_inventory transfer path as every other item.
     ammo('pistol_ammo', 'Pistol Magazine', 'AMMO_PISTOL', 180, 12),
     ammo('smg_ammo', 'SMG Magazine', 'AMMO_SMG', 300, 30),
     ammo('shotgun_ammo', 'Shotgun Shell Box', 'AMMO_SHOTGUN', 360, 12),

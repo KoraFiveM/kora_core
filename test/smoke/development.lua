@@ -108,7 +108,7 @@ end)
 
 h.test('resource stop also restores an active mode', function()
     TriggerEvent('qbcore:client:setDevMode', true)
-    handle.fireEvent('onClientResourceStop', 0, 'qbcore')
+    handle.fireEvent('onClientResourceStop', 0, 'kora_core')
 
     h.assertFalse(Core.development.isDevMode())
     h.assertFalse(invincible[52])

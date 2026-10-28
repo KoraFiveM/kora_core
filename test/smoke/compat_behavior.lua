@@ -217,16 +217,16 @@ h.test('CanUseItem returns registered records, including native registrations, o
 end)
 
 h.test('CanUseItem queries the active inventory authority', function()
-    local previous = exports.qbinventory
+    local previous = exports.kora_inventory
     local callback = function() end
-    exports.qbinventory = { getUseable = function(_, name)
+    exports.kora_inventory = { getUseable = function(_, name)
         if name == 'provider_item' then return { func = callback, resource = 'provider_owner' } end
     end }
-    handle.resourceStates.qbinventory = 'started'
+    handle.resourceStates.kora_inventory = 'started'
     h.assertEqual(QBCore.Functions.CanUseItem('provider_item').func, callback)
     h.assertEqual(QBCore.Functions.CanUseItem('water_bottle'), nil, 'no fallback to stale core registrations')
-    handle.resourceStates.qbinventory = nil
-    exports.qbinventory = previous
+    handle.resourceStates.kora_inventory = nil
+    exports.kora_inventory = previous
 end)
 
 h.test('legacy setters emit current legacy-shaped player-update notifications', function()
@@ -244,22 +244,22 @@ h.test('legacy setters emit current legacy-shaped player-update notifications', 
 end)
 
 h.test('usable registration preserves the external owner through the provider hop', function()
-    local previous, invoking = exports.qbinventory, GetInvokingResource
+    local previous, invoking = exports.kora_inventory, GetInvokingResource
     local registered
-    exports.qbinventory = {
+    exports.kora_inventory = {
         createUseable = function(_, name, callback, owner)
             registered = { name = name, func = callback, resource = owner }
         end,
         getUseable = function() return registered end,
     }
     GetInvokingResource = function() return 'legacy_shop' end
-    handle.resourceStates.qbinventory = 'started'
+    handle.resourceStates.kora_inventory = 'started'
     local callback = function() end
     QBCore.Functions.CreateUseableItem('provider_registered', callback)
     h.assertEqual(registered.resource, 'legacy_shop')
     h.assertEqual(QBCore.Functions.CanUseItem('provider_registered').func, callback)
-    handle.resourceStates.qbinventory = nil
-    exports.qbinventory, GetInvokingResource = previous, invoking
+    handle.resourceStates.kora_inventory = nil
+    exports.kora_inventory, GetInvokingResource = previous, invoking
 end)
 
 h.test('role updates use one notification source and explicit refreshes still notify', function()

@@ -1,7 +1,7 @@
 # Registry module
 
 ## Overview
-The shared-lists engine behind `items`, `vehicles`, `jobs`, `gangs`, `weapons`, and `locations`. Each named registry keeps a dense insertion-ordered array plus a key→position index. The server is authoritative; clients mirror it over a delta/snapshot protocol. Modern code always reads records through getters. Legacy `QBCore.Shared.*` indexed tables are live compatibility views, not registry storage. All functions are defined on `Core.registry` and exported flat as `exports.qbcore:<fn>`.
+The shared-lists engine behind `items`, `vehicles`, `jobs`, `gangs`, `weapons`, and `locations`. Each named registry keeps a dense insertion-ordered array plus a key→position index. The server is authoritative; clients mirror it over a delta/snapshot protocol. Modern code always reads records through getters. Legacy `QBCore.Shared.*` indexed tables are live compatibility views, not registry storage. All functions are defined on `Core.registry` and exported flat as `exports.kora_core:<fn>`.
 
 The registry names and their key fields:
 
@@ -28,7 +28,7 @@ Returns the record for `key` in registry `name`, or `nil`. This is a local index
 
 #### Example
 ```lua
-local water = exports.qbcore:getShared('items', 'water')
+local water = exports.kora_core:getShared('items', 'water')
 ```
 
 ### `Core.registry.allShared(name)` — shared
@@ -50,7 +50,7 @@ Returns the number of records in `name`.
 - `integer`
 
 ### `Core.registry.sharedSnapshotAll()` — shared
-Returns a snapshot of every registry — `{ [name] = { epoch, keyField, records } }`. Used to seed an external resource's mirror (`@qbcore/init.lua`).
+Returns a snapshot of every registry — `{ [name] = { epoch, keyField, records } }`. Used to seed an external resource's mirror (`@kora_core/init.lua`).
 
 #### Returns
 - `table`
@@ -69,7 +69,7 @@ Registers or updates one record. `record[keyField]` is filled in from `key` if a
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:registerShared('items', 'my_widget', {
+local ok, err = exports.kora_core:registerShared('items', 'my_widget', {
     name = 'my_widget', label = 'Widget', weight = 100, type = 'item',
 })
 if not ok then print(err) end
@@ -108,7 +108,7 @@ Subscribes to changes in `name`. `handler(action, key, record, previous)` where 
 
 #### Example
 ```lua
-exports.qbcore:onSharedChange('jobs', function(action, key, record, previous)
+exports.kora_core:onSharedChange('jobs', function(action, key, record, previous)
     if action == 'remove' then
         print('job removed:', key)
     end

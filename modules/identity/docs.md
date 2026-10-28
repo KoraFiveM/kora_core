@@ -1,7 +1,7 @@
 # Identity module
 
 ## Overview
-Identifier extraction and citizenid generation. Server only. The **primary identifier** (`Config.identity.primaryIdentifier`, default `'license'`) keys a player across all their characters; a **citizenid** keys a single character. All functions are defined on `Core.identity` and exported flat as `exports.qbcore:<fn>`.
+Identifier extraction and citizenid generation. Server only. The **primary identifier** (`Config.identity.primaryIdentifier`, default `'license'`) keys a player across all their characters; a **citizenid** keys a single character. All functions are defined on `Core.identity` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -16,7 +16,7 @@ Extracts every identifier FiveM exposes for a source into a flat `kind → value
 
 #### Example
 ```lua
-local ids = exports.qbcore:getIdentifiers(src)
+local ids = exports.kora_core:getIdentifiers(src)
 print(ids.license, ids.discord)
 ```
 
@@ -54,7 +54,7 @@ Looks up every citizenid that has ever used a given identifier. **Yields** (runs
 
 #### Example
 ```lua
-local alts = exports.qbcore:findByIdentifier('ip', someIp)
+local alts = exports.kora_core:findByIdentifier('ip', someIp)
 ```
 
 ## Notes

@@ -11,7 +11,7 @@ dofile('modules/registry/shared.lua'); dofile('modules/registry/client.lua')
 dofile('modules/player/shared.lua'); dofile('modules/player/client.lua')
 dofile('compat/shared/coreobject.lua'); dofile('compat/client/qb-core.lua')
 
-local invoker, resource = 'legacy_job', 'qbcore'
+local invoker, resource = 'legacy_job', 'kora_core'
 GetInvokingResource = function() return invoker end
 GetCurrentResourceName = function() return resource end
 IsEntityDead = function() return false end
@@ -38,14 +38,14 @@ QB.progressbar.cancel = function(owner)
     h.assertEqual(owner, activeOwner, 'cancellation uses the actual legacy consumer owner')
     cancelled = true
 end
-resource = 'qblib'
+resource = 'kora_lib'
 dofile(qblib .. '/compat/client/progressbar.lua')
-resource = 'qbcore'
+resource = 'kora_core'
 local provider
 TriggerEvent('__cfx_export_progressbar_Progress', function(fn) provider = fn end)
 exports.progressbar = { Progress = function(_, ...)
     local previousInvoker, previousResource = invoker, resource
-    invoker, resource = 'qbcore', 'qblib'
+    invoker, resource = 'kora_core', 'kora_lib'
     local result = table.pack(pcall(provider, ...))
     invoker, resource = previousInvoker, previousResource
     if not result[1] then error(result[2]) end

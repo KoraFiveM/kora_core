@@ -16,7 +16,7 @@ SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-f
 - `Core.garage.deleteVehicle(plate)` — soft-delete (`deleted_at`).
 
 ## Implementation notes
-- **`spawnVehicle` uses the raw `CreateVehicle` native, never `QB.entities`** — qblib's entity spawner is explicitly local/non-networked, but a duty or owned vehicle must be visible to every player, not just the one who spawned it.
+- **`spawnVehicle` uses the raw `CreateVehicle` native, never `QB.entities`** — kora_lib's entity spawner is explicitly local/non-networked, but a duty or owned vehicle must be visible to every player, not just the one who spawned it.
 - **`mods` are opaque JSON, not auto-applied.** Stored/returned as-is; applying them to a spawned vehicle is presentation-layer work belonging to the caller. Body health is applied on the server; fuel and engine health are restored once by `client.lua` after the take-out commits, because their setters are client-only.
 - **`storeVehicle`/`updateState` both `COALESCE` against the existing column** — an omitted `snapshot`/`patch` field leaves the stored value unchanged rather than nulling it.
 - **Take-out and impound release are atomic state transitions.** `spawnVehicle`

@@ -14,7 +14,7 @@ skips passive hunger/thirst decay for that player.
 
 ## Implementation notes
 - **Ephemeral and per-player.** State lives only for the connection and is
-  cleared on player drop or qbcore restart. It is never persisted in PlayerData.
+  cleared on player drop or kora_core restart. It is never persisted in PlayerData.
 - **One activation path.** Server resources call the `setDevMode` export; the
   core sends its internal client event and re-announces state after character
   switches. Client resources do not own an activation export.

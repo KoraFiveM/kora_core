@@ -1,5 +1,5 @@
 -- Pins the legacy zero-based grade VIEW (Track 1 of the qb-core drag-and-drop
--- compat work). Internal grade numbering stays ONE-based throughout qbcore
+-- compat work). Internal grade numbering stays ONE-based throughout kora_core
 -- (registry, persistence, replication, our own qb* resources) -- per an
 -- explicit decision, nothing internal is renumbered. Only the legacy
 -- QBCore.* surface and QBCore:*-named event payloads present real qb-core's

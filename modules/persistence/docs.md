@@ -1,9 +1,9 @@
 # Persistence module
 
 ## Overview
-Saves player data to the database with the **minimum** possible writes: per-column dirty tracking, a byte-identical change gate, position sampling with a movement/age throttle, and a coalescing flush that batches every dirty player into a single `qbsql` `enqueueMany`. Legacy qb-core re-encodes and rewrites all seven JSON columns on every save regardless of what changed; here a column reaches the wire only when it is **both dirty and actually different**. Server only. `migrate.lua` runs the schema migrations at boot.
+Saves player data to the database with the **minimum** possible writes: per-column dirty tracking, a byte-identical change gate, position sampling with a movement/age throttle, and a coalescing flush that batches every dirty player into a single `kora_sql` `enqueueMany`. Legacy qb-core re-encodes and rewrites all seven JSON columns on every save regardless of what changed; here a column reaches the wire only when it is **both dirty and actually different**. Server only. `migrate.lua` runs the schema migrations at boot.
 
-Most of this module is internal machinery driven by the player funnel and lifecycle — four functions are public exports. Both are defined on `Core.persistence` and exported flat as `exports.qbcore:<fn>`.
+Most of this module is internal machinery driven by the player funnel and lifecycle — four functions are public exports. Both are defined on `Core.persistence` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -15,7 +15,7 @@ Samples positions for everyone online, collects the dirty rows through both gate
 
 #### Example
 ```lua
-local flushed = exports.qbcore:flushAll()
+local flushed = exports.kora_core:flushAll()
 ```
 
 ### `Core.persistence.saveNow(player)`
@@ -27,7 +27,7 @@ Enqueues one player at **immediate** priority: samples position and applies the 
 ## Notes
 - **The two gates.** A column is written only if (1) it's marked **dirty** since the last flush *and* (2) its freshly-encoded JSON is **byte-different** from the `_encoded` baseline. Gate 2 catches "set to the same value" churn — a hunger tick landing on the current value writes nothing.
 - **Position throttle.** Position is sampled at flush time from the ped; it's only marked dirty if the player moved past `Config.persistence.positionEpsilon` metres or `Config.persistence.positionMaxAge` ms elapsed. A parked player never re-writes position.
-- **Coalescing flush.** `flushAll` batches every dirty player into a single `QB.sql.enqueueMany('players', …)` — one boundary crossing per interval, not one per player. The flush loop runs every `Config.persistence.interval` ms with `±intervalJitter` so saves don't thundering-herd, and nudges qbsql to drain promptly afterward.
+- **Coalescing flush.** `flushAll` batches every dirty player into a single `QB.sql.enqueueMany('players', …)` — one boundary crossing per interval, not one per player. The flush loop runs every `Config.persistence.interval` ms with `±intervalJitter` so saves don't thundering-herd, and nudges kora_sql to drain promptly afterward.
 - **Immediate-flush paths.** `saveNow` enqueues at `immediate` priority without a commit acknowledgement. Logout additionally awaits confirmation before unloading. txAdmin shutdown (`serverShuttingDown`) and a scheduled restart within 60s flush everyone immediately, as does the resource-stop handler.
 - **Bounded-durability caveat.** The `onResourceStop` final drain is best-effort with no guarantee FXServer lets the yield complete. This **bounds** worst-case data loss to one flush interval — it does not eliminate it. Tune `Config.persistence.interval` accordingly.
 - **`license`/`cid` are never in a write-set.** They aren't in `COLUMN_FOR`, so nothing can mark them dirty; the collect/save paths also skip them explicitly as belt-and-braces (the schema's two unique keys make writing them a corruption hazard).
@@ -36,11 +36,11 @@ Enqueues one player at **immediate** priority: samples position and applies the 
 
 ## Offline character data
 
-`exports.qbcore:getOfflinePlayerData(citizenid)` returns a decoded character snapshot or `(nil, reason)`. `exports.qbcore:saveOfflinePlayer(data, fields)` saves only the named mutable roots, such as `{ 'job' }`, and returns `(true)` or `(false, reason)`. Both yield. The save refuses online characters, immutable fields, and missing rows; it never inserts a character. Use the live player funnel for online characters.
+`exports.kora_core:getOfflinePlayerData(citizenid)` returns a decoded character snapshot or `(nil, reason)`. `exports.kora_core:saveOfflinePlayer(data, fields)` saves only the named mutable roots, such as `{ 'job' }`, and returns `(true)` or `(false, reason)`. Both yield. The save refuses online characters, immutable fields, and missing rows; it never inserts a character. Use the live player funnel for online characters.
 
 ## Durable provider column operations
 
-Only `qbbanking` and `Config.inventory.provider` may use these flat server exports:
+Only `kora_banking` and `Config.inventory.provider` may use these flat server exports:
 
 - `beginPlayerColumnOperation(key, citizenids, columns)` returns a token or
   `(nil, code, message)`. Columns are SQL names `money`, `inventory` and `metadata` (at most three).

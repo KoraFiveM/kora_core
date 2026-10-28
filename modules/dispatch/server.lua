@@ -6,7 +6,7 @@
 -- client instead of just the on-duty roster it's meant for.
 --
 -- Rendering (blips/sound/notify) is deliberately NOT this module's job --
--- qbcore ships no NUI/UI of its own (see compat/AGENTS.md), same as every
+-- kora_core ships no NUI/UI of its own (see compat/AGENTS.md), same as every
 -- other Core.* module. A job resource's own client code decides how to
 -- present a 'qbcore:client:dispatchAlert' push.
 

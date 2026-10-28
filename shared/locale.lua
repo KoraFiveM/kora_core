@@ -1,13 +1,13 @@
 -- Compatibility locale object for resources that still include
 -- '@qb-core/shared/locale.lua'. Unlike upstream's one-global-language version,
--- this retains every loaded phrase table and resolves against qblib's local
+-- this retains every loaded phrase table and resolves against kora_lib's local
 -- client KVP preference at lookup time.
 Locale = {}
 Locale.__index = Locale
 
 local function currentLanguage()
     if not IsDuplicityVersion or not IsDuplicityVersion() then
-        local ok, language = pcall(function() return exports.qblib:locale_getLanguage() end)
+        local ok, language = pcall(function() return exports.kora_lib:locale_getLanguage() end)
         if ok and type(language) == 'string' then return language end
     end
     return GetConvar('qb_locale', 'en')
@@ -56,7 +56,7 @@ function Locale:t(path, subs)
 end
 
 -- A compact, serializable reference for server->client UI. The receiving
--- qbcore client resolves it using the recipient's language, not the server's
+-- kora_core client resolves it using the recipient's language, not the server's
 -- default. Keep ordinary `t()` as a string for command/help/database callers.
 function Locale:forPlayer(path, subs)
     return {

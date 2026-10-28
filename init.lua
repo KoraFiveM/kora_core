@@ -1,27 +1,27 @@
--- '@qbcore/init.lua' -- installs a LIVE-UPDATING shared-registry mirror into the
+-- '@kora_core/init.lua' -- installs a LIVE-UPDATING shared-registry mirror into the
 -- consumer's own Lua VM, as QB.shared.*. This is what the /ideas file and the
 -- user's follow-up ask for: shared items/vehicles/jobs lists that are
 -- updateable at runtime from any resource and have change handlers "across other
 -- resources that have called on the shared list" fire automatically.
 --
 -- A consumer opts in with, in order:
---     shared_script '@qblib/init.lua'
---     shared_script '@qbcore/init.lua'
+--     shared_script '@kora_lib/init.lua'
+--     shared_script '@kora_core/init.lua'
 --
--- WHY THIS WORKS (same trick as @qbsql/init.lua): qblib's `QB` table has a
+-- WHY THIS WORKS (same trick as @kora_sql/init.lua): kora_lib's `QB` table has a
 -- metatable with only __index (no __newindex), so `QB.shared = {...}` here is a
 -- plain rawset in the consumer's VM. The mirror is a set of LOCAL tables patched
 -- by a delta event, and onChange handlers are dispatched IN-VM -- no boundary
 -- crossing per read or per dispatch, and handlers die naturally with the
 -- resource (no owner-tracking needed on this side).
 --
--- The registry lives in qbcore (server-authoritative). qbcore broadcasts every
+-- The registry lives in kora_core (server-authoritative). kora_core broadcasts every
 -- mutation as 'qbcore:registry:delta'; this file patches the local mirror and
--- fans out to local subscribers. Each registry carries an epoch so a qbcore
+-- fans out to local subscribers. Each registry carries an epoch so a kora_core
 -- restart (which bumps the epoch and re-broadcasts a snapshot) triggers a local
 -- re-seed rather than silent drift.
 
-assert(QB, '@qbcore/init.lua must be loaded AFTER @qblib/init.lua (add its shared_script first).')
+assert(QB, '@kora_core/init.lua must be loaded AFTER @kora_lib/init.lua (add its shared_script first).')
 
 QB.shared = QB.shared or {}
 
@@ -64,7 +64,7 @@ local function applyDelta(name, action, key, record, epoch)
     -- a same-VM export call; on the client it must go over the network.
     if epoch and m.epoch ~= 0 and epoch ~= m.epoch and action ~= 'remove' then
         if IsDuplicityVersion and IsDuplicityVersion() then
-            local ok, all = pcall(function() return exports.qbcore:sharedSnapshotAll() end)
+            local ok, all = pcall(function() return exports.kora_core:sharedSnapshotAll() end)
             if ok and type(all) == 'table' then
                 for n, payload in pairs(all) do reseed(n, payload.keyField, payload.records, payload.epoch) end
             end
@@ -136,21 +136,21 @@ function QB.shared.epoch(name)
     return m and m.epoch or 0
 end
 
----Register/update a record. Forwards to qbcore (server-authoritative); the
+---Register/update a record. Forwards to kora_core (server-authoritative); the
 ---change replicates back and patches this and every other consumer's mirror.
 ---@param name string
 ---@param key string
 ---@param record table
 ---@return boolean, string|nil
 function QB.shared.register(name, key, record)
-    return exports.qbcore:registerShared(name, key, record)
+    return exports.kora_core:registerShared(name, key, record)
 end
 
 ---@param name string
 ---@param key string
 ---@return boolean
 function QB.shared.unregister(name, key)
-    return exports.qbcore:unregisterShared(name, key)
+    return exports.kora_core:unregisterShared(name, key)
 end
 
 ---Subscribe to changes for a registry. handler(action, key, record, previous).
@@ -175,12 +175,12 @@ end
 
 -- --- wire up the delta stream ---
 -- Both realms receive 'qbcore:registry:delta' (server: a plain local
--- TriggerEvent from qbcore's registry/server.lua; client: TriggerClientEvent).
+-- TriggerEvent from kora_core's registry/server.lua; client: TriggerClientEvent).
 --
 -- The net registrations below are CLIENT-ONLY, on purpose. On the client both
 -- events arrive over the wire, so without RegisterNetEvent every consumer VM
 -- logs "event qbcore:registry:delta was not safe for net" and drops the delta.
--- On the SERVER both arrive as same-VM TriggerEvent from qbcore's registry, so
+-- On the SERVER both arrive as same-VM TriggerEvent from kora_core's registry, so
 -- they need no net registration -- and registering them there would let any
 -- client TriggerServerEvent poisoned records straight into every consumer's
 -- server-side mirror.
@@ -203,14 +203,14 @@ AddEventHandler('qbcore:registry:snapshotAll', function(all)
     end
 end)
 
--- Seed the mirror as soon as qbcore is available. On the server this is a direct
+-- Seed the mirror as soon as kora_core is available. On the server this is a direct
 -- export call (same process); on the client it asks the server for a snapshot.
 CreateThread(function()
     if isServerRealm then
         -- Same process: pull the authoritative snapshot directly, retrying until
-        -- qbcore's exports are up.
+        -- kora_core's exports are up.
         for _ = 1, 200 do
-            local ok, all = pcall(function() return exports.qbcore:sharedSnapshotAll() end)
+            local ok, all = pcall(function() return exports.kora_core:sharedSnapshotAll() end)
             if ok and type(all) == 'table' and next(all) ~= nil then
                 for name, payload in pairs(all) do
                     reseed(name, payload.keyField, payload.records, payload.epoch)

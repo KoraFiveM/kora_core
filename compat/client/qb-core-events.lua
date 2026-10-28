@@ -20,7 +20,7 @@ end)
 
 -- Ported from real qb-core. Real uses Lang:t() for its notifications; we don't
 -- ship the qb locale object client-side, so the notify strings are inlined and
--- routed through QBCore.Functions.Notify (which forwards to qblib).
+-- routed through QBCore.Functions.Notify (which forwards to kora_lib).
 RegisterNetEvent('QBCore:Command:GoToMarker', function()
     local PlayerPedId = PlayerPedId
     local GetEntityCoords = GetEntityCoords
@@ -193,7 +193,7 @@ RegisterNetEvent('QBCore:Client:VehicleInfo', function(info)
 end)
 
 -- Vehicle lifecycle compatibility -------------------------------------------
--- qblib's shared cache already owns the bounded local-player telemetry poll.
+-- kora_lib's shared cache already owns the bounded local-player telemetry poll.
 -- Subscribe to its edge changes rather than keeping a separate
 -- client loop and server relay alive just to re-fire these local QBCore events.
 -- The legacy event names and payload shape remain unchanged for vehiclekeys,
@@ -255,14 +255,14 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
 end)
 
 -- Keep the paired legacy unload signal network-safe even when no compatibility
--- resource currently consumes it.  This avoids CFX rejecting qbcore's legacy
+-- resource currently consumes it.  This avoids CFX rejecting kora_core's legacy
 -- TriggerClientEvent during character logout.
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
 
 -- QBCore:Client:OnPlayerUpdated -- upstream applies the pushed `val` directly
 -- into its plain QBCore.PlayerData global for the given `key` (or the whole
 -- blob when key is 'all'/nil). We deliberately do NOT do that here: this
--- qbcore is server-authoritative via its own seq-tracked delta-replication
+-- kora_core is server-authoritative via its own seq-tracked delta-replication
 -- protocol (modules/replication/client.lua), and accepting an arbitrary
 -- externally-pushed blob would let a foreign resource desync the mirror
 -- (TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'all', garbage)
@@ -295,7 +295,7 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
 -- already fired OnJobUpdate/OnGangUpdate directly for that same delta a few
 -- lines above -- re-deriving and firing them again here would double them.
 -- Duplicated string literal rather than a shared import: same "small enough
--- to duplicate per compat file" idiom as provideExport in the qblib compat/
+-- to duplicate per compat file" idiom as provideExport in the kora_lib compat/
 -- files (modules/replication/client.lua's own copy is intentionally private).
 -- A genuine external TriggerClientEvent (the real qb-core wire shape,
 -- `(key, val)`) never supplies a 3rd argument, so `token` is simply nil there
@@ -321,12 +321,12 @@ RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key, _, token)
 end)
 
 -- Legacy QBCore:Notify -- real qb-core registers this on the client so any
--- resource (and qbcore's own admin commands / compat GetCoreObject:Notify) can
+-- resource (and kora_core's own admin commands / compat GetCoreObject:Notify) can
 -- fire TriggerClientEvent('QBCore:Notify', src, text, type, length) and have it
 -- shown. Without this handler the event is emitted server-side (see
 -- compat/server/qb-core.lua and modules/commands/server.lua) but silently
 -- dropped client-side. Route it through the SAME path QBCore.Functions.Notify
--- uses (which forwards to qblib's QB.notify.send), so there's one notify code
+-- uses (which forwards to kora_lib's QB.notify.send), so there's one notify code
 -- path. QBCore is the global assembled in compat/shared/coreobject.lua and
 -- compat/client/qb-core.lua (loaded before this file), so Functions.Notify is
 -- present by the time this fires.

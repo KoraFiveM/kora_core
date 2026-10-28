@@ -331,7 +331,7 @@ function Core.inventory.createUseable(name, handler)
     useables[name] = { resource = owner, handler = handler }
     -- track(resource, id) -- the id is what gets untracked when the owning
     -- resource stops. Calling it with one argument indexed the registry with a
-    -- nil key and raised "table index is nil". Matches qbinventory's own call.
+    -- nil key and raised "table index is nil". Matches kora_inventory's own call.
     if owner then useableRegistry.track(owner, name) end
 end
 

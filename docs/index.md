@@ -1,32 +1,32 @@
 ---
 layout: default
-title: qbcore
+title: kora_core
 ---
 
 Framework core for FiveM. Owns player state, money, jobs/gangs, metadata, and a
 headless inventory, all behind a **single mutation funnel** with delta
 replication to clients and minimum-write persistence through
-[qbsql](https://qbcore2.github.io/qbsql/). Ships full drop-in compatibility
+[qbsql](https://qbcore2.github.io/kora_sql/). Ships full drop-in compatibility
 with legacy `qb-core` — existing QBCore resources run unmodified.
 
-Two ways to use it: the modern flat exports (`exports.qbcore:getPlayer(src)`)
+Two ways to use it: the modern flat exports (`exports.kora_core:getPlayer(src)`)
 for new code, or `exports['qb-core']:GetCoreObject()` for legacy resources.
 
 ## Requirements
 
-- [qblib](https://qbcore2.github.io/qblib/)
-- [qbsql](https://qbcore2.github.io/qbsql/)
+- [qblib](https://qbcore2.github.io/kora_lib/)
+- [qbsql](https://qbcore2.github.io/kora_sql/)
 
 ## Installation
 
 `server.cfg`, in this order:
 ```
 set mysql_connection_string "mysql://user:pass@localhost/qbcore?charset=utf8mb4"
-ensure qbsql
-ensure qblib
-ensure qbcore
+ensure kora_sql
+ensure kora_lib
+ensure kora_core
 ```
-qbcore creates its own tables on first boot via qbsql's migration runner — no
+kora_core creates its own tables on first boot via kora_sql's migration runner — no
 manual schema import needed.
 
 ## Usage examples
@@ -34,7 +34,7 @@ manual schema import needed.
 ### Activate development mode for one player
 ```lua
 -- server; permission-gate this in the calling resource
-exports.qbcore:setDevMode(source, true)
+exports.kora_core:setDevMode(source, true)
 ```
 This grants ped invincibility, pauses that player's passive hunger/thirst, and
 applies the configured fast walk rate until disabled or disconnected.
@@ -43,25 +43,25 @@ applies the configured fast walk rate until disabled or disconnected.
 ```lua
 -- server
 RegisterCommand('startingkit', function(source)
-    exports.qbcore:addMoney(source, 'cash', 500, 'starting-kit')
-    exports.qbcore:addItem(source, 'water_bottle', 2)
+    exports.kora_core:addMoney(source, 'cash', 500, 'starting-kit')
+    exports.kora_core:addItem(source, 'water_bottle', 2)
 end)
 ```
 
 ### Read live player data on the client (zero network cost)
 ```lua
 -- client
-local job = exports.qbcore:getPlayerData('job')
+local job = exports.kora_core:getPlayerData('job')
 print(('You are a %s (grade %d)'):format(job.label, job.grade.level))
 
-exports.qbcore:onPlayerDataChange('job', function(path, value)
+exports.kora_core:onPlayerDataChange('job', function(path, value)
     print('Job changed:', value.label)
 end)
 ```
 
 ### Commit money and inventory changes together
 ```lua
-local ok, err = exports.qbcore:transaction(source, {
+local ok, err = exports.kora_core:transaction(source, {
     reason = 'shop purchase',
     coords = vector3(1, 2, 3), -- metadata only; no distance check
     money = {
@@ -86,7 +86,7 @@ compensating rollback, not crash-proof atomicity, and concurrent calls can race.
 ### Subscribe to a player change server-side
 ```lua
 -- server
-exports.qbcore:onChange({'money', 'bank'}, function(src, path, value, previous)
+exports.kora_core:onChange({'money', 'bank'}, function(src, path, value, previous)
     print(('player %d bank: %d -> %d'):format(src, previous, value))
 end)
 ```
@@ -94,23 +94,23 @@ end)
 ### Set a job and check it
 ```lua
 -- server
-exports.qbcore:setJob(source, 'police', 2)
-local onDuty = exports.qbcore:getPlayersByJob('police', true)
+exports.kora_core:setJob(source, 'police', 2)
+local onDuty = exports.kora_core:getPlayersByJob('police', true)
 print(#onDuty, 'police officers on duty')
 ```
 
 ### Custom useable item
 ```lua
 -- server
-exports.qbcore:createUseable('water_bottle', function(src, item)
-    exports.qbcore:removeItem(src, 'water_bottle', 1, item.slot)
+exports.kora_core:createUseable('water_bottle', function(src, item)
+    exports.kora_core:removeItem(src, 'water_bottle', 1, item.slot)
     -- restore thirst, play anim, etc.
 end)
 ```
 
 ### Shared registry, live across resources
 ```lua
--- any resource, after `shared_script '@qbcore/init.lua'`
+-- any resource, after `shared_script '@kora_core/init.lua'`
 QB.shared.register('items', 'lockpick', { label = 'Lockpick', weight = 100 })
 
 QB.shared.onChange('items', function(action, key, record, previous)
@@ -133,29 +133,29 @@ All server-side unless noted. Fallible functions return `(value, errorString)`.
 
 ### Players
 ```lua
-exports.qbcore:getPlayer(src)                 -- deep-cloned PlayerData snapshot
-exports.qbcore:getPlayerByCitizenId(cid)
-exports.qbcore:getPlayerData(src, path)       -- a sub-path, or the whole blob
-exports.qbcore:getPlayers()                   -- array of sources
-exports.qbcore:getAllPlayers()                -- array of snapshots
-exports.qbcore:setPath(src, path, value)      -- THE funnel (path is a key array)
-exports.qbcore:onChange(pathPrefix, handler)  -- server-side subscription -> id
-exports.qbcore:offChange(id)                  -- tear down a server-side subscription
+exports.kora_core:getPlayer(src)                 -- deep-cloned PlayerData snapshot
+exports.kora_core:getPlayerByCitizenId(cid)
+exports.kora_core:getPlayerData(src, path)       -- a sub-path, or the whole blob
+exports.kora_core:getPlayers()                   -- array of sources
+exports.kora_core:getAllPlayers()                -- array of snapshots
+exports.kora_core:setPath(src, path, value)      -- THE funnel (path is a key array)
+exports.kora_core:onChange(pathPrefix, handler)  -- server-side subscription -> id
+exports.kora_core:offChange(id)                  -- tear down a server-side subscription
 ```
 Client-side (over the replicated mirror):
 ```lua
-exports.qbcore:getPlayerData(path)            -- live local mirror, zero network cost
-exports.qbcore:onPlayerDataChange(prefix, handler)   -- handler(path, value)
-exports.qbcore:offPlayerDataChange(id)
+exports.kora_core:getPlayerData(path)            -- live local mirror, zero network cost
+exports.kora_core:onPlayerDataChange(prefix, handler)   -- handler(path, value)
+exports.kora_core:offPlayerDataChange(id)
 ```
 
 ### Money
 ```lua
-exports.qbcore:addMoney(src, account, amount, reason, ignoreTax)  -- true | false, err
-exports.qbcore:removeMoney(src, account, amount, reason, ignoreTax)
-exports.qbcore:setMoney(src, account, amount, reason)             -- never taxed
-exports.qbcore:getMoney(src, account)
-exports.qbcore:transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
+exports.kora_core:addMoney(src, account, amount, reason, ignoreTax)  -- true | false, err
+exports.kora_core:removeMoney(src, account, amount, reason, ignoreTax)
+exports.kora_core:setMoney(src, account, amount, reason)             -- never taxed
+exports.kora_core:getMoney(src, account)
+exports.kora_core:transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
 ```
 Accounts: `cash`, `bank`, `crypto` (`Config.money.types`). `bank` may go negative
 to `Config.money.minusLimit`.
@@ -170,13 +170,13 @@ ATM deposit). A banking outage lets the transaction through untaxed rather than
 failing it.
 
 ```lua
-exports.qbcore:calculateTax(price, 'bank', 'remove')  -- for a tax-inclusive UI
-exports.qbcore:collectTax(500, 'court fine')          -- an off-path levy; yields
+exports.kora_core:calculateTax(price, 'bank', 'remove')  -- for a tax-inclusive UI
+exports.kora_core:collectTax(500, 'court fine')          -- an off-path levy; yields
 ```
 
 ### Transactions
 ```lua
-exports.qbcore:transaction(src, definition) -- true | false, errorString
+exports.kora_core:transaction(src, definition) -- true | false, errorString
 ```
 
 `definition` supports `money.remove`, `money.add`, `items.remove`, and
@@ -191,51 +191,51 @@ in the existing capacity checks and rollback. Missing or empty lists do nothing.
 
 ### Jobs / gangs
 ```lua
-exports.qbcore:setJob(src, name, grade)
-exports.qbcore:setGang(src, name, grade)
-exports.qbcore:setJobDuty(src, onDuty)
-exports.qbcore:getJob(src)  exports.qbcore:getGang(src)
-exports.qbcore:getPlayersByJob(name, onDutyOnly)   -- O(1), maintained index
-exports.qbcore:getDutyCount(name)
+exports.kora_core:setJob(src, name, grade)
+exports.kora_core:setGang(src, name, grade)
+exports.kora_core:setJobDuty(src, onDuty)
+exports.kora_core:getJob(src)  exports.kora_core:getGang(src)
+exports.kora_core:getPlayersByJob(name, onDutyOnly)   -- O(1), maintained index
+exports.kora_core:getDutyCount(name)
 ```
 
 ### Metadata
 ```lua
-exports.qbcore:getMetaData(src, key)
-exports.qbcore:setMetaData(src, key, value)
-exports.qbcore:incrementMetaData(src, key, delta, min, max)
+exports.kora_core:getMetaData(src, key)
+exports.kora_core:setMetaData(src, key, value)
+exports.kora_core:incrementMetaData(src, key, delta, min, max)
 ```
 
 ### Inventory
 ```lua
-exports.qbcore:addItem(src, name, amount, slot, info)     -- true | false, err
-exports.qbcore:removeItem(src, name, amount, slot)
-exports.qbcore:getItemByName(src, name)
-exports.qbcore:getItemBySlot(src, slot)
-exports.qbcore:getItemCount(src, name)
-exports.qbcore:hasItem(src, nameOrList, amount)
-exports.qbcore:canCarry(src, name, amount)
-exports.qbcore:getWeight(src)                             -- weight, maxWeight
-exports.qbcore:clearInventory(src, keep)
-exports.qbcore:createUseable(name, handler)               -- handler(src, item)
-exports.qbcore:useItem(src, slotOrName)
-exports.qbcore:stashGet(id)  exports.qbcore:stashSet(id, items)  exports.qbcore:stashOpen(src, id, opts)
+exports.kora_core:addItem(src, name, amount, slot, info)     -- true | false, err
+exports.kora_core:removeItem(src, name, amount, slot)
+exports.kora_core:getItemByName(src, name)
+exports.kora_core:getItemBySlot(src, slot)
+exports.kora_core:getItemCount(src, name)
+exports.kora_core:hasItem(src, nameOrList, amount)
+exports.kora_core:canCarry(src, name, amount)
+exports.kora_core:getWeight(src)                             -- weight, maxWeight
+exports.kora_core:clearInventory(src, keep)
+exports.kora_core:createUseable(name, handler)               -- handler(src, item)
+exports.kora_core:useItem(src, slotOrName)
+exports.kora_core:stashGet(id)  exports.kora_core:stashSet(id, items)  exports.kora_core:stashOpen(src, id, opts)
 ```
 Items are slot-keyed (`items[slot] = {slot, name, amount, info, ...}`). No NUI is
-shipped — [qbinventory](https://qbcore2.github.io/qbinventory/) is the headless
+shipped — [qbinventory](https://qbcore2.github.io/kora_inventory/) is the headless
 inventory authority; its optional companion resource owns any UI.
 
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
 ```lua
-exports.qbcore:getShared(name, key)          -- one record
-exports.qbcore:allShared(name)               -- the dense array
-exports.qbcore:registerShared(name, key, record)   -- server-authoritative
-exports.qbcore:unregisterShared(name, key)
-exports.qbcore:onSharedChange(name, handler) -- handler(action, key, record, previous) -> id
-exports.qbcore:offSharedChange(name, id)     -- tear down a shared-registry subscription
+exports.kora_core:getShared(name, key)          -- one record
+exports.kora_core:allShared(name)               -- the dense array
+exports.kora_core:registerShared(name, key, record)   -- server-authoritative
+exports.kora_core:unregisterShared(name, key)
+exports.kora_core:onSharedChange(name, handler) -- handler(action, key, record, previous) -> id
+exports.kora_core:offSharedChange(name, id)     -- tear down a shared-registry subscription
 ```
 Prefer the LIVE MIRROR in a consumer resource — add
-`shared_script '@qbcore/init.lua'` (after `@qblib/init.lua`) and use `QB.shared.*`
+`shared_script '@kora_core/init.lua'` (after `@kora_lib/init.lua`) and use `QB.shared.*`
 as shown above. A registration in ANY resource fires every subscriber's
 `onChange` in every resource that uses the list. Always use `get` for one
 record and call `all` when each UI/admin list is built; never cache or index the
@@ -243,10 +243,10 @@ legacy `QBCore.Shared.Jobs`/`Items` maps in new code.
 
 ### Identity / permissions / commands / logging
 ```lua
-exports.qbcore:getIdentifiers(src)   exports.qbcore:generateCitizenId()
-exports.qbcore:hasPermission(src, perm)   exports.qbcore:getPermission(src)
-exports.qbcore:addCommand(name, help, args, argsRequired, handler, permission)
-exports.qbcore:logEvent(category, src, data)
+exports.kora_core:getIdentifiers(src)   exports.kora_core:generateCitizenId()
+exports.kora_core:hasPermission(src, perm)   exports.kora_core:getPermission(src)
+exports.kora_core:addCommand(name, help, args, argsRequired, handler, permission)
+exports.kora_core:logEvent(category, src, data)
 ```
 
 ## Legacy QBCore compat
@@ -286,7 +286,7 @@ Current upstream behavior also includes the complete `QBCore.Config` shape,
 `PlayersByCitizenId`, phone/account generators, runtime player method/field
 extensions, and full offline player lookup/create/check/save objects. The
 legacy draw-text events (`qb-core:client:drawText`, `changeText`, and
-`hideText`) forward to qblib's text UI.
+`hideText`) forward to kora_lib's text UI.
 
 For client UI visibility, prefer the server-owned replicated player state bag
 `LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
@@ -298,7 +298,7 @@ should use the namespaced key.
 Domain resources can add client-visible, replicated-only PlayerData roots with
 `registerPlayerDataField(key, provider)` and update them through
 `setPlayerDataField(source, key, value)`. Providers run before the initial
-snapshot. These fields are resource-owned read models, are not saved by qbcore,
+snapshot. These fields are resource-owned read models, are not saved by kora_core,
 and must never be trusted for server authorization.
 
 ### Known compat caveats
@@ -315,16 +315,16 @@ and must never be trusted for server authorization.
 - `QBCore.Commands.List` reflects commands registered THROUGH the compat
   (`QBCore.Commands.Add`) or present at the last `Refresh`.
 - Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`
-  descriptors into qblib's networked progress props. `IsWearingGloves` returns
+  descriptors into kora_lib's networked progress props. `IsWearingGloves` returns
   `true` for unknown arm indices.
 
 ## Character selection
 
 No NUI ships. A bare server auto-selects character slot 1 (creating a default
-character if none exist). A character-select UI calls `exports.qbcore:claimUI()`
-and drives `exports.qbcore:getCharacters/selectCharacter/deleteCharacter` (or the
+character if none exist). A character-select UI calls `exports.kora_core:claimUI()`
+and drives `exports.kora_core:getCharacters/selectCharacter/deleteCharacter` (or the
 `qbcore:server:*` / legacy `qb-multicharacter:*` events) — see
-[qbmultichar](https://qbcore2.github.io/qbmultichar/) for a ready-made UI.
+[qbmultichar](https://qbcore2.github.io/kora_multichar/) for a ready-made UI.
 
 ## Config highlights (`config.lua`)
 
@@ -339,10 +339,10 @@ virtual columns).
 
 Part of the [qbcore2](https://github.com/qbcore2) resource set:
 
-- [qblib](https://qbcore2.github.io/qblib/) — shared helper library
-- [qbsql](https://qbcore2.github.io/qbsql/) — database driver
-- [qbinventory](https://qbcore2.github.io/qbinventory/) — headless inventory
-- [qbtarget](https://qbcore2.github.io/qbtarget/) — targeting/interaction
-- [qbclothing](https://qbcore2.github.io/qbclothing/) — clothing/wardrobe
-- [qbadmin](https://qbcore2.github.io/qbadmin/) — admin menu
+- [qblib](https://qbcore2.github.io/kora_lib/) — shared helper library
+- [qbsql](https://qbcore2.github.io/kora_sql/) — database driver
+- [qbinventory](https://qbcore2.github.io/kora_inventory/) — headless inventory
+- [qbtarget](https://qbcore2.github.io/kora_target/) — targeting/interaction
+- [qbclothing](https://qbcore2.github.io/kora_clothing/) — clothing/wardrobe
+- [qbadmin](https://qbcore2.github.io/kora_admin/) — admin menu
 - [full resource list ↗](https://github.com/orgs/qbcore2/repositories)

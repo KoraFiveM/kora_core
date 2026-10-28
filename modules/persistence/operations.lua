@@ -5,7 +5,7 @@ local roots = { money = 'money', inventory = 'items', metadata = 'metadata' }
 
 local function provider()
     local caller = GetInvokingResource()
-    if caller == 'qbbanking' or caller == Config.inventory.provider then return caller end
+    if caller == 'kora_banking' or caller == Config.inventory.provider then return caller end
 end
 
 function Core.persistence._isColumnLocked(citizenid, column)
@@ -22,7 +22,7 @@ function Core.persistence._persistentColumnsAvailable(citizenid)
     local called, row, err = pcall(QB.sql.single, 'SELECT `operation_key` FROM `qbcore_player_column_operations` WHERE `citizenid`=? LIMIT 1', { citizenid })
     if not called or err then return false, 'player operation storage is unavailable' end
     if row then return false, 'player data is busy' end
-    local checked, active = pcall(function() return exports.qbsql:hasActivePlayerOperation(citizenid) end)
+    local checked, active = pcall(function() return exports.kora_sql:hasActivePlayerOperation(citizenid) end)
     if not checked or active == nil then return false, 'player operation storage is unavailable' end
     if active then return false, 'player data is busy' end
     return not Core.persistence._hasColumnOperation(citizenid), 'player data is busy'

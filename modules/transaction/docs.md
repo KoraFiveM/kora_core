@@ -1,6 +1,6 @@
 # Player transactions
 
-Use `exports.qbcore:transaction(source, definition)` for a validated sequence
+Use `exports.kora_core:transaction(source, definition)` for a validated sequence
 of money and inventory changes. It checks every balance, item quantity, and
 destination capacity before mutation. Item entries use `item`, `amount`, and
 optional `slot`/`info`; money entries use `account` and `amount`.
@@ -9,7 +9,7 @@ Add an optional `random` list for bonus items. Each entry uses `item`, optional
 `chance`, optional `amount`, and optional `slot`/`info`:
 
 ```lua
-exports.qbcore:transaction(source, {
+exports.kora_core:transaction(source, {
     reason = 'taxi payout',
     money = { add = { { account = 'bank', amount = 250 } } },
     random = {
@@ -36,7 +36,7 @@ and use the same grant and rollback path. If a winning bonus cannot be delivered
 the whole transaction fails; an all-miss roll still allows the normal payout.
 
 The mutation order is remove money, remove items, add items, then add money. If
-a later operation fails, qbcore attempts best-effort compensation and returns
+a later operation fails, kora_core attempts best-effort compensation and returns
 `false, error`. `reason` and `coords` are metadata; `coords` is not used for a
 distance check.
 

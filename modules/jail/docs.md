@@ -1,7 +1,7 @@
 # Jail module
 
 ## Overview
-A minimal built-in jail (teleport + movement containment + timed release), used unless a real prison resource is running. Functions are defined on `Core.jail` and exported flat as `exports.qbcore:<fn>` (server realm). The client realm has no exported API — it only reacts to server pushes.
+A minimal built-in jail (teleport + movement containment + timed release), used unless a real prison resource is running. Functions are defined on `Core.jail` and exported flat as `exports.kora_core:<fn>` (server realm). The client realm has no exported API — it only reacts to server pushes.
 
 ## API (server)
 
@@ -18,7 +18,7 @@ Jails `src` for `minutes`, or defers to an external prison resource (`Config.jai
 
 #### Example
 ```lua
-exports.qbcore:jailPlayer(src, 15, 'Assault on an officer')
+exports.kora_core:jailPlayer(src, 15, 'Assault on an officer')
 ```
 
 ### `Core.jail.release(src)`

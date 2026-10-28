@@ -1,4 +1,4 @@
--- Flattens Core.<module>.<fn> into flat exports: exports.qbcore:<fn>(...).
+-- Flattens Core.<module>.<fn> into flat exports: exports.kora_core:<fn>(...).
 -- Runs LAST in each realm (it lives in client_scripts/server_scripts, never
 -- shared_scripts, because shared always loads before the realm-specific block,
 -- and it must see the fully-populated Core table).

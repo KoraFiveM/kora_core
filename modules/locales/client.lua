@@ -11,7 +11,7 @@ local function languageName(code)
 end
 
 ---Opens the per-player language selector. The chosen language belongs to the
----FiveM client and is saved by qblib in KVP storage, not PlayerData.
+---FiveM client and is saved by kora_lib in KVP storage, not PlayerData.
 function Core.locales.openSelector()
     local current = QB.locale.getLanguage()
     local items = {}
@@ -24,8 +24,8 @@ function Core.locales.openSelector()
         }
     end
 
-    -- qblib resolves NUI requests before returning them across a resource
-    -- export boundary; qbcore therefore receives the result directly here.
+    -- kora_lib resolves NUI requests before returning them across a resource
+    -- export boundary; kora_core therefore receives the result directly here.
     local result = QB.nui.openMenu(items, 'Language')
     if not result or result.cancelled or not result.selectedId then return end
 

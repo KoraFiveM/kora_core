@@ -1,5 +1,5 @@
 -- Vanilla GTA/FiveM weapon catalogue. These are registry records rather than
--- inventory slots: qbcore and qbinventory both resolve an item's definition
+-- inventory slots: kora_core and kora_inventory both resolve an item's definition
 -- through this list, and weapons are consequently always non-stackable.
 --
 -- `ammotype` intentionally keeps GTA's native ammo hash name. Inventory ammo

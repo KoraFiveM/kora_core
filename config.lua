@@ -1,5 +1,5 @@
 -- Single flat Config table, per-module sub-tables, a trailing comment on every
--- value -- matching qblib's config.lua convention.
+-- value -- matching kora_lib's config.lua convention.
 
 Config = Config or {}
 
@@ -53,8 +53,8 @@ Config.inventory = {
     slots = 41,                      -- inventory slots per player
     matchInfoOnStack = false,        -- if true, items only stack when their `info` matches (stricter than legacy)
     warnOnUnhandledOpen = true,      -- print when stashOpen has no UI resource listening
-    provider = 'qbinventory',        -- headless inventory authority qbcore delegates operational calls to
-    allowLegacyFallback = true,      -- temporary staged-rollout fallback; set false to require qbinventory
+    provider = 'kora_inventory',        -- headless inventory authority kora_core delegates operational calls to
+    allowLegacyFallback = true,      -- temporary staged-rollout fallback; set false to require kora_inventory
     dropTTL = 1800000,               -- ms a ground drop survives uncollected before the sweep removes it
     dropSweepInterval = 300000,      -- ms between sweeps that expire old ground drops
 }
@@ -99,7 +99,7 @@ Config.garage = {
 }
 
 Config.consumables = {
-    enabled = true,                  -- bridge qbinventory's 'usingItem' hook into QB.status/QB.fx for any item with a shared `effect` table
+    enabled = true,                  -- bridge kora_inventory's 'usingItem' hook into QB.status/QB.fx for any item with a shared `effect` table
 }
 
 Config.compat = {
@@ -126,15 +126,15 @@ Config.dependencySupervisor = {
     -- provider (re)starts. Exists for legacy scripts that can't re-register
     -- themselves against a dependency that restarted mid-session.
     map = {
-        qbinventory = { 'qb-banking' },
-        qbtarget = { 'qb-banking' },
+        kora_inventory = { 'qb-banking' },
+        kora_target = { 'qb-banking' },
         PolyZone = { },
-        qbcore = { 'qb-banking' },
+        kora_core = { 'qb-banking' },
     },
     cooldownMs = 15000,               -- a resource won't be restarted again within this many ms of its own last restart
 }
 
--- Registers this resource-owned configuration with qblib without changing its public Config table.
+-- Registers this resource-owned configuration with kora_lib without changing its public Config table.
 if QB and QB.config and QB.config.adopt then
     Config.compat.jobUpdateEventSource = QB.config.enum(Config.compat.jobUpdateEventSource, {
         label = 'Legacy job-update event source',

@@ -1,6 +1,6 @@
 -- Core.persistence (server realm) -- dirty-column tracking, the two-gate
 -- collectRows, position throttling, and the coalescing flush that feeds
--- qbsql's enqueueMany. Loaded BEFORE player.lua because player.login/create call
+-- kora_sql's enqueueMany. Loaded BEFORE player.lua because player.login/create call
 -- adopt()/seedEncoded()/insertNew() at runtime.
 --
 -- The JSON columns (money, charinfo, job, gang, position, metadata, inventory)
@@ -158,7 +158,7 @@ end
 
 -- Immediate save of one player (drop/logout path). Marks everything the player
 -- has changed dirty (already tracked), samples position, then enqueues at
--- immediate priority so qbsql flushes it out of band.
+-- immediate priority so kora_sql flushes it out of band.
 ---@param player table
 function Core.persistence.saveNow(player)
     samplePosition(player)
@@ -389,7 +389,7 @@ CreateThread(function()
         Wait(wait)
         local flushed = Core.persistence.flushAll()
         if flushed > 0 then
-            -- Nudge qbsql to drain promptly rather than waiting its own interval.
+            -- Nudge kora_sql to drain promptly rather than waiting its own interval.
             QB.sql.flush('players')
         end
     end

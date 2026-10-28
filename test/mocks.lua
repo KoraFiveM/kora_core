@@ -1,5 +1,5 @@
--- Mocks for smoke-testing qbcore modules under plain lua5.4 (no FiveM, no DB).
--- Installs the FiveM natives the server modules touch, a fake qblib `QB` (with a
+-- Mocks for smoke-testing kora_core modules under plain lua5.4 (no FiveM, no DB).
+-- Installs the FiveM natives the server modules touch, a fake kora_lib `QB` (with a
 -- REAL working resources.serverRegistry, since the resource-stop sweep is under
 -- test), and a fake `QB.sql` recording enqueue/enqueueMany calls so persistence
 -- tests can assert exact column sets without a database.
@@ -70,8 +70,8 @@ function M.install(opts)
     local clock = 0
     function _G.GetGameTimer() clock = clock + 16; return clock end
     function _G.GetInvokingResource() return nil end
-    function _G.GetCurrentResourceName() return 'qbcore' end
-    local resourceStates = { qbinventory = 'missing' }
+    function _G.GetCurrentResourceName() return 'kora_core' end
+    local resourceStates = { kora_inventory = 'missing' }
     function _G.GetResourceState(name) return resourceStates[name] or 'missing' end
     local executeCommandCalls = {}     -- recorded ExecuteCommand invocations, e.g. dependencySupervisor's restarts
     function _G.ExecuteCommand(command) table.insert(executeCommandCalls, command) end
@@ -174,7 +174,7 @@ function M.install(opts)
     _G.os = os
     _G.math = math
 
-    -- --- fake qblib QB ---
+    -- --- fake kora_lib QB ---
     local QB = {}
     QB.util = {
         isFiniteNumber = function(value)
@@ -200,7 +200,7 @@ function M.install(opts)
 
     -- resources.serverRegistry: a REAL implementation (the sweep is under test).
     QB.resources = {
-        -- Mirrors qblib/local/resources/server.lua: track(resource, id) records
+        -- Mirrors kora_lib/local/resources/server.lua: track(resource, id) records
         -- WHICH resource owns WHICH id, untrack(id) drops one id, and the stop
         -- sweep disposes every id a resource owned -- onDispose receives the
         -- ID, not the resource. The old mock took a single argument for both,
@@ -255,7 +255,7 @@ function M.install(opts)
     QB.world = { getClosestEntity = function() end }
     QB.progressbar = { start = function() end }
     -- Small local-player cache facade for client compatibility tests. Tests
-    -- can drive an edge with setCache(key, value), which mirrors qblib's
+    -- can drive an edge with setCache(key, value), which mirrors kora_lib's
     -- onChange(newValue, oldValue) contract without loading another resource.
     local cacheValues = { vehicle = false, seat = false, enteringVehicle = false, enteringSeat = false }
     local cacheListeners = {}
@@ -291,7 +291,7 @@ function M.install(opts)
         end,
     }
     -- QB.permissions -- a minimal but REAL implementation over the ace mock
-    -- above, mirroring qblib/modules/permissions/server.lua's namespaces:
+    -- above, mirroring kora_lib/modules/permissions/server.lua's namespaces:
     -- getLevel checks <prefix>.<level> and group.<level>, hasPermission also
     -- honours command.<permission>, and 'user' is the unconditional floor.
     -- Discord role grants are out of scope here (no QB.discord under test).

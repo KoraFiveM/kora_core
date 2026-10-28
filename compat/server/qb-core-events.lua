@@ -17,7 +17,7 @@ RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
 end)
 
 -- Deliberately do not register the stock client-inbound `QBCore:ToggleDuty`.
--- qbcore cannot know a job resource's approved duty locations, and exposing
+-- kora_core cannot know a job resource's approved duty locations, and exposing
 -- the unrestricted mutation here bypasses those domain policies. Active job
 -- resources own their validated duty commands/events instead.
 
@@ -213,7 +213,7 @@ end
 
 -- Deliberately do not register QBCore:Server:SpawnVehicle or
 -- QBCore:Server:CreateVehicle. Their legacy wire shape gives every client an
--- arbitrary server-side entity creation capability: qbcore cannot infer which
+-- arbitrary server-side entity creation capability: kora_core cannot infer which
 -- job, garage, model, or location authorized the request. Trusted server
 -- resources can still call QBCore.Functions.SpawnVehicle/CreateVehicle
 -- directly; player-facing resources must expose their own guarded callback and

@@ -1,7 +1,7 @@
 # Money module
 
 ## Overview
-Balance operations over the configured accounts (`Config.money.types`, default `cash`/`bank`/`crypto`). Every balance change routes through the player funnel — `Core.player.setPath(src, { 'money', account }, newValue)` — so money gets dirty-tracking and delta replication for free, and also emits the legacy `QBCore:Server:OnMoneyChange` / `QBCore:Client:OnMoneyChange` events. Server only. Functions are defined on `Core.money` and exported flat as `exports.qbcore:<fn>`.
+Balance operations over the configured accounts (`Config.money.types`, default `cash`/`bank`/`crypto`). Every balance change routes through the player funnel — `Core.player.setPath(src, { 'money', account }, newValue)` — so money gets dirty-tracking and delta replication for free, and also emits the legacy `QBCore:Server:OnMoneyChange` / `QBCore:Client:OnMoneyChange` events. Server only. Functions are defined on `Core.money` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -17,7 +17,7 @@ Returns a player's balance for an account, or `nil` if there is no such player.
 
 #### Example
 ```lua
-local cash = exports.qbcore:getMoney(src, 'cash')
+local cash = exports.kora_core:getMoney(src, 'cash')
 ```
 
 ### `Core.money.getTransactionTax(amount, account, action)`
@@ -44,7 +44,7 @@ the [transaction tax](#transaction-tax) applies, the player receives
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:addMoney(src, 'bank', 500, 'paycheck')
+local ok, err = exports.kora_core:addMoney(src, 'bank', 500, 'paycheck')
 ```
 
 ### `Core.money.removeMoney(src, account, amount, reason, ignoreTax)`
@@ -91,7 +91,7 @@ Moves money between two online players: removes from the sender, then adds to th
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:transferMoney(fromSrc, toSrc, 'cash', 100, 'trade')
+local ok, err = exports.kora_core:transferMoney(fromSrc, toSrc, 'cash', 100, 'trade')
 ```
 
 ## Transaction tax
@@ -137,10 +137,10 @@ Pass `ignoreTax = true` as the last argument:
 
 ```lua
 -- Taxed: the player nets $950 of this $1,000 payout.
-exports.qbcore:addMoney(src, 'bank', 1000, 'heist payout')
+exports.kora_core:addMoney(src, 'bank', 1000, 'heist payout')
 
 -- Tax-free: a refund must not be taxed, or the player pays twice for one purchase.
-exports.qbcore:addMoney(src, 'bank', 1000, 'refund', true)
+exports.kora_core:addMoney(src, 'bank', 1000, 'refund', true)
 ```
 
 Exempt anything that is not economic activity: refunds and rollbacks, admin
@@ -182,7 +182,7 @@ The tax that would be carved out of `amount`. Pure — safe to call from a shop 
 to show a tax-inclusive breakdown.
 
 ```lua
-local tax = exports.qbcore:calculateTax(price, 'bank', 'remove')
+local tax = exports.kora_core:calculateTax(price, 'bank', 'remove')
 print(('$%d (includes $%d tax)'):format(price, tax))
 ```
 
@@ -199,7 +199,7 @@ thread:
 
 ```lua
 CreateThread(function()
-    exports.qbcore:collectTax(500, 'business rates')
+    exports.kora_core:collectTax(500, 'business rates')
 end)
 ```
 
@@ -217,4 +217,4 @@ each successful deposit.
 
 ## Offline credits
 
-`exports.qbcore:addOfflineMoney(citizenid, account, amount)` atomically increments a stored character balance without rewriting other player columns. It validates the account and positive finite amount, refuses online characters, and returns `(true)` or `(false, reason)`. It yields and retains the untaxed behavior of legacy offline credits. Use `addMoney` for online players.
+`exports.kora_core:addOfflineMoney(citizenid, account, amount)` atomically increments a stored character balance without rewriting other player columns. It validates the account and positive finite amount, refuses online characters, and returns `(true)` or `(false, reason)`. It yields and retains the untaxed behavior of legacy offline credits. Use `addMoney` for online players.

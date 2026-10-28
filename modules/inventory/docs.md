@@ -1,9 +1,9 @@
 # Inventory module
 
 ## Overview
-The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, imageUrl?, label, weight, … }`, persisted by qbcore through the player funnel. `image` remains the legacy local filename; optional `imageUrl` is a browser-ready source supplied by the shared item definition. qbinventory is the inventory authority; qbcore's `Core.inventory` / `exports.qbcore:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; qbinventory will advertise that identity only after exact upstream compatibility is implemented and tested.
+The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, imageUrl?, label, weight, … }`, persisted by kora_core through the player funnel. `image` remains the legacy local filename; optional `imageUrl` is a browser-ready source supplied by the shared item definition. kora_inventory is the inventory authority; kora_core's `Core.inventory` / `exports.kora_core:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; kora_inventory will advertise that identity only after exact upstream compatibility is implemented and tested.
 
-For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while qbinventory is absent and logs a one-time warning. Set it to `false` once qbinventory is required to return a clear error instead. A started qbinventory missing any required gateway export is always an error; qbcore never mixes providers per operation.
+For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while kora_inventory is absent and logs a one-time warning. Set it to `false` once kora_inventory is required to return a clear error instead. A started kora_inventory missing any required gateway export is always an error; kora_core never mixes providers per operation.
 
 ## API
 
@@ -46,7 +46,7 @@ Adds an item, stacking into an existing matching slot when the item is stackable
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:addItem(src, 'water', 2)
+local ok, err = exports.kora_core:addItem(src, 'water', 2)
 ```
 
 ### `Core.inventory.removeItem(src, name, amount, slot, reason)` — server
@@ -100,7 +100,7 @@ Returns whether the player has at least `amount` (default `1`) of an item — or
 
 #### Example
 ```lua
-if exports.qbcore:hasItem(src, { 'lockpick', 'screwdriver' }) then
+if exports.kora_core:hasItem(src, { 'lockpick', 'screwdriver' }) then
     -- has both
 end
 ```
@@ -114,7 +114,7 @@ Returns the lowest free slot index, or `nil` if full.
 ### `Core.inventory.moveItem(src, fromSlot, toSlot, amount)` — server
 Moves or splits `amount` from one slot to another, stacking into the destination if it holds the same item and refusing if it holds a different one.
 
-The staged fallback requires numeric integer slots within `Config.inventory.slots` and a finite, positive quantity after rounding down. Omitted amounts move the whole stack; numeric strings, fractional rounding, and clamping to the available stack retain their existing behavior. A running qbinventory receives the original arguments and applies its own validation.
+The staged fallback requires numeric integer slots within `Config.inventory.slots` and a finite, positive quantity after rounding down. Omitted amounts move the whole stack; numeric strings, fractional rounding, and clamping to the available stack retain their existing behavior. A running kora_inventory receives the original arguments and applies its own validation.
 
 #### Returns
 - `boolean`
@@ -145,9 +145,9 @@ Registers a use handler for an item. `handler(src, item)` runs when the item is 
 
 #### Example
 ```lua
-exports.qbcore:createUseable('bandage', function(src, item)
-    exports.qbcore:incrementMetaData(src, 'hunger', 0)   -- heal, etc.
-    exports.qbcore:removeItem(src, 'bandage', 1)
+exports.kora_core:createUseable('bandage', function(src, item)
+    exports.kora_core:incrementMetaData(src, 'hunger', 0)   -- heal, etc.
+    exports.kora_core:removeItem(src, 'bandage', 1)
 end)
 ```
 
@@ -219,5 +219,5 @@ Returns the local inventory table from the mirror (`{ 'items' }`), or an empty t
 - **Stacking rules.** Weapons and items flagged `unique` never stack. Stackables merge into the lowest matching slot; when `Config.inventory.matchInfoOnStack` is on, they only stack if their `info` tables match (stricter than legacy).
 - **Weight.** Total weight is computed from the `items`/`weapons` registry weights (falling back to a record's own `weight`); `canCarry`/`addItem` enforce `Config.inventory.maxWeight`.
 - **Every mutation is a funnel write per slot**, so a slot change is one dirty column (`inventory`) and one delta op — deleting a slot is `setPath(..., nil)`.
-- **UI boundary.** qbcore has no inventory NUI and no `qb-inventory` provider. qbinventory owns its bundled NUI while qbcore remains the sole player item store.
+- **UI boundary.** kora_core has no inventory NUI and no `qb-inventory` provider. kora_inventory owns its bundled NUI while kora_core remains the sole player item store.
 - **Drops are ephemeral.** Ground drops live in memory only and vanish on restart, by design.

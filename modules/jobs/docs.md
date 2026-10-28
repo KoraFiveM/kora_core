@@ -1,7 +1,7 @@
 # Jobs module
 
 ## Overview
-Job, gang, and duty changes, plus fast reverse lookups of who holds a job. Every change routes through the player funnel (`Core.player.setPath(src, { 'job' }, …)`), so it inherits dirty-tracking and replication and emits the legacy job/gang/duty events. A **maintained O(1) index** (job name → source set, and an on-duty-only variant) makes `getPlayersByJob` a set read rather than the O(n) scan legacy qb-core does on every dispatch/paycheck tick. Server-side owns mutation and the index; client-side reads job/gang from the mirror. Functions are defined on `Core.jobs` and exported flat as `exports.qbcore:<fn>`.
+Job, gang, and duty changes, plus fast reverse lookups of who holds a job. Every change routes through the player funnel (`Core.player.setPath(src, { 'job' }, …)`), so it inherits dirty-tracking and replication and emits the legacy job/gang/duty events. A **maintained O(1) index** (job name → source set, and an on-duty-only variant) makes `getPlayersByJob` a set read rather than the O(n) scan legacy qb-core does on every dispatch/paycheck tick. Server-side owns mutation and the index; client-side reads job/gang from the mirror. Functions are defined on `Core.jobs` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -34,7 +34,7 @@ Sets a player's job to a registered job at `grade`, replacing the whole `job` ro
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:setJob(src, 'police', 2)
+local ok, err = exports.kora_core:setJob(src, 'police', 2)
 ```
 
 ### `Core.jobs.setGang(src, name, grade)` — server
@@ -70,7 +70,7 @@ Returns the source ids holding a job — **O(1)** via the maintained index, not 
 
 #### Example
 ```lua
-local onDutyCops = exports.qbcore:getPlayersByJob('police', true)
+local onDutyCops = exports.kora_core:getPlayersByJob('police', true)
 ```
 
 ### `Core.jobs.getDutyCount(name)` — server
@@ -100,7 +100,7 @@ happens to define.
 
 #### Example
 ```lua
-local onDutyLeo = exports.qbcore:getPlayersByJobType('leo', true)
+local onDutyLeo = exports.kora_core:getPlayersByJobType('leo', true)
 ```
 
 ### `Core.jobs.getDutyCountByType(jobType)` — server
@@ -136,7 +136,7 @@ consumer looping `getPlayersByJob` and reaching back into `PlayerData`.
 
 #### Example
 ```lua
-local units = exports.qbcore:getOnDutyRoster({ jobType = 'leo' })
+local units = exports.kora_core:getOnDutyRoster({ jobType = 'leo' })
 for _, unit in ipairs(units) do
     print(unit.callsign or unit.name, unit.jobLabel, unit.gradeLabel)
 end
@@ -163,4 +163,4 @@ end
 
 ## Offline roles
 
-`exports.qbcore:setOfflineJob(citizenid, name, grade)` and `setOfflineGang(citizenid, name, grade)` validate the registry name and persist only the changed role column. Grades are one-based, matching the native online setters. Both yield and return `(true)` or `(false, reason)`.
+`exports.kora_core:setOfflineJob(citizenid, name, grade)` and `setOfflineGang(citizenid, name, grade)` validate the registry name and persist only the changed role column. Grades are one-based, matching the native online setters. Both yield and return `(true)` or `(false, reason)`.

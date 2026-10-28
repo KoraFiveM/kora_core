@@ -6,17 +6,17 @@
 --     qb-core -- there is nothing qb-core-specific in them, so a faithful copy
 --     is safer than a re-derivation.
 --   * The handful that touch player/UI state (GetPlayerData, HasItem, Notify,
---     Progressbar) are THIN FORWARDS to qblib (QB.*) / our replicated mirror --
---     the whole point of building on qblib.
+--     Progressbar) are THIN FORWARDS to kora_lib (QB.*) / our replicated mirror --
+--     the whole point of building on kora_lib.
 
 local provideExport = QB.compat.provideExport
 
 local F = QBCore.Functions
 
 -- Notify type strings differ between realms: real qb-core passes 'primary' and
--- assorted freeform types straight into its NUI, whereas qblib validates
+-- assorted freeform types straight into its NUI, whereas kora_lib validates
 -- against info/success/warning/error and DROPS (logs) anything else. Map the
--- common qb-core types onto qblib's set so a legacy Notify('primary') still
+-- common qb-core types onto kora_lib's set so a legacy Notify('primary') still
 -- shows rather than silently vanishing; unknown types fall back to 'info'.
 local NOTIFY_TYPE_MAP = {
     primary = 'info',
@@ -32,7 +32,7 @@ local function resolveLocalizedText(value)
     if type(value.resource) ~= 'string' or type(value.key) ~= 'string' then return 'Invalid locale reference.' end
 
     local ok, translated = pcall(function()
-        return exports.qblib:locale_translate(value.resource, value.key, value.substitutions)
+        return exports.kora_lib:locale_translate(value.resource, value.key, value.substitutions)
     end)
     return ok and translated or value.key
 end
@@ -52,15 +52,15 @@ local legacyClientCallbacks = {}
 
 -- Real qb-core stores this in QBCore.ClientCallbacks (server-side) and fires
 -- it from the QBCore:Client:TriggerClientCallback net event -- the raw wire
--- handled below. We ALSO keep registering with qblib's QB.callback so a
+-- handled below. We ALSO keep registering with kora_lib's QB.callback so a
 -- cross-resource caller that talks to QB.callback.trigger directly (rather
 -- than through QBCore.Functions.TriggerClientCallback) still reaches this
 -- handler; see compat/server/qb-core.lua's TriggerClientCallback comment for
 -- why the SERVER trigger itself now speaks the raw wire exclusively instead
--- of also going through qblib (it would double-invoke this handler otherwise).
+-- of also going through kora_lib (it would double-invoke this handler otherwise).
 --
 -- Real QBCore hands the legacy handler a RESPONDER as its first argument --
--- function(cb, ...) ... cb(result) end -- not a value to return. qblib's
+-- function(cb, ...) ... cb(result) end -- not a value to return. kora_lib's
 -- QB.callback.register instead ships back whatever the registered function
 -- RETURNS, same mismatch (and same fix: bridge via a promise + timeout) as
 -- the server's CreateCallback above.
@@ -110,7 +110,7 @@ RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
 end)
 
 -- Use qb-core's native callback wire for legacy callers. Routing this through
--- qblib's promise-valued export makes a callback timeout surface as an export
+-- kora_lib's promise-valued export makes a callback timeout surface as an export
 -- exception before the legacy callback can receive its normal nil result.
 -- Arg shape matches real: (name, cb, ...).
 --
@@ -162,13 +162,13 @@ function F.GetCoords(entity)
     return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
 end
 
--- Real forwards to exports['qb-inventory']:HasItem. Ours forwards to qbinventory
+-- Real forwards to exports['qb-inventory']:HasItem. Ours forwards to kora_inventory
 -- (which also answers the qb-inventory export identity) when it is running, and
 -- otherwise falls back to scanning the replicated items table so HasItem still
 -- returns a sane answer without the inventory resource present.
 function F.HasItem(items, amount)
-    if GetResourceState('qbinventory') == 'started' then
-        return exports.qbinventory:HasItem(items, amount)
+    if GetResourceState('kora_inventory') == 'started' then
+        return exports.kora_inventory:HasItem(items, amount)
     end
     local invItems = Core.replication.getData({ 'items' }) or {}
     local function count(name)
@@ -283,10 +283,10 @@ end
 
 -- NUI Calls ------------------------------------------------------------------
 
--- Real qb-core SendNUIMessage's its own notify. We forward to qblib's notifier
+-- Real qb-core SendNUIMessage's its own notify. We forward to kora_lib's notifier
 -- instead. The full real signature (text, texttype, length, icon) is honoured,
 -- including the table form of `text` ({ text=, caption= }); caption maps onto
--- qblib's title.
+-- kora_lib's title.
 function F.Notify(text, texttype, length, icon)
     local payload = {
         type = NOTIFY_TYPE_MAP[texttype] or 'info',
@@ -993,7 +993,7 @@ end
 
 -- Harmless alias kept from our previous compat: some of our resources call
 -- Draw3DText(coords, text, opts) with a coords-table signature and route through
--- qblib's drawing module. DrawText3D above is the real qb-core (x, y, z, text)
+-- kora_lib's drawing module. DrawText3D above is the real qb-core (x, y, z, text)
 -- function and MUST exist; this stays only for backward-compat.
 function F.Draw3DText(coords, text, opts) QB.drawing.text3d(coords, text, opts) end
 
@@ -1007,7 +1007,7 @@ function F.RequestAnimDict(animDict, timeout)
 end
 
 -- Alias kept from our previous compat -- not a real qb-core function, but some
--- of our resources call it; forwards to qblib's streamer.
+-- of our resources call it; forwards to kora_lib's streamer.
 function F.LoadAnimDict(dict, cb) QB.stream.loadAnimDict(dict, cb) end
 
 function F.GetClosestBone(entity, list)
@@ -1237,7 +1237,7 @@ end
 -- Direct client exports ------------------------------------------------------
 -- Real qb-core ends client/functions.lua with `for fn, func in pairs(QBCore.Functions) do exports(fn, func) end`,
 -- exposing every function as exports['qb-core']:Fn(...). We can't call exports()
--- with the qb-core identity from here (we're the qbcore resource), so we use the
+-- with the qb-core identity from here (we're the kora_core resource), so we use the
 -- same __cfx_export identity-hijack helper GetCoreObject uses to register each
 -- one under the 'qb-core' export name.
 for functionName, func in pairs(QBCore.Functions) do

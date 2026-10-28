@@ -3,7 +3,7 @@
 -- sections (Functions, Player, per-player method tables, event wiring) are
 -- filled in by compat/{server,client}/qb-core.lua, which load after this.
 --
--- QBCore is a plain global in qbcore's own VM. It is handed to other resources
+-- QBCore is a plain global in kora_core's own VM. It is handed to other resources
 -- verbatim via exports['qb-core']:GetCoreObject() (server/client qb-core.lua),
 -- so its shape must match legacy qb-core exactly.
 
@@ -89,7 +89,7 @@ QBCore.Shared.FemaleNoGloves = {
 }
 
 -- Current qb-core forces a job's configured default duty state on login.
--- Expose the same switch for scripts that inspect it directly; qbcore's own
+-- Expose the same switch for scripts that inspect it directly; kora_core's own
 -- internal login policy remains Config.jobs.defaultDuty.
 QBCore.Shared.ForceJobDefaultDutyAtLogin = true
 
@@ -325,8 +325,8 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
 -- toLegacyGrades comment above -- same design choice, applied to the
 -- PLAYER side of the same data instead of just the Shared.Jobs/Gangs view).
 -- Real qb-core's grade.level is ZERO-based. Only the legacy QBCore.* surface
--- and QBCore:* event payloads are translated; qbcore's own modern surface
--- (exports.qbcore:*, qbcore:* events, the replication mirror, persistence)
+-- and QBCore:* event payloads are translated; kora_core's own modern surface
+-- (exports.kora_core:*, qbcore:* events, the replication mirror, persistence)
 -- is untouched -- this is a VIEW, never a renumbering of the internal model.
 local function toLegacyGradeLevel(level)
     return math.max((tonumber(level) or 1) - 1, 0)

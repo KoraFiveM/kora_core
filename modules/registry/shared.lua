@@ -140,7 +140,7 @@ function Core.registry.countShared(name)
     return r and #r.list or 0
 end
 
----Snapshot every registry (for the @qbcore/init.lua mirror seed).
+---Snapshot every registry (for the @kora_core/init.lua mirror seed).
 ---@return table
 function Core.registry.sharedSnapshotAll()
     return RI.snapshotAll()

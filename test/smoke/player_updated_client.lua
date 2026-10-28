@@ -1,7 +1,7 @@
 -- Client-realm smoke test for QBCore:Client:OnPlayerUpdated
 -- (compat/client/qb-core-events.lua). The critical invariant: this handler
 -- must NEVER write an externally-pushed `val` into the replication mirror --
--- qbcore is server-authoritative via its own seq-tracked delta-replication
+-- kora_core is server-authoritative via its own seq-tracked delta-replication
 -- protocol (modules/replication/client.lua), so a raw legacy event pushed by
 -- a foreign resource must not be able to desync it. The handler may only
 -- re-announce the mirror's CURRENT data through the derived local legacy

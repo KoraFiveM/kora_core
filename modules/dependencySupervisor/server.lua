@@ -1,14 +1,14 @@
 -- dependencySupervisor (server realm) -- qb-banking is an
 -- untouchable legacy scripts that never re-register themselves when a
--- resource they depend on (qbcore, qbinventory, qbtarget, PolyZone) restarts
+-- resource they depend on (kora_core, kora_inventory, kora_target, PolyZone) restarts
 -- mid-session. Since it can't self-heal, this restarts it instead,
 -- driven entirely by Config.dependencySupervisor (disabled by default -- this
 -- is new behavior with no existing convention to lean on).
 --
 -- Mechanism: Config.dependencySupervisor.map[provider] lists resources that
 -- should be restarted whenever `provider` (re)starts. Restarting uses the
--- standard ExecuteCommand('restart <name>') idiom (see qbadmin's
--- /restartresource command, resources/qbadmin/server/commands/privileged.lua).
+-- standard ExecuteCommand('restart <name>') idiom (see kora_admin's
+-- /restartresource command, resources/kora_admin/server/commands/privileged.lua).
 -- Two guards keep this safe:
 --   * a dependent is only restarted if it is CURRENTLY 'started'. This is
 --     what prevents firing on first boot -- server.cfg's ensure order means

@@ -1,7 +1,7 @@
 # Metadata module
 
 ## Overview
-Get / set / increment on a player's `metadata` sub-table (hunger, thirst, stress, armor, licences, and any custom keys). These are the highest-churn writes in the framework, which is exactly why they route through the funnel: the per-column dirty tracking plus the persistence layer's byte-identical gate mean a hunger tick that lands on the current value writes nothing. Server only. Functions are defined on `Core.metadata` and exported flat as `exports.qbcore:<fn>`.
+Get / set / increment on a player's `metadata` sub-table (hunger, thirst, stress, armor, licences, and any custom keys). These are the highest-churn writes in the framework, which is exactly why they route through the funnel: the per-column dirty tracking plus the persistence layer's byte-identical gate mean a hunger tick that lands on the current value writes nothing. Server only. Functions are defined on `Core.metadata` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -17,7 +17,7 @@ Returns a metadata value, or the whole metadata table when `key` is `nil`.
 
 #### Example
 ```lua
-local hunger = exports.qbcore:getMetaData(src, 'hunger')
+local hunger = exports.kora_core:getMetaData(src, 'hunger')
 ```
 
 ### `Core.metadata.setMetaData(src, key, value)`
@@ -34,7 +34,7 @@ Sets a metadata key through the funnel and fires `QBCore:Server:OnMetaDataChange
 
 #### Example
 ```lua
-exports.qbcore:setMetaData(src, 'isdead', true)
+exports.kora_core:setMetaData(src, 'isdead', true)
 ```
 
 ### `Core.metadata.incrementMetaData(src, key, delta, min, max)`
@@ -53,7 +53,7 @@ Adds `delta` to a numeric metadata key, optionally clamping to `[min, max]`, wri
 
 #### Example
 ```lua
-local hunger = exports.qbcore:incrementMetaData(src, 'hunger', -5, 0, 100)
+local hunger = exports.kora_core:incrementMetaData(src, 'hunger', -5, 0, 100)
 ```
 
 ## Notes

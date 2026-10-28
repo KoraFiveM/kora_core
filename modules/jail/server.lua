@@ -15,7 +15,7 @@
 -- the ambulance flow checks `metadata['injail'] > 0` on hospital respawn and on
 -- leaving a hospital bed) rather than through any Core.jail accessor. Same
 -- "legacy view alongside the modern shape" pattern already used for the
--- isLoggedIn state bag -- see qbcore/modules/player/server.lua.
+-- isLoggedIn state bag -- see kora_core/modules/player/server.lua.
 
 local PI = CoreInternal.player
 

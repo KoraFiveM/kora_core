@@ -1,5 +1,5 @@
 -- Core.consumables smoke test -- the generic item-effect bridge: deferred
--- registration against qbinventory's 'usingItem' hook, and the actual
+-- registration against kora_inventory's 'usingItem' hook, and the actual
 -- effect/hunger/thirst/stress playback once registered.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
@@ -27,8 +27,8 @@ Core.registry.registerShared('items', 'water_bottle', {
 
 local registeredHookCallback
 
-handle.resourceStates.qbinventory = 'missing'
-_G.exports.qbinventory = {
+handle.resourceStates.kora_inventory = 'missing'
+_G.exports.kora_inventory = {
     RegisterHook = function(_, eventName, callback)
         h.assertEqual(eventName, 'usingItem')
         registeredHookCallback = callback
@@ -43,8 +43,8 @@ h.test('registration is deferred while qbinventory is not running', function()
 end)
 
 h.test('onResourceStart for qbinventory registers the hook', function()
-    handle.resourceStates.qbinventory = 'started'
-    handle.fireEvent('onResourceStart', nil, 'qbinventory')
+    handle.resourceStates.kora_inventory = 'started'
+    handle.fireEvent('onResourceStart', nil, 'kora_inventory')
 
     h.assertTrue(Core.consumables.isRegistered())
     h.assertTrue(registeredHookCallback ~= nil)
@@ -53,21 +53,21 @@ end)
 h.test('a second onResourceStart for qbinventory (a restart) re-registers the hook, not skipped by a stale latch', function()
     -- This is the regression test for the latch bug: register() must not
     -- permanently no-op after its first success. Fire onResourceStart a
-    -- SECOND time (simulating qbinventory restarting mid-session, having
+    -- SECOND time (simulating kora_inventory restarting mid-session, having
     -- already been registered once) and assert RegisterHook is actually
     -- called again -- a stale `if registered then return end` guard would
-    -- make this a silent no-op and leave qbinventory's own (fresh,
+    -- make this a silent no-op and leave kora_inventory's own (fresh,
     -- post-restart) hook table without our hook.
     h.assertTrue(Core.consumables.isRegistered(), 'precondition: already registered from the prior onResourceStart')
 
     local hookCallCount = 0
-    _G.exports.qbinventory.RegisterHook = function(_, eventName, callback)
+    _G.exports.kora_inventory.RegisterHook = function(_, eventName, callback)
         h.assertEqual(eventName, 'usingItem')
         hookCallCount = hookCallCount + 1
         registeredHookCallback = callback
     end
 
-    handle.fireEvent('onResourceStart', nil, 'qbinventory')
+    handle.fireEvent('onResourceStart', nil, 'kora_inventory')
 
     h.assertEqual(hookCallCount, 1, 'register() must re-run RegisterHook on a qbinventory restart, not be skipped by a permanent latch')
     h.assertTrue(Core.consumables.isRegistered())

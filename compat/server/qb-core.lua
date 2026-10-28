@@ -1,8 +1,8 @@
 -- compat/server/qb-core.lua -- the server half of the QBCore object, exposed via
 -- exports['qb-core']:GetCoreObject(). Every function here calls the internal
--- Core.* implementation DIRECTLY (never exports.qbcore:fn()), so
+-- Core.* implementation DIRECTLY (never exports.kora_core:fn()), so
 -- GetInvokingResource() inside those resolves to the original external consumer
--- rather than to qbcore -- load-bearing for the owner-tracked registrations
+-- rather than to kora_core -- load-bearing for the owner-tracked registrations
 -- (commands, useables, registry entries, onChange).
 
 local PI = CoreInternal.player
@@ -14,7 +14,7 @@ local isCallable = QB.util.isCallable
 
 -- `provide 'qb-core'` alone doesn't make exports['qb-core']:GetCoreObject()
 -- resolve here; registering the __cfx_export event does (same identity hijack as
--- qbtarget/client/compat/ox-target.lua).
+-- kora_target/client/compat/ox-target.lua).
 local provideExport = QB.compat.provideExport
 
 -- Built-ins accept modern colon calls and the direct dot calls used by older
@@ -126,7 +126,7 @@ local function buildQBPlayer(src)
     end
     function F.SetGangData(k, v) return setRoleData('gang', k, v) end
 
-    -- `ignoreTax` is a qbcore addition past stock qb-core's 3-arg signature, so
+    -- `ignoreTax` is a kora_core addition past stock qb-core's 3-arg signature, so
     -- an unported resource simply passes nil and is taxed like any other
     -- transaction. SetMoney has no such param: it is never taxed.
     function F.AddMoney(t, amount, reason, ignoreTax) return Core.money.addMoney(src, t, amount, reason, ignoreTax) end
@@ -293,7 +293,7 @@ end
 -- Offline lookups in current qb-core return a real Player object, not a bare
 -- `{PlayerData, Offline}` record. Keep a legacy-shaped local snapshot with the
 -- same method table; Save writes it back after translating grade levels to
--- qbcore's internal one-based representation.
+-- kora_core's internal one-based representation.
 local function buildOfflinePlayer(data)
     local self = { PlayerData = Core.compat.toLegacyPlayerData(Core.util.deepClone(data)), Offline = true }
     local F = {}
@@ -580,7 +580,7 @@ function F.GetSource(identifier)
     return 0
 end
 
--- Callbacks -> qblib's QB.callback, PLUS real qb-core's raw net-event wire
+-- Callbacks -> kora_lib's QB.callback, PLUS real qb-core's raw net-event wire
 -- protocol (QBCore:Server:TriggerCallback / QBCore:Client:TriggerCallback).
 -- Some legacy scripts skip QBCore.Functions.TriggerCallback entirely and
 -- fire the raw event themselves, so a handler registered via CreateCallback
@@ -597,13 +597,13 @@ local legacyCallbacks = {}
 
 -- Real QBCore hands the legacy handler a RESPONDER function as its second
 -- argument -- function(source, cb, ...) ... cb(result) end -- and the handler
--- is expected to call that responder, not `return` its result. qblib's
+-- is expected to call that responder, not `return` its result. kora_lib's
 -- QB.callback.register instead ships back whatever the registered function
 -- RETURNS. Bridging one onto the other means giving the legacy handler a
 -- `cb` that resolves a promise, then awaiting that promise for the actual
 -- return. A handler that never calls `cb` (a legitimate early-return, e.g.
 -- qb-banking's card-missing checks) would otherwise leak the awaiting
--- coroutine and qblib's pending request forever -- the timeout guards that.
+-- coroutine and kora_lib's pending request forever -- the timeout guards that.
 function F.CreateCallback(name, handler)
     legacyCallbacks[name] = handler
     QB.callback.register(name, function(src, ...)
@@ -634,8 +634,8 @@ end
 Core.compat.createCallback = F.CreateCallback
 
 -- Real QBCore's TriggerCallback forwards EVERY value the client handler
--- returned to `cb`, not just the first -- qblib's QB.callback.trigger (called
--- here cross-resource, qbcore -> qblib) now supports that end to end, so
+-- returned to `cb`, not just the first -- kora_lib's QB.callback.trigger (called
+-- here cross-resource, kora_core -> kora_lib) now supports that end to end, so
 -- table.pack/unpack is all that's needed to match it faithfully.
 function F.TriggerCallback(name, src, cb, ...)
     local args = { ... }
@@ -731,7 +731,7 @@ function F.HasItem(src, items, amount) return Core.inventory.hasItem(src, items,
 
 function F.ExecuteSql(_, query, cb)
     print('^3[qbcore:qb-core-bridge]^7 ExecuteSql is deprecated and its `wait` argument is ignored; use '
-        .. 'QB.sql.query or exports.qbsql:query.')
+        .. 'QB.sql.query or exports.kora_sql:query.')
     CreateThread(function()
         local rows = QB.sql.query(query, {})
         if cb then cb(rows) end
@@ -862,7 +862,7 @@ end
 -- Server-side vehicle creation. Legacy qb-core used frame-count loops here,
 -- which made the real timeout depend on server tick rate and could still
 -- return an invalid handle. Keep both compatibility entry points on the same
--- millisecond-bounded qblib lifecycle.
+-- millisecond-bounded kora_lib lifecycle.
 local function discardEntity(entity)
     if entity and entity ~= 0 and DoesEntityExist(entity) then DeleteEntity(entity) end
     return false
@@ -917,15 +917,15 @@ end
 
 -- Client callbacks: real qb-core's own raw wire protocol
 -- (QBCore:Client:TriggerClientCallback / QBCore:Server:TriggerClientCallback).
--- This used to route through qblib's callback system instead, but that meant
--- TriggerClientCallback would deliver over ONE transport (qblib) while a
+-- This used to route through kora_lib's callback system instead, but that meant
+-- TriggerClientCallback would deliver over ONE transport (kora_lib) while a
 -- handler registered via the client's CreateClientCallback is reachable over
--- TWO (qblib AND the raw net event, since CreateClientCallback now also
+-- TWO (kora_lib AND the raw net event, since CreateClientCallback now also
 -- stores into legacyClientCallbacks -- see compat/client/qb-core.lua). Firing
 -- both transports for a single TriggerClientCallback call would invoke the
 -- client's handler twice for one logical request, so this now speaks the raw
 -- wire exclusively (matching real qb-core's own implementation), and the
--- qblib path is left for cross-resource callers that talk to QB.callback
+-- kora_lib path is left for cross-resource callers that talk to QB.callback
 -- directly rather than through this function.
 QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
 

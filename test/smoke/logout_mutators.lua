@@ -11,7 +11,7 @@ dofile('modules/player/server.lua')
 dofile('modules/inventory/shared.lua'); dofile('modules/inventory/server.lua')
 dofile('modules/jobs/server.lua')
 
-exports.qbsql = { hasActivePlayerOperation = function() return false end }
+exports.kora_sql = { hasActivePlayerOperation = function() return false end }
 local PI, flushHook = CoreInternal.player, nil
 QB.sql.flush = function() if flushHook then return flushHook() end; return true end
 local roleEvents = 0

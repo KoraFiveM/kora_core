@@ -1,10 +1,10 @@
-# qbcore agent guide
+# kora_core agent guide
 
 ## What this is
 The framework core: player management, money, jobs/gangs, metadata, inventory,
 shared registries, and full backwards compatibility with legacy QBCore. Built ON
-qblib (reusable helpers live in `QB.*`, not reimplemented here) and persisted
-through qbsql. Every public function is a flat export: `exports.qbcore:getPlayer(src)`.
+kora_lib (reusable helpers live in `QB.*`, not reimplemented here) and persisted
+through kora_sql. Every public function is a flat export: `exports.kora_core:getPlayer(src)`.
 
 ## The three load-bearing ideas
 
@@ -37,10 +37,10 @@ byte-identical-JSON gate mean a save encodes each column at most once and only
 when it actually changed. A reverted change writes nothing. Position is sampled
 server-side (OneSync) at flush time and only persisted past a movement epsilon.
 Dirty rows across all players flush in ONE `QB.sql.enqueueMany` — one Lua→JS
-boundary crossing — which qbsql then coalesces into a handful of batched upserts.
+boundary crossing — which kora_sql then coalesces into a handful of batched upserts.
 
 ## Export namespace discipline
-`build/finalise.lua` flattens `Core.<module>.<fn>` to `exports.qbcore:<fn>` and
+`build/finalise.lua` flattens `Core.<module>.<fn>` to `exports.kora_core:<fn>` and
 ASSERTS there are no cross-module name collisions (a boot-time programmer-error
 check). Two rules keep the flat namespace clean:
 - Internal cross-file helpers live on the private `CoreInternal.<module>` table,
@@ -54,11 +54,11 @@ Run the collision check by loading all server modules + `build/finalise.lua`
 under the mocks (see `test/`); it lists every exported name.
 
 ## Compat design
-`compat/` follows the same rules as `qbtarget/client/compat/ox-target.lua`:
+`compat/` follows the same rules as `kora_target/client/compat/ox-target.lua`:
 - `exports['qb-core']:GetCoreObject()` returns the `QBCore` table via the
   `__cfx_export_` identity hijack; `provide 'qb-core'` alone does not do this.
 - Every compat function calls the internal `Core.*` impl DIRECTLY, never
-  `exports.qbcore:fn()`, so `GetInvokingResource()` inside resolves to the real
+  `exports.kora_core:fn()`, so `GetInvokingResource()` inside resolves to the real
   external consumer — load-bearing for owner-tracked registrations (commands,
   useables, registry entries, subscriptions).
 - `QBCore.Shared.Items/Vehicles/Jobs/Gangs/Weapons` are legacy-only live views.
@@ -69,15 +69,15 @@ under the mocks (see `test/`); it lists every exported name.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,
   and hijacking the name would disable a real character-select UI.
 
-## Shared registries and `@qbcore/init.lua`
+## Shared registries and `@kora_core/init.lua`
 The `/ideas` requirement — shared items/vehicles/jobs lists, runtime-updatable,
 tracked across resources — is met by `Core.registry` (server-authoritative) plus
-`@qbcore/init.lua`, which installs a LIVE-updating local mirror as `QB.shared.*`
-into any consumer's VM (same rawset trick as `@qbsql/init.lua`; qblib's `QB`
+`@kora_core/init.lua`, which installs a LIVE-updating local mirror as `QB.shared.*`
+into any consumer's VM (same rawset trick as `@kora_sql/init.lua`; kora_lib's `QB`
 metatable has only `__index`). A registration broadcasts a delta; the mirror
 patches locally and fires in-VM `onChange` handlers — so a change made in one
 resource is seen, with handlers firing, in every resource that uses the list.
-Each registry carries an epoch so a qbcore restart re-seeds mirrors rather than
+Each registry carries an epoch so a kora_core restart re-seeds mirrors rather than
 drifting.
 
 ## Durability caveat (be honest in docs)
@@ -87,10 +87,10 @@ resource stop — flush immediately. FXServer gives no guarantee an `onResourceS
 yield completes, so this BOUNDS loss, it does not eliminate it.
 
 ## Conventions
-Follows qblib's: `fx_version 'cerulean'`, `lua54 'yes'`, explicit non-globbed load
+Follows kora_lib's: `fx_version 'cerulean'`, `lua54 'yes'`, explicit non-globbed load
 order with reasoning comments, four-space indent, heavy LuaLS annotations,
 `(value, errorString)` returns on fallible functions, `assert` for programmer
 error / `print` for runtime misbehaviour. Every module folder has `AGENTS.md` +
 `docs.md`; adding a module requires adding its `test/smoke/<module>.lua` in the
 same change. Tests load one realm at a time to avoid the same-name-across-realms
-collision (see qblib AGENTS.md).
+collision (see kora_lib AGENTS.md).

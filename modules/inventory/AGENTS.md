@@ -1,7 +1,7 @@
 # inventory module guide
 
 ## Purpose
-The player item model remains in the legacy slot-keyed shape and persists through qbcore's player funnel. qbinventory owns inventory operations; `gateway.lua` forwards the legacy `Core.inventory` API to its lower-camel exports at runtime. qbcore ships neither an inventory NUI nor the `qb-inventory` provider identity.
+The player item model remains in the legacy slot-keyed shape and persists through kora_core's player funnel. kora_inventory owns inventory operations; `gateway.lua` forwards the legacy `Core.inventory` API to its lower-camel exports at runtime. kora_core ships neither an inventory NUI nor the `qb-inventory` provider identity.
 
 ## Public API
 Server gateway (mutation/queries): `getWeight`, `canCarry`, `addItem`, `removeItem`, `getItemByName`, `getItemsByName`, `getItemBySlot`, `getItemCount`, `hasItem`, `getFreeSlot`, `moveItem`, `clearInventory`, `setItems`.
@@ -22,12 +22,12 @@ Shared math (internal, `CoreInternal.inventory`): `totalWeight`, `isUnique`, `fi
 - **Explicit slots are validated.** A requested slot must be within the configured range. Single-slot grants require an empty destination or a compatible non-unique stack. `nil`/`false` retain automatic selection; bulk unique grants retain their automatic placement.
 - **Useables are owner-tagged** (`{resource=..., handler=...}`) and `pcall`-guarded. `useItem` accepts a slot number or an item name; with no registered handler it falls back to the legacy `QBCore:Server:UseItem` event. (There is no owner-stop sweep of useables today — unlike commands/registry — so a resource that registers a useable and restarts leaves the old handler until it re-registers.)
 - **Stashes persist to the `inventories` table.** `stashGet` is a live read (yields); `stashSet` is a fire-and-forget `QB.sql.enqueue` upsert (`kind='stash'`). Stash *contents* are JSON in the `items` column.
-- **Gateway is all-or-nothing.** Once qbinventory is started, every public server operation goes through its same-named lower-camel export. Never add a partial fallback for a missing qbinventory export: return the clear gateway error instead, otherwise player/stash authority would split.
-- **Fallback is transitional.** If qbinventory is stopped, `allowLegacyFallback` selects the captured implementation and emits one warning. Set it false in production once migration is complete; it then returns a descriptive failure instead of silently writing through qbcore.
+- **Gateway is all-or-nothing.** Once kora_inventory is started, every public server operation goes through its same-named lower-camel export. Never add a partial fallback for a missing kora_inventory export: return the clear gateway error instead, otherwise player/stash authority would split.
+- **Fallback is transitional.** If kora_inventory is stopped, `allowLegacyFallback` selects the captured implementation and emits one warning. Set it false in production once migration is complete; it then returns a descriptive failure instead of silently writing through kora_core.
 - **Ground drops are in-memory only.** `drops[dropId] = {coords, items, created}`, broadcast to all clients on create/remove. Not persisted across restart, by design — a crash drops the drops. A sweep thread expires drops older than `Config.inventory.dropTTL` every `Config.inventory.dropSweepInterval`, so uncollected drops don't accumulate forever.
 - **Client is minimal.** `qbcore:client:itemBox` shows a `QB.notify.send` by default (a UI resource can also listen); `getInventory` reads the mirror. No client-side authority.
 
 ## Best practices
 - Mutate inventory only through these functions so each change is one funnel write with correct dirty/replication behaviour.
-- qbinventory owns the inventory API and bundled UI. Do not reintroduce `provide 'qb-inventory'` or direct NUI calls here; compatibility identity advertising belongs to qbinventory only after its contracts are complete.
+- kora_inventory owns the inventory API and bundled UI. Do not reintroduce `provide 'qb-inventory'` or direct NUI calls here; compatibility identity advertising belongs to kora_inventory only after its contracts are complete.
 - Put per-instance state (serials, durability) in `info`; enable `matchInfoOnStack` if such items must not merge.

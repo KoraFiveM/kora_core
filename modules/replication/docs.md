@@ -1,7 +1,7 @@
 # Replication module
 
 ## Overview
-Keeps each client's local `PlayerData` mirror in sync with the server using a **delta protocol** instead of resending the whole blob on every change. The funnel queues ops; the server coalesces them per-player-per-frame and ships a sequenced batch; the client applies them in order, detecting a dropped batch via the sequence number and requesting a resync. Legacy full-blob events are re-fired **client-side** from the already-mirrored table, so every legacy listener keeps working at zero network cost. Functions are split across realms and exported flat as `exports.qbcore:<fn>`.
+Keeps each client's local `PlayerData` mirror in sync with the server using a **delta protocol** instead of resending the whole blob on every change. The funnel queues ops; the server coalesces them per-player-per-frame and ships a sequenced batch; the client applies them in order, detecting a dropped batch via the sequence number and requesting a resync. Legacy full-blob events are re-fired **client-side** from the already-mirrored table, so every legacy listener keeps working at zero network cost. Functions are split across realms and exported flat as `exports.kora_core:<fn>`.
 
 ## Wire shape
 - **Snapshot** (`qbcore:rep:snapshot`): `seq, PlayerData` — full state; resets the client's expected seq.
@@ -34,7 +34,7 @@ Reads the local mirror: with no `path`, the whole `PlayerData` (a live reference
 
 #### Example
 ```lua
-local cash = exports.qbcore:getData({ 'money', 'cash' })
+local cash = exports.kora_core:getData({ 'money', 'cash' })
 ```
 
 ### `Core.replication.onChange(pathPrefix, handler)` — client
@@ -50,7 +50,7 @@ Subscribes to local mirror changes under a prefix. `handler(path, value)` fires 
 
 #### Example
 ```lua
-exports.qbcore:onChange({ 'metadata', 'hunger' }, function(path, value)
+exports.kora_core:onChange({ 'metadata', 'hunger' }, function(path, value)
     updateHungerBar(value)
 end)
 ```

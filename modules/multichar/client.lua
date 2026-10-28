@@ -7,7 +7,7 @@
 local selecting = false
 local uiClaimed = false
 
----A character-select UI resource calls this (via `exports.qbcore:claimUI()` --
+---A character-select UI resource calls this (via `exports.kora_core:claimUI()` --
 ---qbcore's flat exports are named after the function alone, not
 ---`<module>_<fn>`; see build/finalise.lua) to suppress the default
 ---auto-select/auto-create flow below. Must be called
@@ -16,7 +16,7 @@ local uiClaimed = false
 ---
 ---This is a real export rather than a `_G` flag on purpose: every resource
 ---gets its own isolated Lua VM (client and server alike), so a `_G` write in
----a UI resource's own script is never visible to qbcore's script -- only a
+---a UI resource's own script is never visible to kora_core's script -- only a
 ---genuine cross-resource call (an export, a net event) crosses that boundary.
 function Core.multichar.claimUI()
     uiClaimed = true

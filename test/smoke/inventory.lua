@@ -174,7 +174,7 @@ end)
 -- The legacy (qbinventory-absent) useable path. This registers against the
 -- resource registry, and the registry's contract is track(resource, id) --
 -- calling it with the id missing indexed the registry with a nil key and threw
--- "table index is nil". Only reachable when qbinventory is stopped and
+-- "table index is nil". Only reachable when kora_inventory is stopped and
 -- Config.inventory.allowLegacyFallback is on, so no boot log ever showed it.
 h.test('createUseable registers against the owning resource without erroring', function()
     local fired = 0

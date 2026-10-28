@@ -5,7 +5,7 @@ A small, config-driven, OFF-by-default supervisor that restarts a resource
 when one of its dependencies restarts mid-session. It exists specifically for
 legacy resources (e.g. `qb-banking`) that are kept
 byte-identical for backward-compat testing and therefore cannot be edited to
-re-register themselves against `qbcore`/`qbinventory`/`qbtarget`/`PolyZone`
+re-register themselves against `kora_core`/`kora_inventory`/`kora_target`/`PolyZone`
 coming back up. Since they can't self-heal, this restarts THEM instead.
 
 ## Public API
@@ -30,9 +30,9 @@ None. Purely reactive -- same shape as `modules/consumables/server.lua`'s
   succession still only produces one restart within
   `Config.dependencySupervisor.cooldownMs`.
 - **Restart mechanism is the standard idiom.**
-  `ExecuteCommand('restart ' .. dependent)`, the same call qbadmin's
+  `ExecuteCommand('restart ' .. dependent)`, the same call kora_admin's
   `/restartresource` command uses
-  (`resources/qbadmin/server/commands/privileged.lua`).
+  (`resources/kora_admin/server/commands/privileged.lua`).
 - **Logs every decision** (restart issued, or skipped for cooldown) via
   `print` -- there's no dedicated log sink here; if you need it in
   `Core.logging`'s ring buffer, call `Core.logging.event('dependencySupervisor', ...)`

@@ -11,4 +11,5 @@ for file in "$dir"/smoke/*.lua; do
     if ! ( cd "$dir/.." && "$lua_bin" "$file" ); then status=1; fi
     echo
 done
+if ! bash "$dir/txadmin_installer.sh"; then status=1; fi
 exit "$status"

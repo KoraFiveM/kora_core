@@ -1,7 +1,7 @@
 # Logging module
 
 ## Overview
-A lightweight, ring-buffered event log with an optional Discord webhook and aggregate per-category counters. Deliberately small; loaded last among the modules so it can observe the others. Server only. Functions are defined on `Core.logging` and exported flat as `exports.qbcore:<fn>`.
+A lightweight, ring-buffered event log with an optional Discord webhook and aggregate per-category counters. Deliberately small; loaded last among the modules so it can observe the others. Server only. Functions are defined on `Core.logging` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -15,7 +15,7 @@ Records a gameplay/admin event into the in-memory ring buffer, bumps the categor
 
 #### Example
 ```lua
-exports.qbcore:event('money', src, { account = 'bank', amount = 500, reason = 'paycheck' })
+exports.kora_core:event('money', src, { account = 'bank', amount = 500, reason = 'paycheck' })
 ```
 
 ### `Core.logging.getStats()`

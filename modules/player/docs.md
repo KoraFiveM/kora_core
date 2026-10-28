@@ -1,7 +1,7 @@
 # Player module
 
 ## Overview
-The authoritative player cache and the **single mutation funnel**, `Core.player.setPath`. Every money / job / metadata / inventory change in the whole framework routes through `setPath`, so dirty-tracking, delta replication, and `onChange` subscribers are all handled in exactly one place. Reads return **deep-cloned snapshots**, never the live handle, so an external resource can't mutate `PlayerData` out from under the funnel. Functions are split across realms (server = the funnel + lifecycle; client = mirror reads) and exported flat as `exports.qbcore:<fn>`.
+The authoritative player cache and the **single mutation funnel**, `Core.player.setPath`. Every money / job / metadata / inventory change in the whole framework routes through `setPath`, so dirty-tracking, delta replication, and `onChange` subscribers are all handled in exactly one place. Reads return **deep-cloned snapshots**, never the live handle, so an external resource can't mutate `PlayerData` out from under the funnel. Functions are split across realms (server = the funnel + lifecycle; client = mirror reads) and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -20,7 +20,7 @@ The authoritative player cache and the **single mutation funnel**, `Core.player.
 
 #### Example
 ```lua
-local ok, err = exports.qbcore:setPath(src, { 'metadata', 'stress' }, 20)
+local ok, err = exports.kora_core:setPath(src, { 'metadata', 'stress' }, 20)
 ```
 
 ### `Core.player.getPlayer(src)` — server
@@ -53,7 +53,7 @@ Reads a sub-path of a player's data without cloning the whole blob. With no `pat
 
 #### Example
 ```lua
-local hunger = exports.qbcore:getPlayerData(src, { 'metadata', 'hunger' })
+local hunger = exports.kora_core:getPlayerData(src, { 'metadata', 'hunger' })
 ```
 
 ### `Core.player.getPlayers()` — server
@@ -81,7 +81,7 @@ Subscribes to changes under a path prefix. `handler(src, path, value)` fires whe
 
 #### Example
 ```lua
-exports.qbcore:onChange({ 'money' }, function(src, path, value)
+exports.kora_core:onChange({ 'money' }, function(src, path, value)
     print(('%s money.%s = %s'):format(src, path[2], value))
 end)
 ```
@@ -122,11 +122,11 @@ UTF-8 text; birth date is a real non-future `YYYY-MM-DD`; gender is `0` or
 - `string | nil` — Failure reason.
 
 ### `Core.player.logout(src, options)` — server
-Logs a source out while keeping the connection. **Yields** until qbsql confirms a fresh snapshot of every mutable player column. Only then clears the logged-in state, fires unload events and evicts the character. Writes and durable provider operations are fenced while the save is pending. Failure or an uncertain save result retains the character and makes the snapshot retryable; callers must check the result before proceeding. A reused connection cannot be unloaded by an older pending call.
+Logs a source out while keeping the connection. **Yields** until kora_sql confirms a fresh snapshot of every mutable player column. Only then clears the logged-in state, fires unload events and evicts the character. Writes and durable provider operations are fenced while the save is pending. Failure or an uncertain save result retains the character and makes the snapshot retryable; callers must check the result before proceeding. A reused connection cannot be unloaded by an older pending call.
 
 #### Parameters
 - `src: integer`
-- `options: table | nil` — Optional `{ position = { x, y, z, h } }` from `qbhousing` or core itself. Coordinates must be finite numbers; omitted `h` defaults to zero. Housing supplies its server-validated exterior, which bypasses ped sampling inside the shell. Never forward client coordinates here. Other callers retain ordinary server-side position sampling.
+- `options: table | nil` — Optional `{ position = { x, y, z, h } }` from `kora_housing` or core itself. Coordinates must be finite numbers; omitted `h` defaults to zero. Housing supplies its server-validated exterior, which bypasses ped sampling inside the shell. Never forward client coordinates here. Other callers retain ordinary server-side position sampling.
 
 #### Returns
 - `boolean`
@@ -140,7 +140,7 @@ Handles a hard disconnect: immediate flush, then eviction. Wired to the `playerD
 - `reason: string | nil`
 
 ### `Core.player.isCoreReady()` — server
-Returns whether the core has finished its first-frame init — a readiness marker for consumers and `@qbcore/init.lua`.
+Returns whether the core has finished its first-frame init — a readiness marker for consumers and `@kora_core/init.lua`.
 
 #### Returns
 - `boolean`
@@ -191,7 +191,7 @@ Internally each online player is a `Player` handle (never exported — reads clo
 
 ## Additional native helpers
 
-- `exports.qbcore:setPlayerBucket(src, bucket)` moves the player, updates legacy bucket tracking, and notifies voice subscribers. Returns a boolean.
-- `exports.qbcore:savePlayer(src)` immediately saves the live player handle. Returns `(true)` or `(false, reason)`.
-- `exports.qbcore:getStarterItems()` returns a copy of the configured starter definitions.
-- Client `exports.qbcore:isWearingGloves()` uses the same drawable lists as the legacy check.
+- `exports.kora_core:setPlayerBucket(src, bucket)` moves the player, updates legacy bucket tracking, and notifies voice subscribers. Returns a boolean.
+- `exports.kora_core:savePlayer(src)` immediately saves the live player handle. Returns `(true)` or `(false, reason)`.
+- `exports.kora_core:getStarterItems()` returns a copy of the configured starter definitions.
+- Client `exports.kora_core:isWearingGloves()` uses the same drawable lists as the legacy check.

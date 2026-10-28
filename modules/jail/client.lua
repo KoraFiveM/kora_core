@@ -2,7 +2,7 @@
 -- half fires and renders a minimal containment: teleport into the cell,
 -- keep the player inside a radius for the sentence via a QB.zones sphere
 -- (leaving it teleports straight back), release the zone and notify on
--- jailRelease. No countdown UI/HUD of its own -- qbcore ships no NUI, same
+-- jailRelease. No countdown UI/HUD of its own -- kora_core ships no NUI, same
 -- as everywhere else; a job resource wanting a jail-time display reads
 -- Core.jail.getRemaining(src) itself.
 

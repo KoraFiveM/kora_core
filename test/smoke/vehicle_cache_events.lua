@@ -1,4 +1,4 @@
--- qblib cache -> legacy QBCore vehicle lifecycle bridge. This replaces the
+-- kora_lib cache -> legacy QBCore vehicle lifecycle bridge. This replaces the
 -- old client poll plus server relay, while preserving the local
 -- QBCore:Client:EnteringVehicle/EnteredVehicle/LeftVehicle and
 -- AbortVehicleEntering contracts legacy resources consume.

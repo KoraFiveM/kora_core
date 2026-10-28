@@ -17,7 +17,7 @@ local caller, activeOperation, storedFence, flushHook, flushCount = nil, false, 
 local identities = {}
 GetInvokingResource = function() return caller end
 Core.identity.primary = function(src) return identities[src] end
-exports.qbsql = { hasActivePlayerOperation = function() return activeOperation end }
+exports.kora_sql = { hasActivePlayerOperation = function() return activeOperation end }
 local originalSingle, originalEnqueue = QB.sql.single, QB.sql.enqueue
 QB.sql.single = function(sql, params)
     if sql:find('qbcore_player_column_operations', 1, true) and storedFence then
@@ -58,7 +58,7 @@ end
 
 h.test('housing logout confirms flush before unloading and preserves exterior over the ped sample', function()
     local src, live = player()
-    caller = 'qbhousing'
+    caller = 'kora_housing'
     Core.player.setPath(src, { 'money', 'bank' }, 345)
     flushHook = function()
         h.assertEqual(PI.handle(src), live)
@@ -91,7 +91,7 @@ end)
 
 h.test('failed flush keeps the session and final changes retryable', function()
     local src, live = player()
-    caller = 'qbhousing'
+    caller = 'kora_housing'
     Core.player.setPath(src, { 'money', 'bank' }, 789)
     local position = Core.util.deepClone(live.PlayerData.position)
     flushHook = function() return false, 'database unavailable' end
@@ -155,7 +155,7 @@ h.test('untrusted or nonfinite exterior overrides are rejected before persistenc
     local before = flushCount
     caller = 'untrusted-resource'
     h.assertFalse(Core.player.logout(src, options()))
-    caller = 'qbhousing'
+    caller = 'kora_housing'
     for _, bad in ipairs({ { x = 0/0, y = 0, z = 1 }, { x = 1, y = math.huge, z = 1 },
         { x = 1, y = 2, z = 3, h = '90' }, { x = '1', y = 2, z = 3 } }) do
         h.assertFalse(Core.player.logout(src, { position = bad }))
@@ -186,7 +186,7 @@ h.test('logout fences writes and new durable operations until acknowledgement', 
     flushHook = function()
         h.assertFalse(Core.player.setPath(src, { 'money', 'bank' }, 99999))
         h.assertFalse(Core.player.logout(src))
-        caller = 'qbinventory'
+        caller = 'kora_inventory'
         local token, code = Core.persistence.beginPlayerColumnOperation('logout-race', { live.citizenid }, { 'money' })
         h.assertEqual(token, nil); h.assertEqual(code, 'pending')
         caller = nil
@@ -280,7 +280,7 @@ end)
 h.test('stale login data refreshes persisted position and metadata after logout', function()
     local src, live = player()
     local stale = Core.util.deepClone(live.PlayerData)
-    caller = 'qbhousing'
+    caller = 'kora_housing'
     Core.player.setPath(src, { 'metadata', 'hunger' }, 42)
     h.assertTrue(Core.player.logout(src, options()))
     caller = nil

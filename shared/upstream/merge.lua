@@ -1,4 +1,4 @@
--- Merge the canonical qb-core defaults behind qbcore's purpose-built records.
+-- Merge the canonical qb-core defaults behind kora_core's purpose-built records.
 -- Existing definitions keep their values because they carry server-specific
 -- behaviour (service types, duty defaults, ballistics and container flags),
 -- while fields and whole records absent locally are filled from the snapshot.

@@ -1,6 +1,6 @@
 -- Core.permissions (server realm) -- the legacy QBCore permission vocabulary
 -- ('user'/'mod'/'admin'/'god') mapped onto ace principals under the
--- 'qbcore.' namespace. The generic ACE lookup lives in qblib
+-- 'qbcore.' namespace. The generic ACE lookup lives in kora_lib
 -- (modules/permissions) so other resources can share it under their own
 -- namespace; addPermission stays here because it needs Core.identity.
 

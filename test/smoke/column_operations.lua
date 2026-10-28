@@ -8,9 +8,9 @@ dofile('modules/player/shared.lua'); dofile('modules/inventory/shared.lua')
 dofile('modules/replication/server.lua'); dofile('modules/persistence/server.lua')
 dofile('modules/persistence/operations.lua'); dofile('modules/player/server.lua')
 dofile('modules/money/server.lua'); dofile('modules/inventory/server.lua')
-local caller = 'qbbanking'
+local caller = 'kora_banking'
 GetInvokingResource = function() return caller end
-exports.qbsql = { hasActivePlayerOperation = function() return false end }
+exports.kora_sql = { hasActivePlayerOperation = function() return false end }
 QB.sql.transactionChecked = function() return { success = true } end
 QB.sql.update = function() return 1 end
 local data = CoreInternal.player.freshData('DURABLE', 'license:durable', 1, {})
@@ -22,7 +22,7 @@ end
 h.test('only configured providers can fence supported player columns', function()
     caller = 'untrusted'
     h.assertEqual(Core.persistence.beginPlayerColumnOperation('x', { 'DURABLE' }, { 'money' }), nil)
-    caller = 'qbbanking'
+    caller = 'kora_banking'
     h.assertEqual(Core.persistence.beginPlayerColumnOperation('x', { 'DURABLE' }, { 'license' }), nil)
 end)
 
@@ -103,7 +103,7 @@ h.test('inventory fallback mutators cannot edit live item references while fence
     h.assertFalse(Core.inventory.setItems(1, {}))
     h.assertEqual(json.encode(Core.player.getPlayerData(1, { 'items' })), before)
     h.assertTrue(Core.persistence.finishPlayerColumnOperation(token, { DURABLE = { inventory = {} } }))
-    caller = 'qbbanking'
+    caller = 'kora_banking'
 end)
 
 h.test('flush failure releases the fence without publishing different money', function()
@@ -193,7 +193,7 @@ h.test('trusted inventory operations fence money, items and metadata together', 
     h.assertTrue(Core.player.setPath(1, { 'metadata', 'rep', 'dealer' }, 9))
     caller = 'untrusted'
     h.assertEqual(Core.persistence.beginPlayerColumnOperation('dealer-forged', { 'DURABLE' }, { 'metadata' }), nil)
-    caller = 'qbbanking'
+    caller = 'kora_banking'
 end)
 
 h.report('durable column operations')

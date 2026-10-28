@@ -1,7 +1,7 @@
 # Util module
 
 ## Overview
-The `QBCore.Shared.*` primitives (rounding, trimming, splitting, random-string generation) plus the small path helpers the player funnel is built on. Shared realm — identical on client and server, no natives, no side effects, so every function is deterministic and unit-testable. All functions are defined on `Core.util` and exported flat as `exports.qbcore:<fn>`.
+The `QBCore.Shared.*` primitives (rounding, trimming, splitting, random-string generation) plus the small path helpers the player funnel is built on. Shared realm — identical on client and server, no natives, no side effects, so every function is deterministic and unit-testable. All functions are defined on `Core.util` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 
@@ -17,7 +17,7 @@ Rounds `value` to `places` decimal places (default `0`). Returns `0` for a non-n
 
 #### Example
 ```lua
-exports.qbcore:round(12.3456, 2)   -- 12.35
+exports.kora_core:round(12.3456, 2)   -- 12.35
 ```
 
 ### `Core.util.trim(value)`
@@ -41,7 +41,7 @@ Splits `str` on a single-character `delimiter`. The delimiter is escaped interna
 
 #### Example
 ```lua
-local parts = exports.qbcore:splitStr('a.b.c', '.')   -- { 'a', 'b', 'c' }
+local parts = exports.kora_core:splitStr('a.b.c', '.')   -- { 'a', 'b', 'c' }
 ```
 
 ### `Core.util.randomStr(length)`
@@ -92,7 +92,7 @@ Reads a nested value by an array of keys. Returns `nil` if any segment along the
 
 #### Example
 ```lua
-local cash = exports.qbcore:pathGet(playerData, { 'money', 'cash' })
+local cash = exports.kora_core:pathGet(playerData, { 'money', 'cash' })
 ```
 
 ### `Core.util.pathSet(t, path, value)`
@@ -108,7 +108,7 @@ Writes `value` at a nested `path`, creating intermediate tables as needed. Retur
 
 #### Example
 ```lua
-local prev = exports.qbcore:pathSet(data, { 'metadata', 'hunger' }, 100)
+local prev = exports.kora_core:pathSet(data, { 'metadata', 'hunger' }, 100)
 ```
 
 ## Notes

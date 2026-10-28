@@ -91,7 +91,7 @@ end
 -- QBCore:*-named events are the legacy-compat protocol (real qb-core's own
 -- event names) -- their payload must be legacy-shaped, i.e. job/gang
 -- grade.level translated to zero-based (see Core.compat.toLegacyPlayerData's
--- comment; qbcore's internal model stays one-based throughout, including
+-- comment; kora_core's internal model stays one-based throughout, including
 -- `mirror` here -- this builds a translated VIEW for the event payload only,
 -- never mutates `mirror` itself). Guarded on the specific FUNCTION (not
 -- `Core.compat` itself -- Core is an auto-vivifying proxy, see build/

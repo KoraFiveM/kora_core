@@ -1,6 +1,6 @@
 -- Compatibility snapshot from qbcore-framework/qb-core main at
 -- 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf. Keep this keyed upstream shape
--- isolated; shared/upstream/merge.lua adapts it to qbcore's seed registry.
+-- isolated; shared/upstream/merge.lua adapts it to kora_core's seed registry.
 QBCoreUpstream = QBCoreUpstream or {}
 
 QBCoreUpstream.gangs = {

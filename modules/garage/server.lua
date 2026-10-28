@@ -4,7 +4,7 @@
 -- whether `citizenid` or `job` is set on a row (by convention, not enforced
 -- at the SQL level -- a row is expected to have exactly one of the two).
 --
--- spawnVehicle uses the raw CreateVehicle native, NEVER QB.entities (qblib's
+-- spawnVehicle uses the raw CreateVehicle native, NEVER QB.entities (kora_lib's
 -- entity spawner is explicitly local/non-networked) -- a duty or owned
 -- vehicle must be visible to every player, not just the one who spawned it.
 --

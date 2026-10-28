@@ -22,10 +22,10 @@ local money = read('modules/money/server.lua')
 local player = read('modules/player/server.lua')
 local invoker
 GetInvokingResource = function() return invoker end
-handle.resourceStates.qbinventory = 'started'
+handle.resourceStates.kora_inventory = 'started'
 
 local physical = {}
-exports.qbinventory = {
+exports.kora_inventory = {
     physicalCashCanImport = function(_, src, account, amount) return account == 'cash' and amount >= 0 end,
     physicalCashImport = function(_, src, account, amount) physical[src] = (physical[src] or 0) + amount; return true end,
     physicalCashGet = function(_, src, account) return account == 'cash' and (physical[src] or 0) or nil end,
@@ -51,7 +51,7 @@ h.test('only configured inventory provider can register physical cash', function
     h.assertTrue(money:find("account ~= Config.money.cashType", 1, true) ~= nil)
 end)
 h.test('existing ledger cash migrates once before physical mode activates', function()
-    invoker = 'qbinventory'
+    invoker = 'kora_inventory'
     h.assertTrue(Core.money.registerPhysicalCash('cash'))
     h.assertEqual(physical[1], Config.money.default.cash)
     h.assertEqual(Core.player.getPlayerData(1, { 'money', 'cash' }), 0)
@@ -154,10 +154,10 @@ h.test('a physical transfer that fails mid-way returns the tax leg to the sender
     -- 200 is affordable but the provider refuses the 190 move: the 10 already
     -- taken for tax must come back, leaving the sender exactly where they were.
     physical[1] = 200; physical[2] = 0
-    local realTransfer = exports.qbinventory.physicalCashTransfer
-    exports.qbinventory.physicalCashTransfer = function() return false, 'provider said no' end
+    local realTransfer = exports.kora_inventory.physicalCashTransfer
+    exports.kora_inventory.physicalCashTransfer = function() return false, 'provider said no' end
     local ok, err = Core.money.transferMoney(1, 2, 'cash', 200, 'transfer')
-    exports.qbinventory.physicalCashTransfer = realTransfer
+    exports.kora_inventory.physicalCashTransfer = realTransfer
     h.assertFalse(ok); h.assertEqual(err, 'provider said no')
     h.assertEqual(physical[1], 200, 'sender is fully restored')
     h.assertEqual(physical[2], 0)

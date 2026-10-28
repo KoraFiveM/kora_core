@@ -6,14 +6,14 @@
 -- `type` groups jobs into a SERVICE ('leo' covers police, sheriff and state
 -- troopers; 'ems' covers ambulance and fire). It is copied onto PlayerData.job
 -- by CoreInternal.player.buildJob and indexed by Core.jobs, so
--- `exports.qbcore:getPlayersByJobType('leo', true)` reaches every on-duty
+-- `exports.kora_core:getPlayersByJobType('leo', true)` reaches every on-duty
 -- member of every LEO job in one O(1) lookup -- which is what a dispatch system
 -- targets rather than enumerating job names. Read it off `PlayerData.job.type`.
 --
 -- `blip` is NOT copied onto PlayerData.job. The registry carries it through
 -- (Core.registry.registerShared stores a record as-is) but nothing reads it
 -- from player data, so a consumer that wants it must read the REGISTRY record
--- via `exports.qbcore:getShared('jobs', jobName)`. Same for any other extra
+-- via `exports.kora_core:getShared('jobs', jobName)`. Same for any other extra
 -- field added here.
 QBCoreSeed = QBCoreSeed or {}
 

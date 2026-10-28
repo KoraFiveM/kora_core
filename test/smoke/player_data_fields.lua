@@ -16,7 +16,7 @@ dofile('modules/persistence/server.lua')
 dofile('modules/player/server.lua')
 
 h.test('resource fields hydrate before the initial snapshot without becoming dirty columns', function()
-    invokingResource = 'qbskills'
+    invokingResource = 'kora_skills'
     local registered, err = Core.player.registerPlayerDataField('skills', function(src, citizenid)
         h.assertEqual(src, 1)
         h.assertEqual(citizenid, 'FIELD1')
@@ -39,7 +39,7 @@ h.test('only the registering resource can update its field', function()
     updated = Core.player.setPath(1, { 'skills' }, { mining = { level = 99 } })
     h.assertEqual(updated, false, 'generic setPath must also enforce field ownership')
 
-    invokingResource = 'qbskills'
+    invokingResource = 'kora_skills'
     updated = Core.player.setPlayerDataField(1, 'skills', { mining = { level = 5 } })
     h.assertTrue(updated)
     h.assertEqual(Core.player.getPlayerData(1, { 'skills', 'mining', 'level' }), 5)
@@ -47,7 +47,7 @@ h.test('only the registering resource can update its field', function()
 end)
 
 h.test('stopping the owner removes its replicated field', function()
-    TriggerEvent('onResourceStop', 'qbskills')
+    TriggerEvent('onResourceStop', 'kora_skills')
     h.assertEqual(Core.player.getPlayerData(1, { 'skills' }), nil)
 end)
 

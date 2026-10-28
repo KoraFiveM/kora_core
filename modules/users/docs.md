@@ -1,7 +1,7 @@
 # Users module
 
 ## Overview
-One row per identity (license), separate from a character -- a single license owns several `players` rows via `Core.multichar`. Currently the only thing tracked here is an optional per-license override for the character-slot cap, layered on top of the global `Config.identity.maxCharacters` default (e.g. a VIP allowance). Functions are defined on `Core.users` and exported flat as `exports.qbcore:<fn>`.
+One row per identity (license), separate from a character -- a single license owns several `players` rows via `Core.multichar`. Currently the only thing tracked here is an optional per-license override for the character-slot cap, layered on top of the global `Config.identity.maxCharacters` default (e.g. a VIP allowance). Functions are defined on `Core.users` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 

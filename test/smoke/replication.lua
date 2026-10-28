@@ -2,7 +2,7 @@
 -- delta apply / seq-gap resync / delete ops / legacy event. Because server and
 -- client both define Core.replication.*, they'd collide in one process -- so
 -- this file loads the SERVER realm, captures references, then loads the CLIENT
--- realm into a fresh Core (following qblib's same-name-across-realms workaround).
+-- realm into a fresh Core (following kora_lib's same-name-across-realms workaround).
 
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')

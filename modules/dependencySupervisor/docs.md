@@ -3,8 +3,8 @@
 ## Overview
 Restarts a resource when a dependency of that resource restarts mid-session.
 Built for legacy, unmodifiable resources (e.g. `qb-banking`) that cannot
-re-register themselves when `qbcore`,
-`qbinventory`, `qbtarget`, or `PolyZone` come back from a restart. Disabled
+re-register themselves when `kora_core`,
+`kora_inventory`, `kora_target`, or `PolyZone` come back from a restart. Disabled
 by default. Server only. No exported functions -- it's a single reactive
 `onResourceStart` handler.
 
@@ -17,10 +17,10 @@ Config.dependencySupervisor = {
     enabled = false,       -- must be explicitly turned on
     map = {
         -- providerResourceName = { dependentResourceName, ... }
-        qbinventory = { 'qb-banking' },
-        qbtarget = { 'qb-banking' },
+        kora_inventory = { 'qb-banking' },
+        kora_target = { 'qb-banking' },
         PolyZone = { },
-        qbcore = { 'qb-banking' },
+        kora_core = { 'qb-banking' },
     },
     cooldownMs = 15000,    -- min ms between two restarts of the SAME resource
 }

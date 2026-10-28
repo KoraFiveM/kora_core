@@ -8,7 +8,7 @@
 -- tax" block below for the model.
 
 local PI = CoreInternal.player
--- account -> qbinventory resource. A registration survives an unexpected
+-- account -> kora_inventory resource. A registration survives an unexpected
 -- provider stop so cash mutations fail closed instead of silently falling back
 -- to a second ledger balance.
 local physicalAccounts = {}
@@ -227,8 +227,8 @@ local function emitMoneyChange(src, account, amount, action, reason)
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
     -- Legacy third-party hook: stock qb-hud's money popup (and other old
-    -- resources) listen ONLY to this event, not the two above. Our own qbhud
-    -- uses the statebag mirror above instead (see qbhud/client/bridge/qbcore.lua),
+    -- resources) listen ONLY to this event, not the two above. Our own kora_hud
+    -- uses the statebag mirror above instead (see kora_hud/client/bridge/qbcore.lua),
     -- so this emission is purely for drop-in legacy resources.
     local isRemove = action == 'remove'
     TriggerClientEvent('hud:client:OnMoneyChange', src, account, amount, isRemove)
@@ -238,7 +238,7 @@ local function emitMoneyChange(src, account, amount, action, reason)
     end
 end
 
----Publish authoritative balances for state-bag consumers such as qbhud.
+---Publish authoritative balances for state-bag consumers such as kora_hud.
 ---Physical accounts are read from their registered provider, never the
 ---legacy PlayerData ledger.
 function Core.money.syncState(src)
@@ -295,7 +295,7 @@ end
 
 -- Called during provider activation and before a newly adopted player's first
 -- snapshot. It converts a legacy money-column balance exactly once by setting
--- that column to zero only after qbinventory has accepted the matching item
+-- that column to zero only after kora_inventory has accepted the matching item
 -- stack. A full inventory rejects login/activation rather than losing money.
 function Core.money.migratePhysicalCash(src)
     local player = PI.handle(src)

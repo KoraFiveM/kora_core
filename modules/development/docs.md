@@ -4,9 +4,9 @@ Development mode is an ephemeral, per-player convenience activated by a server
 export:
 
 ```lua
-local ok, err = exports.qbcore:setDevMode(source, true)
-local enabled = exports.qbcore:isDevMode(source)
-exports.qbcore:setDevMode(source, false)
+local ok, err = exports.kora_core:setDevMode(source, true)
+local enabled = exports.kora_core:isDevMode(source)
+exports.kora_core:setDevMode(source, false)
 ```
 
 For that player while enabled:
@@ -20,8 +20,8 @@ The mode does not overwrite hunger/thirst metadata. Explicit changes from
 consumables, scripts, or admin tools still work; only core's passive decay and
 damage are suppressed. Disabling through the export restores the normal ped
 move rate and damage state immediately. State is cleared on disconnect or a
-qbcore restart and is never persisted.
+kora_core restart and is never persisted.
 
-Client resources can read the local state with `exports.qbcore:isDevMode()`.
+Client resources can read the local state with `exports.kora_core:isDevMode()`.
 Activation remains server-only so the calling resource can enforce its own
 permission policy.

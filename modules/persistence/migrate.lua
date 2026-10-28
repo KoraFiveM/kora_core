@@ -1,6 +1,6 @@
--- Runs qbcore's own SQL migrations at boot via qbsql's migration runner. Loaded
+-- Runs kora_core's own SQL migrations at boot via kora_sql's migration runner. Loaded
 -- as part of the persistence module (server realm). Migrations are read from
--- sql/*.sql with LoadResourceFile and checksummed Lua-side; qbsql aborts on a
+-- sql/*.sql with LoadResourceFile and checksummed Lua-side; kora_sql aborts on a
 -- checksum mismatch for an already-applied version.
 --
 -- CHECKSUM: FiveM Lua has no built-in SHA, and we only need change-DETECTION for
@@ -109,7 +109,7 @@ MIGRATIONS[#MIGRATIONS + 1] = { version = 10, name = 'player_column_operations',
 
 CreateThread(function()
     -- MySQL may still be starting alongside FXServer. Keep the migration
-    -- worker alive so qbsql's reconnect can recover the whole stack without a
+    -- worker alive so kora_sql's reconnect can recover the whole stack without a
     -- resource/server restart. The timed waits retain a useful status message.
     while not QB.sql.ready(60000) do
         print('^3[qbcore:migrate]^7 still waiting for qbsql; migrations will resume automatically.')
@@ -132,8 +132,8 @@ CreateThread(function()
             print(('^1[qbcore:migrate]^7 vehicle sync trigger setup failed: %s'):format(tostring(triggerErr)))
         end
         print('^2[qbcore:migrate]^7 schema up to date.')
-        -- Warm qbsql's prepared cache with the hot player statements.
-        exports.qbsql:prepareWarm({
+        -- Warm kora_sql's prepared cache with the hot player statements.
+        exports.kora_sql:prepareWarm({
             'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL',
             'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
         })
