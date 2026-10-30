@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs every qbcore smoke test with plain Lua (no busted). Exits non-zero on any
 # failure. Each file loads only the module(s) it exercises, in one realm, to
-# avoid the same-name-across-realms collision (see qblib AGENTS.md).
+# avoid the same-name-across-realms collision (see kora_lib AGENTS.md).
 set -uo pipefail
 dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 lua_bin="${LUA:-lua}"

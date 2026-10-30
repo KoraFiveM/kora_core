@@ -256,7 +256,7 @@ default while per-player development mode is active).
 
 ## Portability (reuse beyond GTA5/FiveM)
 
-kora_core/qblib target FiveM today; this section is a status snapshot for anyone
+kora_core/kora_lib target FiveM today; this section is a status snapshot for anyone
 weighing whether the "core" (permissions, player data/callback plumbing,
 money, jobs/gangs, commands, registry) could realistically be reused on
 RedM — Cfx.re's other platform, same Lua/`fxmanifest`/`exports`/`TriggerEvent`

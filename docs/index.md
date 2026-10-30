@@ -14,7 +14,7 @@ for new code, or `exports['qb-core']:GetCoreObject()` for legacy resources.
 
 ## Requirements
 
-- [qblib](https://qbcore2.github.io/kora_lib/)
+- [kora_lib](https://qbcore2.github.io/kora_lib/)
 - [qbsql](https://qbcore2.github.io/kora_sql/)
 
 ## Installation
@@ -339,7 +339,7 @@ virtual columns).
 
 Part of the [qbcore2](https://github.com/qbcore2) resource set:
 
-- [qblib](https://qbcore2.github.io/kora_lib/) — shared helper library
+- [kora_lib](https://qbcore2.github.io/kora_lib/) — shared helper library
 - [qbsql](https://qbcore2.github.io/kora_sql/) — database driver
 - [qbinventory](https://qbcore2.github.io/kora_inventory/) — headless inventory
 - [qbtarget](https://qbcore2.github.io/kora_target/) — targeting/interaction

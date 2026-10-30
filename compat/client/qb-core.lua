@@ -43,7 +43,7 @@ QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
 
 -- legacyClientCallbacks is CreateClientCallback's single source of truth --
 -- mirrors legacyCallbacks in compat/server/qb-core.lua. CreateClientCallback
--- stores the handler here (keyed by name); both the qblib-registered wrapper
+-- stores the handler here (keyed by name); both the kora_lib-registered wrapper
 -- below AND the raw QBCore:Client:TriggerClientCallback net event handler
 -- look the CURRENT handler up from this table at dispatch time instead of
 -- closing over it, so a later CreateClientCallback call for the same name (a

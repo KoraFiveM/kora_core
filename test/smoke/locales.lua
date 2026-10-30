@@ -29,7 +29,7 @@ H.test('registers the player language command', function()
     H.assertTrue(type(commands.language) == 'function')
 end)
 
-H.test('selector saves a language through qblib rather than PlayerData', function()
+H.test('selector saves a language through kora_lib rather than PlayerData', function()
     commands.language()
     H.assertEqual(selected, 'de')
     H.assertEqual(notices[#notices].type, 'success')

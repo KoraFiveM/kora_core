@@ -7,7 +7,7 @@ name 'kora_core'
 provide 'qbcore'
 author 'Jamie'
 version '1.0.0'
-description 'Player/framework core built on qblib, persisted through qbsql'
+description 'Player/framework core built on kora_lib, persisted through qbsql'
 
 dependency 'kora_lib'
 dependency 'kora_sql'

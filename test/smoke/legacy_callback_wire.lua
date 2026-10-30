@@ -60,9 +60,9 @@ dofile('compat/server/qb-core.lua')
 -- already loaded.
 _G.CreateThread = function(fn) fn() end
 
-local function invokeViaQblib(name, src, ...)
+local function invokeViaKoraLib(name, src, ...)
     local handler = registered[name]
-    assert(handler, 'qblib callback ' .. tostring(name) .. ' was not registered')
+    assert(handler, 'kora_lib callback ' .. tostring(name) .. ' was not registered')
     local results = table.pack(pcall(handler, src, ...))
     assert(results[1], results[2])
     return table.unpack(results, 2, results.n)
@@ -82,9 +82,9 @@ h.test('raw QBCore:Server:TriggerCallback reaches a CreateCallback handler and r
     h.assertEqual(ev.args[2], 42, 'the reply must carry the responder value')
 end)
 
-h.test('the same CreateCallback handler is also reachable through the qblib bridge (one registration, two transports)', function()
-    local a = invokeViaQblib('test:x', 3, 10)
-    h.assertEqual(a, 20, 'the qblib transport must dispatch to the SAME registered handler')
+h.test('the same CreateCallback handler is also reachable through the kora_lib bridge (one registration, two transports)', function()
+    local a = invokeViaKoraLib('test:x', 3, 10)
+    h.assertEqual(a, 20, 'the kora_lib transport must dispatch to the SAME registered handler')
 end)
 
 h.test('a non-string callback name on the raw wire does not error', function()
@@ -110,8 +110,8 @@ h.test('re-registering CreateCallback for the same name (a resource restart) upd
     QBCore.Functions.CreateCallback('test:restart', function(source, cb) cb('first') end)
     QBCore.Functions.CreateCallback('test:restart', function(source, cb) cb('second') end)
 
-    local viaQblib = invokeViaQblib('test:restart', 1)
-    h.assertEqual(viaQblib, 'second', 'the qblib transport must use the NEWEST handler')
+    local viaKoraLib = invokeViaKoraLib('test:restart', 1)
+    h.assertEqual(viaKoraLib, 'second', 'the kora_lib transport must use the NEWEST handler')
 
     handle.fireEvent('QBCore:Server:TriggerCallback', 1, 'test:restart')
     local ev = handle.lastClient('QBCore:Client:TriggerCallback')

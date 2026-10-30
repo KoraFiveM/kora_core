@@ -588,7 +588,7 @@ end
 -- one incoming request.
 --
 -- legacyCallbacks is the single source of truth: CreateCallback stores the
--- handler here (keyed by name), and BOTH the qblib-registered wrapper below
+-- handler here (keyed by name), and BOTH the kora_lib-registered wrapper below
 -- and the raw net event handler look the current handler up from this table
 -- at dispatch time rather than closing over it -- so a later CreateCallback
 -- call for the same name (a legitimate resource restart) updates what both

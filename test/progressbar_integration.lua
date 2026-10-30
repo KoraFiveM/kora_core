@@ -1,5 +1,5 @@
--- Run from qbcore: lua test/progressbar_integration.lua /path/to/qblib
-local qblib = assert(arg[1], 'pass the qblib resource directory')
+-- Run from qbcore: lua test/progressbar_integration.lua /path/to/kora_lib
+local kora_lib = assert(arg[1], 'pass the kora_lib resource directory')
 local h = dofile('test/harness.lua')
 local handle = dofile('test/mocks.lua').install({ client = true })
 dofile('config.lua')
@@ -39,7 +39,7 @@ QB.progressbar.cancel = function(owner)
     cancelled = true
 end
 resource = 'kora_lib'
-dofile(qblib .. '/compat/client/progressbar.lua')
+dofile(kora_lib .. '/compat/client/progressbar.lua')
 resource = 'kora_core'
 local provider
 TriggerEvent('__cfx_export_progressbar_Progress', function(fn) provider = fn end)
