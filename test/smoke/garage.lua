@@ -19,6 +19,7 @@ local nextStateTransitionAffected
 local deletedEntities = {}
 local encodedJson = {}
 local nextJsonId = 0
+local nextRowId = 0
 
 local function clone(t)
     local c = {}
@@ -30,8 +31,9 @@ handle.Kora.sql.execute = function(sql, params)
     if sql:find('INSERT INTO `player_vehicles`', 1, true) then
         local plate, model, vehicle, citizenid, job, fuel, engineHealth, bodyHealth = table.unpack(params)
         if rows[plate] then return nil, 'duplicate plate' end
+        nextRowId = nextRowId + 100
         rows[plate] = {
-            plate = plate, model = model, vehicle = vehicle, citizenid = citizenid, job = job,
+            id = nextRowId, plate = plate, model = model, vehicle = vehicle, citizenid = citizenid, job = job,
             state = 'garaged', fuel = fuel, engine_health = engineHealth, body_health = bodyHealth,
             mods = nil, last_position = nil, impound_fee = nil, impound_lot = nil, deleted_at = nil,
         }
@@ -122,7 +124,14 @@ handle.Kora.sql.query = function(sql, params)
 end
 
 _G.CreateVehicle = function(model, x, y, z, heading) return 42 end
-_G.DoesEntityExist = function() return true end
+local entityExists = true
+_G.DoesEntityExist = function() return entityExists end
+local bagWrites = {}
+_G.Entity = function(e)
+    return { state = { set = function(_, key, value, replicated)
+        bagWrites[#bagWrites + 1] = { entity = e, key = key, value = value, replicated = replicated }
+    end } }
+end
 _G.DeleteEntity = function(entity) deletedEntities[#deletedEntities + 1] = entity end
 _G.SetVehicleNumberPlateText = function() end
 _G.SetVehicleFuelLevel, _G.SetVehicleEngineHealth = nil, nil
@@ -197,6 +206,49 @@ h.test('spawnVehicle leaves durable state garaged when no positive network id ap
     h.assertEqual(err, 'failed to network vehicle')
     h.assertEqual(deletedEntities[#deletedEntities], 42)
     h.assertEqual(Core.garage.getByPlate('NONET1').state, 'garaged')
+end)
+
+h.test('spawnVehicle sets the non-replicated vehicleid state bag to the row id', function()
+    Core.garage.createVehicle('CID1', 'police', 'BAG001')
+    local id = Core.garage.getByPlate('BAG001').id
+    h.assertTrue(math.type(id) == 'integer')
+    bagWrites = {}
+    h.assertTrue(Core.garage.spawnVehicle(1, 'BAG001', { x = 0, y = 0, z = 0 }, 0.0))
+    h.assertEqual(#bagWrites, 1)
+    h.assertEqual(bagWrites[1].entity, 42)
+    h.assertEqual(bagWrites[1].key, 'vehicleid')
+    h.assertEqual(bagWrites[1].value, id)
+    h.assertTrue(bagWrites[1].replicated == false, 'bag must be server-only (replicated=false)')
+end)
+
+h.test('convar kora:vehicleIdStateBag=0 disables the state bag', function()
+    Core.garage.createVehicle('CID1', 'police', 'BAG002')
+    local original = _G.GetConvarInt
+    _G.GetConvarInt = function(name, default) if name == 'kora:vehicleIdStateBag' then return 0 end return default end
+    bagWrites = {}
+    local networkId = Core.garage.spawnVehicle(1, 'BAG002', { x = 0, y = 0, z = 0 }, 0.0)
+    _G.GetConvarInt = original
+    h.assertTrue(networkId ~= false)
+    h.assertEqual(#bagWrites, 0)
+    h.assertEqual(Core.garage.getByPlate('BAG002').state, 'out')
+end)
+
+h.test('state bag is not set when the spawn or the DB transition fails', function()
+    Core.garage.createVehicle('CID1', 'police', 'BAG003')
+    bagWrites = {}
+    nextStateTransitionAffected = 0
+    h.assertFalse(Core.garage.spawnVehicle(1, 'BAG003', { x = 0, y = 0, z = 0 }, 0.0))
+    networkIdOverride = 0
+    h.assertFalse(Core.garage.spawnVehicle(1, 'BAG003', { x = 0, y = 0, z = 0 }, 0.0))
+    networkIdOverride = nil
+    entityExists = false
+    h.assertFalse(Core.garage.spawnVehicle(1, 'BAG003', { x = 0, y = 0, z = 0 }, 0.0))
+    entityExists = true
+    h.assertEqual(#bagWrites, 0)
+    h.assertFalse(Core.garage.tagVehicle(0, 100))
+    h.assertFalse(Core.garage.tagVehicle(42, 'abc'))
+    h.assertFalse(Core.garage.tagVehicle(42, nil))
+    h.assertEqual(#bagWrites, 0)
 end)
 
 h.test('storeVehicle garages the vehicle and snapshots its condition', function()

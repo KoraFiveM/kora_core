@@ -142,6 +142,23 @@ function Core.garage.storeVehicle(plate, snapshot)
     return true
 end
 
+---Tags a spawned owned-vehicle entity with its `player_vehicles.id` as the
+---server-only (non-replicated) `vehicleid` state bag, which stock ox_inventory
+---reads before falling back to a per-open SQL lookup. Inert when convar
+---`kora:vehicleIdStateBag` is 0. Callers must only tag after the entity exists
+---and the row's state update succeeded.
+---@param entity integer
+---@param id integer `player_vehicles.id`
+---@return boolean tagged
+function Core.garage.tagVehicle(entity, id)
+    if GetConvarInt('kora:vehicleIdStateBag', 1) == 0 then return false end
+    id = math.tointeger(tonumber(id))
+    if not id or id < 1 then return false end
+    if type(entity) ~= 'number' or entity == 0 or not DoesEntityExist(entity) then return false end
+    Entity(entity).state:set('vehicleid', id, false)
+    return true
+end
+
 ---Spawns `plate` as a real, networked entity and marks it `out`. Refuses an
 ---impounded vehicle -- retrieve it via Core.garage.retrieveImpound first.
 ---@param src integer
@@ -196,6 +213,8 @@ function Core.garage.spawnVehicle(src, plate, coords, heading, expectedOwner)
             vehicle = nil
             return false, err or 'vehicle is no longer available'
         end
+
+        Core.garage.tagVehicle(vehicle, row.id)
 
         TriggerClientEvent('qbcore:client:vehicleCondition', src, resolvedNetworkId, row.fuel + 0.0, row.engine_health + 0.0)
         return resolvedNetworkId
