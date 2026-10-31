@@ -44,4 +44,4 @@ it; that is the gateway work in plan item 1.7 (G-BR9).
 ## Not covered here
 - Inactive kora_multijob roster entries are not groups.
 - `Entity(veh).state.vehicleid` is not set; ox falls back to `GetVehicleIdByPlate`.
-- Optional DDL: `sql/011_vehicle_inventory_columns.sql` (unregistered, never auto-run; ox adds the columns itself).
+- Optional DDL: `sql/optional/qbx_vehicle_inventory_columns.sql` (unregistered, never auto-run; ox adds the columns itself).
