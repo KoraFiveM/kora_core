@@ -1,6 +1,6 @@
 -- Core.jail (client realm) -- receives the two pushes Core.jail's server
 -- half fires and renders a minimal containment: teleport into the cell,
--- keep the player inside a radius for the sentence via a QB.zones sphere
+-- keep the player inside a radius for the sentence via a Kora.zones sphere
 -- (leaving it teleports straight back), release the zone and notify on
 -- jailRelease. No countdown UI/HUD of its own -- kora_core ships no NUI, same
 -- as everywhere else; a job resource wanting a jail-time display reads
@@ -22,7 +22,7 @@ RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds
 
     SetEntityCoords(PlayerPedId(), coords.x, coords.y, coords.z, false, false, false, false)
 
-    containmentZone = QB.zones.sphere({
+    containmentZone = Kora.zones.sphere({
         coords = coords,
         radius = CONTAINMENT_RADIUS,
         onExit = function()
@@ -31,12 +31,12 @@ RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds
         end,
     })
 
-    QB.notify.send({ message = ('You have been jailed for %d minutes.'):format(math.ceil(remainingSeconds / 60)), type = 'error' })
+    Kora.notify.send({ message = ('You have been jailed for %d minutes.'):format(math.ceil(remainingSeconds / 60)), type = 'error' })
 end)
 
 RegisterNetEvent('qbcore:client:jailRelease', function()
     clearContainment()
-    QB.notify.send({ message = 'You have been released.', type = 'success' })
+    Kora.notify.send({ message = 'You have been released.', type = 'success' })
 end)
 
 AddEventHandler('QBCore:Client:OnPlayerUnload', function()

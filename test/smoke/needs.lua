@@ -122,7 +122,7 @@ end
 Core.player.getPlayerData = function() return metadata end
 Core.development.isDevMode = function() return devMode end
 _G.PlayerPedId = function() return 42 end
-_G.QB = { cache = { ped = function() return 42 end } }
+_G.Kora = { cache = { ped = function() return 42 end } }
 _G.IsEntityDead = function() return pedDead end
 _G.ApplyDamageToPed = function(ped, damage, armourFirst)
     damageCalls[#damageCalls + 1] = { ped = ped, damage = damage, armourFirst = armourFirst }

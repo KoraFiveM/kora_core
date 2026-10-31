@@ -2,8 +2,8 @@
 -- after the server has committed the garage take-out.
 RegisterNetEvent('qbcore:client:vehicleCondition', function(netId, fuel, engineHealth)
     if source ~= 65535 then return end
-    if not QB.util.isFiniteNumber(netId) or netId <= 0 or netId % 1 ~= 0
-        or not QB.util.isFiniteNumber(fuel) or not QB.util.isFiniteNumber(engineHealth) then return end
+    if not Kora.util.isFiniteNumber(netId) or netId <= 0 or netId % 1 ~= 0
+        or not Kora.util.isFiniteNumber(fuel) or not Kora.util.isFiniteNumber(engineHealth) then return end
 
     CreateThread(function()
         local deadline = GetGameTimer() + 5000
@@ -18,7 +18,7 @@ RegisterNetEvent('qbcore:client:vehicleCondition', function(netId, fuel, engineH
             print('[qbcore] Could not stream the garage vehicle to restore its condition.')
             return
         end
-        local controlled, reason = QB.entities.requestControl(vehicle, 1000)
+        local controlled, reason = Kora.entities.requestControl(vehicle, 1000)
         if not controlled then
             print(('[qbcore] Could not restore garage vehicle condition: %s'):format(reason or 'no entity control'))
             return

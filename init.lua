@@ -1,5 +1,5 @@
 -- '@kora_core/init.lua' -- installs a LIVE-UPDATING shared-registry mirror into the
--- consumer's own Lua VM, as QB.shared.*. This is what the /ideas file and the
+-- consumer's own Lua VM, as Kora.shared.*. This is what the /ideas file and the
 -- user's follow-up ask for: shared items/vehicles/jobs lists that are
 -- updateable at runtime from any resource and have change handlers "across other
 -- resources that have called on the shared list" fire automatically.
@@ -8,8 +8,8 @@
 --     shared_script '@kora_lib/init.lua'
 --     shared_script '@kora_core/init.lua'
 --
--- WHY THIS WORKS (same trick as @kora_sql/init.lua): kora_lib's `QB` table has a
--- metatable with only __index (no __newindex), so `QB.shared = {...}` here is a
+-- WHY THIS WORKS (same trick as @kora_sql/init.lua): kora_lib's `Kora` table has a
+-- metatable with only __index (no __newindex), so `Kora.shared = {...}` here is a
 -- plain rawset in the consumer's VM. The mirror is a set of LOCAL tables patched
 -- by a delta event, and onChange handlers are dispatched IN-VM -- no boundary
 -- crossing per read or per dispatch, and handlers die naturally with the
@@ -21,9 +21,9 @@
 -- restart (which bumps the epoch and re-broadcasts a snapshot) triggers a local
 -- re-seed rather than silent drift.
 
-assert(QB, '@kora_core/init.lua must be loaded AFTER @kora_lib/init.lua (add its shared_script first).')
+assert(Kora, '@kora_core/init.lua must be loaded AFTER @kora_lib/init.lua (add its shared_script first).')
 
-QB.shared = QB.shared or {}
+Kora.shared = Kora.shared or {}
 
 -- name -> { list = {}, index = {}, epoch = 0 }
 local mirror = {}
@@ -43,7 +43,7 @@ end
 local function reseed(name, keyField, records, epoch)
     local m = ensure(name)
     -- Preserve the array reference across a full resync. Consumers should call
-    -- QB.shared.all() when building a list, but an accidental cached reference
+    -- Kora.shared.all() when building a list, but an accidental cached reference
     -- should still observe the newest snapshot rather than freeze forever.
     for i = #m.list, 1, -1 do m.list[i] = nil end
     m.index = {}
@@ -108,13 +108,13 @@ local function applyDelta(name, action, key, record, epoch)
     end
 end
 
--- --- public QB.shared API (local, in-VM) ---
+-- --- public Kora.shared API (local, in-VM) ---
 
 ---Read one record by key. Plain local hash lookup -- ZERO boundary crossing.
 ---@param name string
 ---@param key string
 ---@return table|nil
-function QB.shared.get(name, key)
+function Kora.shared.get(name, key)
     local m = mirror[name]
     if not m then return nil end
     local pos = m.index[key]
@@ -124,14 +124,14 @@ end
 ---The dense array of records (live -- do not mutate; use register()).
 ---@param name string
 ---@return table[]
-function QB.shared.all(name)
+function Kora.shared.all(name)
     local m = mirror[name]
     return m and m.list or {}
 end
 
 ---@param name string
 ---@return integer
-function QB.shared.epoch(name)
+function Kora.shared.epoch(name)
     local m = mirror[name]
     return m and m.epoch or 0
 end
@@ -142,14 +142,14 @@ end
 ---@param key string
 ---@param record table
 ---@return boolean, string|nil
-function QB.shared.register(name, key, record)
+function Kora.shared.register(name, key, record)
     return exports.kora_core:registerShared(name, key, record)
 end
 
 ---@param name string
 ---@param key string
 ---@return boolean
-function QB.shared.unregister(name, key)
+function Kora.shared.unregister(name, key)
     return exports.kora_core:unregisterShared(name, key)
 end
 
@@ -159,7 +159,7 @@ end
 ---@param name string
 ---@param handler fun(action:string, key:string, record:table|nil, previous:table|nil)
 ---@return integer
-function QB.shared.onChange(name, handler)
+function Kora.shared.onChange(name, handler)
     ensure(name)
     local id = nextSubId
     nextSubId = nextSubId + 1
@@ -169,7 +169,7 @@ end
 
 ---@param name string
 ---@param id integer
-function QB.shared.offChange(name, id)
+function Kora.shared.offChange(name, id)
     if subs[name] then subs[name][id] = nil end
 end
 

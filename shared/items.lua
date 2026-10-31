@@ -1,7 +1,7 @@
 -- Default item definitions. Plain data, no Core dependency -- loaded before
 -- the server registry module, which registers every record through the runtime
 -- mutation API. Other resources extend the same registry with
--- QB.shared.register('items', ...).
+-- Kora.shared.register('items', ...).
 QBCoreSeed = QBCoreSeed or {}
 
 -- Temporary remote artwork catalogue. `image` remains the legacy local-file
@@ -122,7 +122,7 @@ function QBCoreSeed.imageUrl(name)
 end
 
 -- Native ammo type -> kora_inventory item id. The six magazine records use the
--- long-standing QB names (`snp_ammo` is deliberately retained for backwards
+-- long-standing Kora names (`snp_ammo` is deliberately retained for backwards
 -- compatibility). Specialised ammunition is included as stockable data too,
 -- but shops decide what to sell; defining it here does not make it available.
 QBCoreSeed.ammoItems = {

@@ -11,7 +11,7 @@ local stats = { seq = 0, resyncs = 0, opsApplied = 0, lastDeltaAt = 0 }
 local subscribers = {}
 local nextSubId = 1
 
-local isCallable = QB.util.isCallable
+local isCallable = Kora.util.isCallable
 
 local function pathGet(t, path)
     local node = t

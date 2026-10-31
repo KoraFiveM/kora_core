@@ -20,7 +20,7 @@ exports.kora_core:transaction(source, {
 })
 ```
 
-The pool is rolled once with `QB.rewards.generate` in percent mode, allowing
+The pool is rolled once with `Kora.rewards.generate` in percent mode, allowing
 an empty result. Each item's `chance` is an independent percentage in `(0, 100]`.
 Entries without a chance split 100% equally among themselves; explicit chances
 do not reduce that share. In this example, water and bread each have a 50%

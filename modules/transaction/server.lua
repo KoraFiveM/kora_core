@@ -45,13 +45,13 @@ function Core.transaction(src, transaction)
             elseif type(minimum) == 'table' then
                 minimum, maximum = minimum.min, minimum.max
             end
-            if not QB.util.isInteger(minimum) or not QB.util.isInteger(maximum) or minimum <= 0 or maximum < minimum then
+            if not Kora.util.isInteger(minimum) or not Kora.util.isInteger(maximum) or minimum <= 0 or maximum < minimum then
                 return false, 'random item amount must be a positive whole number or an integer range'
             end
         end
         if next(random) ~= nil then
             -- Allow all bonuses to miss rather than forcing a fallback reward.
-            local ok, rewards = pcall(QB.rewards.generate, random, { mode = 'percent', allowNone = true })
+            local ok, rewards = pcall(Kora.rewards.generate, random, { mode = 'percent', allowNone = true })
             if not ok then return false, tostring(rewards) end
             local combined = {}
             for index, entry in ipairs(entries(itemAdds)) do combined[index] = entry end

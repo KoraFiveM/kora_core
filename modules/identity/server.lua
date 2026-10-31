@@ -56,7 +56,7 @@ function Core.identity.recordIdentifiers(citizenid, ids)
         end
     end
     if #rows > 0 then
-        QB.sql.enqueueMany('player_identifiers', { 'citizenid', 'kind' }, rows, { mode = 'assign' })
+        Kora.sql.enqueueMany('player_identifiers', { 'citizenid', 'kind' }, rows, { mode = 'assign' })
     end
 end
 
@@ -66,7 +66,7 @@ end
 ---@param value string
 ---@return string[]
 function Core.identity.findByIdentifier(kind, value)
-    local rows = QB.sql.query(
+    local rows = Kora.sql.query(
         'SELECT `citizenid` FROM `player_identifiers` WHERE `kind` = ? AND `value` = ?',
         { kind, value }
     ) or {}

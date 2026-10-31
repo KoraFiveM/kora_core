@@ -3,7 +3,7 @@
 ## What this is
 The framework core: player management, money, jobs/gangs, metadata, inventory,
 shared registries, and full backwards compatibility with legacy QBCore. Built ON
-kora_lib (reusable helpers live in `QB.*`, not reimplemented here) and persisted
+kora_lib (reusable helpers live in `Kora.*`, not reimplemented here) and persisted
 through kora_sql. Every public function is a flat export: `exports.kora_core:getPlayer(src)`.
 
 ## The three load-bearing ideas
@@ -36,7 +36,7 @@ near-zero cost.
 byte-identical-JSON gate mean a save encodes each column at most once and only
 when it actually changed. A reverted change writes nothing. Position is sampled
 server-side (OneSync) at flush time and only persisted past a movement epsilon.
-Dirty rows across all players flush in ONE `QB.sql.enqueueMany` — one Lua→JS
+Dirty rows across all players flush in ONE `Kora.sql.enqueueMany` — one Lua→JS
 boundary crossing — which kora_sql then coalesces into a handful of batched upserts.
 
 ## Export namespace discipline
@@ -63,17 +63,17 @@ under the mocks (see `test/`); it lists every exported name.
   useables, registry entries, subscriptions).
 - `QBCore.Shared.Items/Vehicles/Jobs/Gangs/Weapons` are legacy-only live views.
   New code always calls `Core.registry.getShared`/`allShared` or
-  `QB.shared.get`/`all`; never index or capture those compatibility maps.
+  `Kora.shared.get`/`all`; never index or capture those compatibility maps.
 - Client helper functions (`GetClosestPed`, `Draw3DText`, `Progressbar`, ...) are
-  thin forwards to `QB.*`, not reimplementations.
+  thin forwards to `Kora.*`, not reimplementations.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,
   and hijacking the name would disable a real character-select UI.
 
 ## Shared registries and `@kora_core/init.lua`
 The `/ideas` requirement — shared items/vehicles/jobs lists, runtime-updatable,
 tracked across resources — is met by `Core.registry` (server-authoritative) plus
-`@kora_core/init.lua`, which installs a LIVE-updating local mirror as `QB.shared.*`
-into any consumer's VM (same rawset trick as `@kora_sql/init.lua`; kora_lib's `QB`
+`@kora_core/init.lua`, which installs a LIVE-updating local mirror as `Kora.shared.*`
+into any consumer's VM (same rawset trick as `@kora_sql/init.lua`; kora_lib's `Kora`
 metatable has only `__index`). A registration broadcasts a delta; the mirror
 patches locally and fires in-VM `onChange` handlers — so a change made in one
 resource is seen, with handlers firing, in every resource that uses the list.

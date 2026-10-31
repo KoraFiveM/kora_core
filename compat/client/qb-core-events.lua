@@ -34,7 +34,7 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
 
     -- Fade screen to hide how clients get teleported.
     DoScreenFadeOut(650)
-    local faded = QB.loops.controlled(IsScreenFadedOut, false, 2000, 25)
+    local faded = Kora.loops.controlled(IsScreenFadedOut, false, 2000, 25)
     if not faded then
         DoScreenFadeIn(0)
         return QBCore.Functions.Notify('Unable to begin waypoint teleport', 'error', 5000)
@@ -198,7 +198,7 @@ end)
 -- client loop and server relay alive just to re-fire these local QBCore events.
 -- The legacy event names and payload shape remain unchanged for vehiclekeys,
 -- fuel, seatbelt, garage, and other QBCore-era consumers.
-local lastVehicleSeat = QB.cache.seat()
+local lastVehicleSeat = Kora.cache.seat()
 
 local function emitVehicleInfo(event, vehicle, seat)
     local modelName = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
@@ -214,15 +214,15 @@ local function emitVehicleInfo(event, vehicle, seat)
     })
 end
 
-QB.cache.onChange('seat', function(seat)
+Kora.cache.onChange('seat', function(seat)
     -- On exit the cache intentionally updates seat before vehicle, so retain
     -- the last occupied seat for the forthcoming LeftVehicle payload.
     if seat ~= false then lastVehicleSeat = seat end
 end)
 
-QB.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
+Kora.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
     if vehicle then
-        emitVehicleInfo('Entering', vehicle, QB.cache.enteringSeat())
+        emitVehicleInfo('Entering', vehicle, Kora.cache.enteringSeat())
         return
     end
 
@@ -231,16 +231,16 @@ QB.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
         -- actual vehicle. Deferring one scheduler turn distinguishes a
         -- completed entry from an aborted animation without a second poll.
         SetTimeout(0, function()
-            if not QB.cache.vehicle() then
+            if not Kora.cache.vehicle() then
                 TriggerEvent('QBCore:Client:AbortVehicleEntering')
             end
         end)
     end
 end)
 
-QB.cache.onChange('vehicle', function(vehicle, previousVehicle)
+Kora.cache.onChange('vehicle', function(vehicle, previousVehicle)
     if vehicle then
-        emitVehicleInfo('Entered', vehicle, QB.cache.seat())
+        emitVehicleInfo('Entered', vehicle, Kora.cache.seat())
     elseif previousVehicle then
         emitVehicleInfo('Left', previousVehicle, lastVehicleSeat)
         lastVehicleSeat = false
@@ -326,7 +326,7 @@ end)
 -- shown. Without this handler the event is emitted server-side (see
 -- compat/server/qb-core.lua and modules/commands/server.lua) but silently
 -- dropped client-side. Route it through the SAME path QBCore.Functions.Notify
--- uses (which forwards to kora_lib's QB.notify.send), so there's one notify code
+-- uses (which forwards to kora_lib's Kora.notify.send), so there's one notify code
 -- path. QBCore is the global assembled in compat/shared/coreobject.lua and
 -- compat/client/qb-core.lua (loaded before this file), so Functions.Notify is
 -- present by the time this fires.

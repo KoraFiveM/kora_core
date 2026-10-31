@@ -6,10 +6,10 @@
 --     qb-core -- there is nothing qb-core-specific in them, so a faithful copy
 --     is safer than a re-derivation.
 --   * The handful that touch player/UI state (GetPlayerData, HasItem, Notify,
---     Progressbar) are THIN FORWARDS to kora_lib (QB.*) / our replicated mirror --
+--     Progressbar) are THIN FORWARDS to kora_lib (Kora.*) / our replicated mirror --
 --     the whole point of building on kora_lib.
 
-local provideExport = QB.compat.provideExport
+local provideExport = Kora.compat.provideExport
 
 local F = QBCore.Functions
 
@@ -52,8 +52,8 @@ local legacyClientCallbacks = {}
 
 -- Real qb-core stores this in QBCore.ClientCallbacks (server-side) and fires
 -- it from the QBCore:Client:TriggerClientCallback net event -- the raw wire
--- handled below. We ALSO keep registering with kora_lib's QB.callback so a
--- cross-resource caller that talks to QB.callback.trigger directly (rather
+-- handled below. We ALSO keep registering with kora_lib's Kora.callback so a
+-- cross-resource caller that talks to Kora.callback.trigger directly (rather
 -- than through QBCore.Functions.TriggerClientCallback) still reaches this
 -- handler; see compat/server/qb-core.lua's TriggerClientCallback comment for
 -- why the SERVER trigger itself now speaks the raw wire exclusively instead
@@ -61,12 +61,12 @@ local legacyClientCallbacks = {}
 --
 -- Real QBCore hands the legacy handler a RESPONDER as its first argument --
 -- function(cb, ...) ... cb(result) end -- not a value to return. kora_lib's
--- QB.callback.register instead ships back whatever the registered function
+-- Kora.callback.register instead ships back whatever the registered function
 -- RETURNS, same mismatch (and same fix: bridge via a promise + timeout) as
 -- the server's CreateCallback above.
 function F.CreateClientCallback(name, handler)
     legacyClientCallbacks[name] = handler
-    QB.callback.register(name, function(...)
+    Kora.callback.register(name, function(...)
         local p = promise.new()
         local settled = false
 
@@ -257,7 +257,7 @@ function F.PlayAnim(animDict, animName, upperbodyOnly, duration)
     local runTime = duration or -1
     if runTime == -1 then flags = 49 end
     local ped = PlayerPedId()
-    local loaded = QB.stream.loadAnimDict(animDict)
+    local loaded = Kora.stream.loadAnimDict(animDict)
     if not loaded then
         animPromise:reject(invoked .. ' :^1  Animation dictionary failed to load')
         return animPromise.value
@@ -301,7 +301,7 @@ function F.Notify(text, texttype, length, icon)
     else
         payload.message = resolveLocalizedText(text)
     end
-    QB.notify.send(payload)
+    Kora.notify.send(payload)
 end
 
 -- Real qb-core defers to the standalone `progressbar` resource. We forward to
@@ -341,7 +341,7 @@ function F.GetPlayers()
     return GetActivePlayers()
 end
 
--- ped->playerId mapping the same way modules/closest/client.lua does -- QB.world
+-- ped->playerId mapping the same way modules/closest/client.lua does -- Kora.world
 -- deals in ped handles for entityType 'player', but qb-core's contract here is
 -- player ids.
 local function pedToPlayerId(ped)
@@ -357,7 +357,7 @@ function F.GetPlayersFromCoords(coords, distance)
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    local matches = QB.world.getNearbyEntities('player', coords, distance or 5)
+    local matches = Kora.world.getNearbyEntities('player', coords, distance or 5)
     local closePlayers = {}
     for i = 1, #matches do
         local playerId = pedToPlayerId(matches[i].entity)
@@ -368,15 +368,15 @@ end
 
 -- Returns (playerId, distance) -- the first value is a PLAYER ID, not an entity
 -- handle. This is the real qb-core signature (ported verbatim), NOT
--- QB.world.getClosestEntity's (entity, coords, distance) -- see AGENTS.md's
--- "thin forwards to QB.*, not reimplementations" for why this still forwards.
+-- Kora.world.getClosestEntity's (entity, coords, distance) -- see AGENTS.md's
+-- "thin forwards to Kora.*, not reimplementations" for why this still forwards.
 function F.GetClosestPlayer(coords)
     if coords then
         coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    local entity, _, distance = QB.world.getClosestEntity('player', coords, {
+    local entity, _, distance = Kora.world.getClosestEntity('player', coords, {
         excludeEntities = { PlayerPedId() },
     })
     if not entity then return -1, -1 end
@@ -400,15 +400,15 @@ function F.GetPeds(ignoreList)
 end
 
 -- GetClosestPed/Vehicle/Object return an entity handle (not a converted id),
--- so unlike GetClosestPlayer these forward straight to QB.world.getClosestEntity
--- -- see AGENTS.md's "thin forwards to QB.*, not reimplementations".
+-- so unlike GetClosestPlayer these forward straight to Kora.world.getClosestEntity
+-- -- see AGENTS.md's "thin forwards to Kora.*, not reimplementations".
 function F.GetClosestPed(coords, ignoreList)
     if coords then
         coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    local entity, _, distance = QB.world.getClosestEntity('ped', coords, { excludeEntities = ignoreList })
+    local entity, _, distance = Kora.world.getClosestEntity('ped', coords, { excludeEntities = ignoreList })
     return entity or -1, distance or -1
 end
 
@@ -418,7 +418,7 @@ function F.GetClosestVehicle(coords)
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    local entity, _, distance = QB.world.getClosestEntity('vehicle', coords)
+    local entity, _, distance = Kora.world.getClosestEntity('vehicle', coords)
     return entity or -1, distance or -1
 end
 
@@ -428,7 +428,7 @@ function F.GetClosestObject(coords)
     else
         coords = GetEntityCoords(PlayerPedId())
     end
-    local entity, _, distance = QB.world.getClosestEntity('object', coords)
+    local entity, _, distance = Kora.world.getClosestEntity('object', coords)
     return entity or -1, distance or -1
 end
 
@@ -439,7 +439,7 @@ local warnedClientNetworkVehicle = false
 local function awaitStreamingAsset(value, timeout, request, hasLoaded, release)
     if hasLoaded(value) then return true, value end
     request(value)
-    local loaded = QB.loops.controlled(function()
+    local loaded = Kora.loops.controlled(function()
         return hasLoaded(value)
     end, false, timeout or 5000, 25)
     if not loaded and release then release(value) end
@@ -995,7 +995,7 @@ end
 -- Draw3DText(coords, text, opts) with a coords-table signature and route through
 -- kora_lib's drawing module. DrawText3D above is the real qb-core (x, y, z, text)
 -- function and MUST exist; this stays only for backward-compat.
-function F.Draw3DText(coords, text, opts) QB.drawing.text3d(coords, text, opts) end
+function F.Draw3DText(coords, text, opts) Kora.drawing.text3d(coords, text, opts) end
 
 function F.RequestAnimDict(animDict, timeout)
     timeout = timeout or 5000
@@ -1008,7 +1008,7 @@ end
 
 -- Alias kept from our previous compat -- not a real qb-core function, but some
 -- of our resources call it; forwards to kora_lib's streamer.
-function F.LoadAnimDict(dict, cb) QB.stream.loadAnimDict(dict, cb) end
+function F.LoadAnimDict(dict, cb) Kora.stream.loadAnimDict(dict, cb) end
 
 function F.GetClosestBone(entity, list)
     local playerCoords, bone, coords, distance = GetEntityCoords(PlayerPedId())

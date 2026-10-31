@@ -1,7 +1,7 @@
 -- Mocks for smoke-testing kora_core modules under plain lua5.4 (no FiveM, no DB).
--- Installs the FiveM natives the server modules touch, a fake kora_lib `QB` (with a
+-- Installs the FiveM natives the server modules touch, a fake kora_lib `Kora` (with a
 -- REAL working resources.serverRegistry, since the resource-stop sweep is under
--- test), and a fake `QB.sql` recording enqueue/enqueueMany calls so persistence
+-- test), and a fake `Kora.sql` recording enqueue/enqueueMany calls so persistence
 -- tests can assert exact column sets without a database.
 
 local M = {}
@@ -174,13 +174,13 @@ function M.install(opts)
     _G.os = os
     _G.math = math
 
-    -- --- fake kora_lib QB ---
-    local QB = {}
-    QB.util = {
+    -- --- fake kora_lib Kora ---
+    local Kora = {}
+    Kora.util = {
         isFiniteNumber = function(value)
             return type(value) == 'number' and value == value and value > -math.huge and value < math.huge
         end,
-        isInteger = function(value) return QB.util.isFiniteNumber(value) and value % 1 == 0 end,
+        isInteger = function(value) return Kora.util.isFiniteNumber(value) and value % 1 == 0 end,
         isCallable = function(value)
             if type(value) == 'function' then return true end
             if type(value) ~= 'table' then return false end
@@ -190,7 +190,7 @@ function M.install(opts)
         end,
         trim = function(value) return type(value) == 'string' and value:match('^%s*(.-)%s*$') or value end,
     }
-    QB.compat = {
+    Kora.compat = {
         provideExport = function(identity, name, fn)
             AddEventHandler(('__cfx_export_%s_%s'):format(identity, name), function(setCallback)
                 setCallback(fn)
@@ -199,7 +199,7 @@ function M.install(opts)
     }
 
     -- resources.serverRegistry: a REAL implementation (the sweep is under test).
-    QB.resources = {
+    Kora.resources = {
         -- Mirrors kora_lib/local/resources/server.lua: track(resource, id) records
         -- WHICH resource owns WHICH id, untrack(id) drops one id, and the stop
         -- sweep disposes every id a resource owned -- onDispose receives the
@@ -238,11 +238,11 @@ function M.install(opts)
         end,
     }
 
-    QB.callback = { register = function() end, trigger = function() return nil end }
-    QB.events = { register = function() end, trigger = function() end, push = function() end }
-    QB.notify = { send = function() end }
-    QB.stream = setmetatable({}, { __index = function() return function() end end })
-    QB.loops = {
+    Kora.callback = { register = function() end, trigger = function() return nil end }
+    Kora.events = { register = function() end, trigger = function() end, push = function() end }
+    Kora.notify = { send = function() end }
+    Kora.stream = setmetatable({}, { __index = function() return function() end end })
+    Kora.loops = {
         controlled = function(call)
             for _ = 1, 16 do
                 local result = call()
@@ -251,15 +251,15 @@ function M.install(opts)
             return false, 'Loop timed out.'
         end,
     }
-    QB.drawing = { text3d = function() end }
-    QB.world = { getClosestEntity = function() end }
-    QB.progressbar = { start = function() end }
+    Kora.drawing = { text3d = function() end }
+    Kora.world = { getClosestEntity = function() end }
+    Kora.progressbar = { start = function() end }
     -- Small local-player cache facade for client compatibility tests. Tests
     -- can drive an edge with setCache(key, value), which mirrors kora_lib's
     -- onChange(newValue, oldValue) contract without loading another resource.
     local cacheValues = { vehicle = false, seat = false, enteringVehicle = false, enteringSeat = false }
     local cacheListeners = {}
-    QB.cache = {
+    Kora.cache = {
         onChange = function(key, handler)
             cacheListeners[key] = cacheListeners[key] or {}
             table.insert(cacheListeners[key], handler)
@@ -269,13 +269,13 @@ function M.install(opts)
         enteringVehicle = function() return cacheValues.enteringVehicle end,
         enteringSeat = function() return cacheValues.enteringSeat end,
     }
-    -- QB.commands -- a minimal but REAL implementation (previously all no-ops,
+    -- Kora.commands -- a minimal but REAL implementation (previously all no-ops,
     -- so QBCore.Commands.Add/List never actually populated anything under
     -- test). Only tracks what QBCore:CallCommand's tests need: name, help,
     -- permission out of list(), matching QBCore.commands/server.lua's own
     -- {name, help, permission} shape.
     local cmdDefs = {}
-    QB.commands = {
+    Kora.commands = {
         add = function(name, help, args, argsRequired, handler, opts)
             opts = opts or {}
             cmdDefs[name] = { help = help, args = args, argsRequired = argsRequired, handler = handler, permission = opts.permission or 'user' }
@@ -290,18 +290,18 @@ function M.install(opts)
             return out
         end,
     }
-    -- QB.permissions -- a minimal but REAL implementation over the ace mock
+    -- Kora.permissions -- a minimal but REAL implementation over the ace mock
     -- above, mirroring kora_lib/modules/permissions/server.lua's namespaces:
     -- getLevel checks <prefix>.<level> and group.<level>, hasPermission also
     -- honours command.<permission>, and 'user' is the unconditional floor.
-    -- Discord role grants are out of scope here (no QB.discord under test).
+    -- Discord role grants are out of scope here (no Kora.discord under test).
     local function aceAllows(src, permission, prefix, includeCommand)
         return (prefix ~= nil and IsPlayerAceAllowed(src, prefix .. '.' .. permission))
             or IsPlayerAceAllowed(src, 'group.' .. permission)
             or (includeCommand and IsPlayerAceAllowed(src, 'command.' .. permission))
             or false
     end
-    QB.permissions = {
+    Kora.permissions = {
         getLevel = function(src, levels, prefix)
             for _, level in ipairs(levels) do
                 if level == 'user' or aceAllows(src, level, prefix, false) then return level end
@@ -313,16 +313,16 @@ function M.install(opts)
             return aceAllows(src, permission, prefix, true)
         end,
     }
-    QB.status = { apply = function() return true end, remove = function() return true end }
-    QB.zones = { sphere = function() return { remove = function() end } end }
+    Kora.status = { apply = function() return true end, remove = function() return true end }
+    Kora.zones = { sphere = function() return { remove = function() end } end }
 
-    -- fake QB.sql recording writes. query/single results are canned per exact
+    -- fake Kora.sql recording writes. query/single results are canned per exact
     -- SQL string (sqlResponses.query[sql] / .single[sql]) -- unset means the
     -- same nil/{} default every test relied on before this existed, so this
     -- is purely additive for a test that needs a specific row back.
     local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {} }
     local sqlResponses = { query = {}, single = {} }
-    QB.sql = {
+    Kora.sql = {
         NULL = '\0qbsql:null\0',
         ready = function() return true end,
         enqueue = function(t, k, row, opts) table.insert(sqlCalls.enqueue, { table = t, key = k, row = row, opts = opts }) end,
@@ -339,7 +339,7 @@ function M.install(opts)
         flush = function() return true end,
     }
 
-    _G.QB = QB
+    _G.Kora = Kora
     _G.exports = setmetatable({}, { __index = function() return setmetatable({}, { __index = function() return function() end end }) end })
 
     -- Build the Core table (as build/initiate.lua would).
@@ -355,7 +355,7 @@ function M.install(opts)
         lifecycleTrace = lifecycleTrace,
         sqlCalls = sqlCalls,
         sqlResponses = sqlResponses,
-        QB = QB,
+        Kora = Kora,
         resourceStates = resourceStates,
         executeCommandCalls = executeCommandCalls,
         cancelEventCount = function() return cancelEventCount end,

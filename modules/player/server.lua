@@ -33,7 +33,7 @@ local playerDataFieldWriteToken = {}
 local subscribers = {}
 local nextSubId = 1
 
-local isCallable = QB.util.isCallable
+local isCallable = Kora.util.isCallable
 
 -- Does `path` start with `prefix`? Both are key arrays.
 local function pathMatchesPrefix(path, prefix)
@@ -441,7 +441,7 @@ end
 local creatingCharacter = {}
 
 local function trim(value)
-    return type(value) == 'string' and QB.util.trim(value) or nil
+    return type(value) == 'string' and Kora.util.trim(value) or nil
 end
 
 local function boundedText(value, field, minimum, maximum)
@@ -583,9 +583,9 @@ function Core.player.logout(src, options)
         if caller ~= 'kora_housing' and caller ~= GetCurrentResourceName() then
             return false, 'logout position is restricted to housing'
         end
-        if type(position) ~= 'table' or not QB.util.isFiniteNumber(position.x)
-            or not QB.util.isFiniteNumber(position.y) or not QB.util.isFiniteNumber(position.z)
-            or (position.h ~= nil and not QB.util.isFiniteNumber(position.h)) then
+        if type(position) ~= 'table' or not Kora.util.isFiniteNumber(position.x)
+            or not Kora.util.isFiniteNumber(position.y) or not Kora.util.isFiniteNumber(position.z)
+            or (position.h ~= nil and not Kora.util.isFiniteNumber(position.h)) then
             return false, 'invalid logout position'
         end
         position = { x = position.x, y = position.y, z = position.z, h = position.h or 0.0 }

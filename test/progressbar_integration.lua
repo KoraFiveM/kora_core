@@ -18,23 +18,23 @@ IsEntityDead = function() return false end
 PlayerPedId = function() return 1 end
 LocalPlayer = { state = { inv_busy = false } }
 function LocalPlayer.state:set(key, value) self[key] = value end
-QB.compat.isCallable = QB.util.isCallable
+Kora.compat.isCallable = Kora.util.isCallable
 local acquired, released = {}, {}
-QB.compat.acquireControls = function(controls, options, owner)
+Kora.compat.acquireControls = function(controls, options, owner)
     acquired[#acquired + 1] = { owner = owner, controls = controls }
     return #acquired
 end
-QB.compat.releaseControlLease = function(id, owner) released[#released + 1] = { id = id, owner = owner } end
+Kora.compat.releaseControlLease = function(id, owner) released[#released + 1] = { id = id, owner = owner } end
 local running, cancelled, activeOwner, nativePayload
-QB.progressbar.validate = function() end
-QB.progressbar.isActive = function() return running == true end
-QB.progressbar.start = function(payload, owner)
+Kora.progressbar.validate = function() end
+Kora.progressbar.isActive = function() return running == true end
+Kora.progressbar.start = function(payload, owner)
     nativePayload, activeOwner, running, cancelled = payload, owner, true, false
     coroutine.yield()
     running = false
     return not cancelled
 end
-QB.progressbar.cancel = function(owner)
+Kora.progressbar.cancel = function(owner)
     h.assertEqual(owner, activeOwner, 'cancellation uses the actual legacy consumer owner')
     cancelled = true
 end

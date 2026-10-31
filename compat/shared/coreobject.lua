@@ -166,7 +166,7 @@ end
 
 -- Legacy indexed maps are rebuilt from the getter-backed registry. They are
 -- deliberately confined to QBCore compatibility: modern code must call
--- getShared/allShared (or QB.shared.get/all) when it needs current data.
+-- getShared/allShared (or Kora.shared.get/all) when it needs current data.
 -- Keeping each compatibility table stable still protects unchanged legacy
 -- resources that captured QBCore.Shared.* once at startup.
 local function buildLegacyView(regName, transform)

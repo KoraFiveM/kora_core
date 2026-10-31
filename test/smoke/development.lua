@@ -62,8 +62,8 @@ local invincible = {}
 local moveRate = {}
 local staminaRestores = {}
 
-QB.cache.ped = function() return currentPed end
-QB.cache.playerId = function() return 7 end
+Kora.cache.ped = function() return currentPed end
+Kora.cache.playerId = function() return 7 end
 _G.DoesEntityExist = function(ped) return exists[ped] == true end
 _G.SetEntityInvincible = function(ped, state) invincible[ped] = state end
 _G.SetPedMoveRateOverride = function(ped, rate) moveRate[ped] = rate end

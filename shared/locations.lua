@@ -1,5 +1,5 @@
 -- Seed world locations (spawn points, garages, shops). Plain coordinate data
--- other resources read via QB.shared.get('locations', key) or QBCore.Shared.
+-- other resources read via Kora.shared.get('locations', key) or QBCore.Shared.
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.locations = {

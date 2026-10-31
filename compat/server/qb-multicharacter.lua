@@ -7,18 +7,18 @@
 -- wire protocol to Core.*, exactly as compat/server/qb-core.lua does for the
 -- QBCore object.
 
-QB.callback.register('qb-multicharacter:server:GetUserCharacters', function(src)
+Kora.callback.register('qb-multicharacter:server:GetUserCharacters', function(src)
     -- Real signature: raw (undecoded) player rows by license -- distinct from
     -- setupCharacters below, which returns decoded summaries.
     local license = Core.identity.primary(src)
     if not license then return {} end
-    return QB.sql.query('SELECT * FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL', { license }) or {}
+    return Kora.sql.query('SELECT * FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL', { license }) or {}
 end)
 
 -- GetServerLogs: deliberately NOT implemented -- no `server_logs` table
 -- anywhere in this schema, nothing to honestly return.
 
-QB.callback.register('qb-multicharacter:server:GetNumberOfCharacters', function(src)
+Kora.callback.register('qb-multicharacter:server:GetNumberOfCharacters', function(src)
     -- Real signature: cb(numOfChars, Countries). A static Countries list
     -- isn't modeled in this codebase -- an empty list rather than guessing at
     -- data that doesn't exist here. numOfChars is per-license
@@ -30,13 +30,13 @@ QB.callback.register('qb-multicharacter:server:GetNumberOfCharacters', function(
     return Core.users.getMaxCharacters(license), {}
 end)
 
-QB.callback.register('qb-multicharacter:server:setupCharacters', function(src)
+Kora.callback.register('qb-multicharacter:server:setupCharacters', function(src)
     -- Real qb-multicharacter uses this purely as a request/response callback
     -- (QBCore.Functions.CreateCallback), not a fire-and-forget event pair.
     return Core.multichar.getCharacters(src)
 end)
 
-QB.callback.register('qb-multicharacter:server:getSkin', function(_src, _citizenid)
+Kora.callback.register('qb-multicharacter:server:getSkin', function(_src, _citizenid)
     -- Real signature: cb(model, skin) from a `playerskins` table. No
     -- appearance/clothing module exists in this codebase -- honestly return
     -- nothing rather than guessing at a skin.
@@ -97,6 +97,6 @@ RegisterNetEvent('qb-multicharacter:server:deleteCharacter', function(citizenid)
     Core.multichar.deleteCharacter(source, citizenid)
 end)
 
-QB.callback.register('qb-multicharacter:server:deleteCharacter', function(src, citizenid)
+Kora.callback.register('qb-multicharacter:server:deleteCharacter', function(src, citizenid)
     return Core.multichar.deleteCharacter(src, citizenid)
 end)

@@ -56,7 +56,7 @@ local VEHICLE_SYNC_TRIGGERS = {
 }
 
 local function ensureVehicleSyncTriggers()
-    local rows, queryErr = QB.sql.query([[SELECT `TRIGGER_NAME` AS `name`
+    local rows, queryErr = Kora.sql.query([[SELECT `TRIGGER_NAME` AS `name`
         FROM `information_schema`.`TRIGGERS`
         WHERE `TRIGGER_SCHEMA` = DATABASE()
             AND `EVENT_OBJECT_TABLE` = 'player_vehicles'
@@ -69,7 +69,7 @@ local function ensureVehicleSyncTriggers()
     for _, row in ipairs(rows) do existing[row.name] = true end
     for _, trigger in ipairs(VEHICLE_SYNC_TRIGGERS) do
         if not existing[trigger.name] then
-            local created, createErr = QB.sql.execute(trigger.sql)
+            local created, createErr = Kora.sql.execute(trigger.sql)
             if created == nil and createErr then return false, createErr end
         end
     end
@@ -111,16 +111,16 @@ CreateThread(function()
     -- MySQL may still be starting alongside FXServer. Keep the migration
     -- worker alive so kora_sql's reconnect can recover the whole stack without a
     -- resource/server restart. The timed waits retain a useful status message.
-    while not QB.sql.ready(60000) do
+    while not Kora.sql.ready(60000) do
         print('^3[qbcore:migrate]^7 still waiting for qbsql; migrations will resume automatically.')
     end
 
     local resource = GetCurrentResourceName()
-    local applied, err = QB.sql.migrateFiles(resource, MIGRATIONS, checksum)
+    local applied, err = Kora.sql.migrateFiles(resource, MIGRATIONS, checksum)
     if err then
         print(('^1[qbcore:migrate]^7 migration failed: %s'):format(tostring(err)))
     else
-        local synced, syncErr = QB.sql.execute([[UPDATE `player_vehicles`
+        local synced, syncErr = Kora.sql.execute([[UPDATE `player_vehicles`
             SET `model` = COALESCE(NULLIF(`model`, ''), `vehicle`),
                 `vehicle` = COALESCE(NULLIF(`vehicle`, ''), `model`)
             WHERE (`model` IS NULL OR `model` = '') OR (`vehicle` IS NULL OR `vehicle` = '')]])

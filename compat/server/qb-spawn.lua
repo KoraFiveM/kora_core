@@ -5,7 +5,7 @@
 -- compat/server/qb-multicharacter.lua: kora_core owns legacy server-side DATA
 -- compat regardless of which UI resource is installed.
 
-QB.callback.register('qb-spawn:server:getOwnedHouses', function(src, citizenid)
+Kora.callback.register('qb-spawn:server:getOwnedHouses', function(src, citizenid)
     -- Real qb-spawn queries a `player_houses` table owned by qb-houses. No
     -- housing/apartments module exists anywhere in this codebase (grep
     -- confirmed at design time) -- there is nothing to query, so this always

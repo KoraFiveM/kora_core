@@ -106,7 +106,7 @@ h.test('new-character insert binds SQL NULL when phone allocation is unavailable
     local data = CoreInternal.player.freshData('CID-no-phone', LICENSE, 1, { firstname = 'No', lastname = 'Phone' })
     local ok, err = Core.persistence._insertNew('CID-no-phone', LICENSE, 1, data)
     h.assertTrue(ok, err)
-    h.assertEqual(lastInsertParams()[12], QB.sql.NULL, 'the final placeholder must not be dropped by a trailing Lua nil')
+    h.assertEqual(lastInsertParams()[12], Kora.sql.NULL, 'the final placeholder must not be dropped by a trailing Lua nil')
 end)
 
 h.test('normalizes identity fields and generates phone server-side', function()

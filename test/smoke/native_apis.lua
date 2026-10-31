@@ -50,8 +50,8 @@ local row = {
     job = json.encode({}), gang = json.encode({}), metadata = json.encode({}),
     inventory = json.encode({}), position = json.encode({}),
 }
-QB.sql.single = function(_, params) return params[1] == row.citizenid and row or nil end
-QB.sql.update = function(sql, params)
+Kora.sql.single = function(_, params) return params[1] == row.citizenid and row or nil end
+Kora.sql.update = function(sql, params)
     writes[#writes + 1] = { sql = sql, params = params }
     return result, result == nil and 'database unavailable' or nil
 end

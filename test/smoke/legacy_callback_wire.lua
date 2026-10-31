@@ -36,10 +36,10 @@ dofile('modules/commands/server.lua')
 dofile('modules/logging/server.lua')
 dofile('compat/shared/coreobject.lua')
 
--- QB.callback fake that actually stores handlers (mocks.lua's is a total
+-- Kora.callback fake that actually stores handlers (mocks.lua's is a total
 -- no-op) -- same approach as test/smoke/callback_compat.lua.
 local registered = {}
-QB.callback = {
+Kora.callback = {
     register = function(name, handler) registered[name] = handler end,
     trigger = function() return nil end,
 }

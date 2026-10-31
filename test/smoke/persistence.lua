@@ -173,7 +173,7 @@ for _, method in ipairs({ 'flushAll', 'saveNow' }) do
         end
 
         savePhone('5551234', '5551234')
-        savePhone(nil, QB.sql.NULL)
+        savePhone(nil, Kora.sql.NULL)
         h.assertTrue(Core.player.setPath(1, { 'phone' }, nil))
         h.assertEqual(save(), nil, 'repeated clear writes nothing')
         h.assertTrue(Core.player.setPath(1, { 'phone' }, false))
@@ -183,7 +183,7 @@ for _, method in ipairs({ 'flushAll', 'saveNow' }) do
         h.assertTrue(Core.player.setPath(1, { 'phone' }, '5559999'))
         h.assertTrue(Core.player.setPath(1, { 'phone' }, 0))
         h.assertEqual(save(), nil, 'reverted phone change writes nothing')
-        savePhone(false, QB.sql.NULL)
+        savePhone(false, Kora.sql.NULL)
     end)
 end
 

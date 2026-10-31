@@ -1,5 +1,5 @@
 -- Core.garage smoke test -- uses a small in-memory fake `player_vehicles`
--- table in place of the generic mocks.lua QB.sql stub, since that stub's
+-- table in place of the generic mocks.lua Kora.sql stub, since that stub's
 -- responses are canned per exact SQL string (not parameter-aware) and
 -- garage's CRUD genuinely needs INSERT-then-SELECT-back behavior to test
 -- meaningfully.
@@ -26,7 +26,7 @@ local function clone(t)
     return c
 end
 
-handle.QB.sql.execute = function(sql, params)
+handle.Kora.sql.execute = function(sql, params)
     if sql:find('INSERT INTO `player_vehicles`', 1, true) then
         local plate, model, vehicle, citizenid, job, fuel, engineHealth, bodyHealth = table.unpack(params)
         if rows[plate] then return nil, 'duplicate plate' end
@@ -83,7 +83,7 @@ handle.QB.sql.execute = function(sql, params)
     error('unmocked SQL in garage test: ' .. sql)
 end
 
-handle.QB.sql.update = function(sql, params)
+handle.Kora.sql.update = function(sql, params)
     local plate = params[1]
     local row = rows[plate]
     if sql:find("SET `state` = 'out'", 1, true) then
@@ -105,14 +105,14 @@ handle.QB.sql.update = function(sql, params)
     error('unmocked SQL update in garage test: ' .. sql)
 end
 
-handle.QB.sql.single = function(sql, params)
+handle.Kora.sql.single = function(sql, params)
     local plate = params[1]
     local row = rows[plate]
     if not row or row.deleted_at then return nil end
     return clone(row)
 end
 
-handle.QB.sql.query = function(sql, params)
+handle.Kora.sql.query = function(sql, params)
     local citizenid = params[1]
     local out = {}
     for _, row in pairs(rows) do

@@ -1,7 +1,7 @@
 # Consumables module
 
 ## Overview
-Bridges kora_inventory's `usingItem` hook to `QB.status`/`QB.fx` and hunger/thirst/stress metadata, driven entirely by an item's shared `.effect` table. Server only. Functions are defined on `Core.consumables` and exported flat as `exports.kora_core:<fn>`.
+Bridges kora_inventory's `usingItem` hook to `Kora.status`/`Kora.fx` and hunger/thirst/stress metadata, driven entirely by an item's shared `.effect` table. Server only. Functions are defined on `Core.consumables` and exported flat as `exports.kora_core:<fn>`.
 
 ## API
 

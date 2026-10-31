@@ -19,7 +19,7 @@ end
 function Core.persistence._columnEpoch(citizenid) return epochs[citizenid] or 0 end
 
 function Core.persistence._persistentColumnsAvailable(citizenid)
-    local called, row, err = pcall(QB.sql.single, 'SELECT `operation_key` FROM `qbcore_player_column_operations` WHERE `citizenid`=? LIMIT 1', { citizenid })
+    local called, row, err = pcall(Kora.sql.single, 'SELECT `operation_key` FROM `qbcore_player_column_operations` WHERE `citizenid`=? LIMIT 1', { citizenid })
     if not called or err then return false, 'player operation storage is unavailable' end
     if row then return false, 'player data is busy' end
     local checked, active = pcall(function() return exports.kora_sql:hasActivePlayerOperation(citizenid) end)
@@ -112,7 +112,7 @@ function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
         for i = 1, #ids do placeholders[i] = '?' end
         local held = {}
         if #ids > 0 then
-            local stored, loadErr = QB.sql.query('SELECT * FROM `qbcore_player_column_operations` WHERE `citizenid` IN (' .. table.concat(placeholders, ',') .. ')', ids)
+            local stored, loadErr = Kora.sql.query('SELECT * FROM `qbcore_player_column_operations` WHERE `citizenid` IN (' .. table.concat(placeholders, ',') .. ')', ids)
             if not stored then return false, loadErr end
             held = stored
         end
@@ -130,9 +130,9 @@ function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
             end
             if next(cols) then freshRows[#freshRows + 1] = { pk = row.pk, cols = cols } end
         end
-        if #freshRows > 0 then QB.sql.enqueueMany('players', 'citizenid', freshRows, { mode = 'assign', writeMode = 'update' }) end
+        if #freshRows > 0 then Kora.sql.enqueueMany('players', 'citizenid', freshRows, { mode = 'assign', writeMode = 'update' }) end
         if #ids > 0 then
-            local drained, drainErr = QB.sql.flush('players')
+            local drained, drainErr = Kora.sql.flush('players')
             if not drained then return false, drainErr end
         end
         local statements = {}
@@ -146,7 +146,7 @@ function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
         end
         if #statements > 0 then
             operation.uncertain = true
-            local outcome, writeErr = QB.sql.transactionChecked(statements, { key = 'qbcore:fence:' .. token, fingerprint = fingerprint, citizenids = ids })
+            local outcome, writeErr = Kora.sql.transactionChecked(statements, { key = 'qbcore:fence:' .. token, fingerprint = fingerprint, citizenids = ids })
             if not outcome or not outcome.success then
                 operation.uncertain = not outcome or outcome.code == 'indeterminate'
                 return false, writeErr or outcome and outcome.message
@@ -193,7 +193,7 @@ function Core.persistence.finishPlayerColumnOperation(token, committed)
             if Core.money and Core.money.syncState then Core.money.syncState(player.source) end
         end
     end
-    local removed, removeErr = QB.sql.update('DELETE FROM `qbcore_player_column_operations` WHERE `resource`=? AND `operation_key`=?', { operation.owner, operation.key })
+    local removed, removeErr = Kora.sql.update('DELETE FROM `qbcore_player_column_operations` WHERE `resource`=? AND `operation_key`=?', { operation.owner, operation.key })
     if removed == nil then return false, removeErr or 'Could not release the committed player operation.' end
     release(operation)
     return true
@@ -202,7 +202,7 @@ end
 function Core.persistence.abortPlayerColumnOperation(token)
     local operation = operations[token]
     if not operation or operation.owner ~= provider() or operation.preparing then return false, 'Unknown player operation.' end
-    local removed, err = QB.sql.update('DELETE FROM `qbcore_player_column_operations` WHERE `resource`=? AND `operation_key`=?', { operation.owner, operation.key })
+    local removed, err = Kora.sql.update('DELETE FROM `qbcore_player_column_operations` WHERE `resource`=? AND `operation_key`=?', { operation.owner, operation.key })
     if removed == nil then return false, err or 'Could not release the rolled-back player operation.' end
     release(operation)
     return true
@@ -211,7 +211,7 @@ end
 function Core.persistence.getPlayerColumnOperations()
     local caller, result = provider(), {}
     if not caller then return result end
-    local stored, err = QB.sql.query('SELECT * FROM `qbcore_player_column_operations` WHERE `resource`=?', { caller })
+    local stored, err = Kora.sql.query('SELECT * FROM `qbcore_player_column_operations` WHERE `resource`=?', { caller })
     if not stored then error(err or 'Player operation storage unavailable') end
     for _, row in ipairs(stored) do
         local token = caller .. ':' .. row.operation_key

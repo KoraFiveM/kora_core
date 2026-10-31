@@ -111,9 +111,9 @@ end)
 ### Shared registry, live across resources
 ```lua
 -- any resource, after `shared_script '@kora_core/init.lua'`
-QB.shared.register('items', 'lockpick', { label = 'Lockpick', weight = 100 })
+Kora.shared.register('items', 'lockpick', { label = 'Lockpick', weight = 100 })
 
-QB.shared.onChange('items', function(action, key, record, previous)
+Kora.shared.onChange('items', function(action, key, record, previous)
     print(action, key) -- fires in EVERY resource using the registry, including this one
 end)
 ```
@@ -235,7 +235,7 @@ exports.kora_core:onSharedChange(name, handler) -- handler(action, key, record, 
 exports.kora_core:offSharedChange(name, id)     -- tear down a shared-registry subscription
 ```
 Prefer the LIVE MIRROR in a consumer resource — add
-`shared_script '@kora_core/init.lua'` (after `@kora_lib/init.lua`) and use `QB.shared.*`
+`shared_script '@kora_core/init.lua'` (after `@kora_lib/init.lua`) and use `Kora.shared.*`
 as shown above. A registration in ANY resource fires every subscriber's
 `onChange` in every resource that uses the list. Always use `get` for one
 record and call `all` when each UI/admin list is built; never cache or index the
@@ -308,7 +308,7 @@ and must never be trusted for server authorization.
 - `SetPlayerData(key, value)` to a root key with no DB column mapping is refused
   with a warning rather than silently not persisting.
 - `QBCore.Functions.ExecuteSql` is deprecated (its `wait` arg is ignored) —
-  forwarded to `QB.sql.query`, warned once per calling resource.
+  forwarded to `Kora.sql.query`, warned once per calling resource.
 - `QBCore.Shared.Items/Jobs/...` are legacy-only live views. Writing them
   bypasses the registry, so subscribers won't fire. New code uses
   `getShared`/`allShared` and `registerShared` instead.

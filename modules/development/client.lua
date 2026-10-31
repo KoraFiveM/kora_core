@@ -24,7 +24,7 @@ end
 function Core.development._tick()
     if not active then return end
 
-    local ped = QB.cache.ped()
+    local ped = Kora.cache.ped()
     if not pedExists(ped) then return end
 
     if lastPed and lastPed ~= ped then restorePed(lastPed) end
@@ -38,13 +38,13 @@ function Core.development._tick()
 
     -- Refilling every frame keeps stamina pinned at full; there is nothing to
     -- restore on disable because normal drain resumes as soon as this stops.
-    RestorePlayerStamina(QB.cache.playerId(), 1.0)
+    RestorePlayerStamina(Kora.cache.playerId(), 1.0)
 end
 
 local function restoreOwnedState()
     restorePed(lastPed)
 
-    local currentPed = QB.cache.ped()
+    local currentPed = Kora.cache.ped()
     if currentPed ~= lastPed then restorePed(currentPed) end
     lastPed = nil
 end

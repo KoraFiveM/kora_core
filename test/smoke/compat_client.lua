@@ -190,7 +190,7 @@ h.test('client SpawnVehicle stops cleanly when its model cannot load', function(
     _G.RequestModel = function() requested = requested + 1 end
     _G.SetModelAsNoLongerNeeded = function() released = released + 1 end
     _G.CreateVehicle = function() created = created + 1; return 501 end
-    QB.loops.controlled = function() return false, 'Loop timed out.' end
+    Kora.loops.controlled = function() return false, 'Loop timed out.' end
 
     local vehicle = QBCore.Functions.SpawnVehicle(123, nil, { x = 1, y = 2, z = 3, w = 0 }, false, false)
     h.assertFalse(vehicle)

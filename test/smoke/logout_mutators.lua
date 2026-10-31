@@ -13,7 +13,7 @@ dofile('modules/jobs/server.lua')
 
 exports.kora_sql = { hasActivePlayerOperation = function() return false end }
 local PI, flushHook = CoreInternal.player, nil
-QB.sql.flush = function() if flushHook then return flushHook() end; return true end
+Kora.sql.flush = function() if flushHook then return flushHook() end; return true end
 local roleEvents = 0
 for _, event in ipairs({ 'QBCore:Server:OnJobUpdate', 'QBCore:Server:OnGangUpdate', 'QBCore:Server:SetDuty' }) do
     AddEventHandler(event, function() roleEvents = roleEvents + 1 end)

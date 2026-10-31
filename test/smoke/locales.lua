@@ -9,17 +9,17 @@ mocks.install({ client = true })
 
 local commands, notices = {}, {}
 local selected = 'en'
-QB.locale = {
+Kora.locale = {
     getLanguage = function() return selected end,
     getLanguages = function() return { 'de', 'en' } end,
     setLanguage = function(language) selected = language; return true end,
 }
-QB.nui = {
+Kora.nui = {
     openMenu = function(items, title)
         return { selectedId = items[1].id, title = title }
     end,
 }
-QB.notify = { send = function(payload) notices[#notices + 1] = payload end }
+Kora.notify = { send = function(payload) notices[#notices + 1] = payload end }
 _G.RegisterCommand = function(name, handler) commands[name] = handler end
 _G.RegisterKeyMapping = function() end
 

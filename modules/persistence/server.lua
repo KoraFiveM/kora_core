@@ -33,7 +33,7 @@ local function encodeColumn(player, column)
     elseif column == 'name' then
         return tostring(player.PlayerData.name or 'unknown')
     elseif column == 'phone_number' then
-        return player.PlayerData.phone and tostring(player.PlayerData.phone) or QB.sql.NULL
+        return player.PlayerData.phone and tostring(player.PlayerData.phone) or Kora.sql.NULL
     end
     local srcKey = COLUMN_SOURCE[column]
     return json.encode(player.PlayerData[srcKey] or (srcKey == 'inventory' and {} or {}))
@@ -151,7 +151,7 @@ function Core.persistence.flushAll()
         -- unsafe for players: MariaDB validates required immutable columns
         -- (license/cid) before considering the duplicate branch. Update-only
         -- batching keeps the compact dirty-column writes without that insert.
-        QB.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign', writeMode = 'update' })
+        Kora.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign', writeMode = 'update' })
     end
     return #rows
 end
@@ -178,7 +178,7 @@ function Core.persistence.saveNow(player)
     player._dirty = remaining
     if not next(remaining) then dirty[player.citizenid] = nil end
     if cols then
-        QB.sql.enqueue('players', 'citizenid', { pk = player.citizenid, cols = cols }, {
+        Kora.sql.enqueue('players', 'citizenid', { pk = player.citizenid, cols = cols }, {
             priority = 'immediate', mode = 'assign', writeMode = 'update',
         })
     end
@@ -197,7 +197,7 @@ function Core.persistence._saveForLogout(player, positionOverride)
             Core.persistence._markDirty(player, column)
         end
         Core.persistence.saveNow(player)
-        return QB.sql.flush('players')
+        return Kora.sql.flush('players')
     end)
     if called and saved == true then return true end
     -- saveNow advances its enqueue baseline before SQL finishes. A rejected or
@@ -215,7 +215,7 @@ end
 -- overwriting a different row. Yields.
 ---@return boolean, string|nil
 function Core.persistence._insertNew(citizenid, license, cid, data)
-    local ok, err = QB.sql.execute(
+    local ok, err = Kora.sql.execute(
         'INSERT INTO `players` (`citizenid`,`license`,`cid`,`name`,`money`,`charinfo`,`job`,`gang`,`position`,`metadata`,`inventory`,`phone_number`) '
         .. 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
         {
@@ -223,7 +223,7 @@ function Core.persistence._insertNew(citizenid, license, cid, data)
             json.encode(data.money), json.encode(data.charinfo),
             json.encode(data.job), json.encode(data.gang),
             json.encode(data.position), json.encode(data.metadata),
-            json.encode(data.items or {}), data.phone or QB.sql.NULL,
+            json.encode(data.items or {}), data.phone or Kora.sql.NULL,
         }
     )
     if ok == nil and err then return false, err end
@@ -241,7 +241,7 @@ function Core.persistence._load(citizenid)
         if not available then return nil, err end
     end
     local epoch = Core.persistence._columnEpoch and Core.persistence._columnEpoch(citizenid)
-    local row, err = QB.sql.single('SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { citizenid })
+    local row, err = Kora.sql.single('SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { citizenid })
     if epoch and (Core.persistence._hasColumnOperation(citizenid) or epoch ~= Core.persistence._columnEpoch(citizenid)) then return nil, 'player data changed while loading' end
     if not row then return nil, err or 'not found' end
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
@@ -340,13 +340,13 @@ function Core.persistence.saveOfflinePlayer(data, fields)
     end
     params[#params + 1] = data.citizenid
     if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(data.citizenid) then return false, 'player data is busy' end
-    local called, result, err = pcall(QB.sql.update, 'UPDATE `players` SET ' .. table.concat(assignments, ', ')
+    local called, result, err = pcall(Kora.sql.update, 'UPDATE `players` SET ' .. table.concat(assignments, ', ')
         .. ' WHERE `citizenid` = ? AND `deleted_at` IS NULL', params)
     if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(data.citizenid) end
     if not called then return false, 'could not save offline player' end
     if result == nil then return false, err or 'could not save offline player' end
     if result == 0 then
-        local row = QB.sql.single('SELECT `citizenid` FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { data.citizenid })
+        local row = Kora.sql.single('SELECT `citizenid` FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL', { data.citizenid })
         if not row then return false, 'player not found' end
     end
     return true
@@ -356,7 +356,7 @@ end
 ---@param license string
 ---@return table[]
 function Core.persistence._listCharacters(license)
-    return QB.sql.query(
+    return Kora.sql.query(
         'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',
         { license }
     ) or {}
@@ -371,7 +371,7 @@ function Core.persistence._deleteCharacterRow(citizenid)
     if Core.persistence._persistentColumnsAvailable and not Core.persistence._persistentColumnsAvailable(citizenid) then return false end
     if PI.byCitizenId[citizenid] then return false, 'player is online' end
     if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(citizenid) then return false end
-    local called, r = pcall(QB.sql.execute, 'UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
+    local called, r = pcall(Kora.sql.execute, 'UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
     if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(citizenid) end
     return called and r ~= nil
 end
@@ -390,7 +390,7 @@ CreateThread(function()
         local flushed = Core.persistence.flushAll()
         if flushed > 0 then
             -- Nudge kora_sql to drain promptly rather than waiting its own interval.
-            QB.sql.flush('players')
+            Kora.sql.flush('players')
         end
     end
 end)
@@ -398,7 +398,7 @@ end)
 -- txAdmin shutdown / scheduled restart: flush everyone immediately.
 local function flushEveryoneNow()
     for _, player in pairs(PI.bySource) do Core.persistence.saveNow(player) end
-    QB.sql.flush('players')
+    Kora.sql.flush('players')
 end
 
 AddEventHandler('txAdmin:events:serverShuttingDown', flushEveryoneNow)
@@ -414,5 +414,5 @@ end)
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
     for _, player in pairs(PI.bySource) do Core.persistence.saveNow(player) end
-    QB.sql.flush('players')
+    Kora.sql.flush('players')
 end)

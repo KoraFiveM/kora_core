@@ -13,7 +13,7 @@ Identifier extraction and citizenid generation, server-side only. Establishes th
 ## Implementation notes
 - **`getIdentifiers` dedupes by kind, first wins.** FiveM can report `license` and `license2`; only the first of each `kind` is kept. `ip` is not an identifier entry, so it's fetched with `GetPlayerEndpoint` and merged in — handy, but weaker as a ban key than a hardware/license identifier.
 - **`generateCitizenId` does not guarantee uniqueness.** It's a pure random generator (`Core.util.randomAlnum` + configured prefix/length). The actual guarantee is the DB UNIQUE index on `citizenid`; `Core.persistence.insertNew` uses a plain INSERT so a collision raises and can be retried, rather than an upsert that would silently overwrite.
-- **`recordIdentifiers` writes through `QB.sql.enqueueMany`** with a composite PK `(citizenid, kind)` in `assign` mode — an idempotent upsert of one row per identifier, off the hot path.
+- **`recordIdentifiers` writes through `Kora.sql.enqueueMany`** with a composite PK `(citizenid, kind)` in `assign` mode — an idempotent upsert of one row per identifier, off the hot path.
 - **`findByIdentifier` yields.** It's a live query, meant for admin/ban tooling, not per-frame use.
 - **No `CoreInternal.identity` table.** All functions are public. Internals in other modules live on `CoreInternal.<module>` and are never exported; `build/finalise.lua` walks only `Core.<module>` and skips `_`-prefixed functions.
 

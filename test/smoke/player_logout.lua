@@ -18,20 +18,20 @@ local identities = {}
 GetInvokingResource = function() return caller end
 Core.identity.primary = function(src) return identities[src] end
 exports.kora_sql = { hasActivePlayerOperation = function() return activeOperation end }
-local originalSingle, originalEnqueue = QB.sql.single, QB.sql.enqueue
-QB.sql.single = function(sql, params)
+local originalSingle, originalEnqueue = Kora.sql.single, Kora.sql.enqueue
+Kora.sql.single = function(sql, params)
     if sql:find('qbcore_player_column_operations', 1, true) and storedFence then
         return { operation_key = 'pending' }
     end
     return originalSingle(sql, params)
 end
-QB.sql.flush = function()
+Kora.sql.flush = function()
     flushCount = flushCount + 1
     if flushHook then return flushHook() end
     return true
 end
-QB.sql.transactionChecked = function() return { success = true } end
-QB.sql.update = function() return 1 end
+Kora.sql.transactionChecked = function() return { success = true } end
+Kora.sql.update = function() return 1 end
 local PI = CoreInternal.player
 local serial = 100
 local function data(src, cid)
@@ -137,12 +137,12 @@ end)
 
 h.test('thrown enqueue and missing flush acknowledgement never unload', function()
     local src, live = player()
-    QB.sql.enqueue = function() error('enqueue failed') end
+    Kora.sql.enqueue = function() error('enqueue failed') end
     local ok, err = Core.player.logout(src)
     h.assertFalse(ok); h.assertTrue(err:find('enqueue failed', 1, true) ~= nil)
     h.assertEqual(PI.handle(src), live)
     h.assertFalse(Core.persistence._hasColumnOperation(live.citizenid))
-    QB.sql.enqueue = originalEnqueue
+    Kora.sql.enqueue = originalEnqueue
     flushHook = function() return nil end
     h.assertFalse(Core.player.logout(src))
     h.assertEqual(unloadCount(src), 0)

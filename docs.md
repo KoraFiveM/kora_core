@@ -111,7 +111,7 @@ crash-proof atomicity: callers must authorize the operation and validate price,
 ownership, permissions, and distance. `coords` is metadata only.
 
 An optional `random` list adds independently rolled bonus items using
-`QB.rewards.generate` in percent mode with `allowNone = true`. Entries use
+`Kora.rewards.generate` in percent mode with `allowNone = true`. Entries use
 `item`, optional `chance` (percentage), optional `amount` (defaults to `1`, or
 a positive integer `{ min, max }` range), and optional `slot`/`info`. Entries
 without a chance split 100% equally among themselves. Winning bonuses share
@@ -131,10 +131,10 @@ exports.kora_core:offSharedChange(name, id)     -- tear down a shared-registry s
 Prefer the LIVE MIRROR in a consumer resource — add
 `shared_script '@kora_core/init.lua'` (after `@kora_lib/init.lua`) and use:
 ```lua
-QB.shared.get(name, key)      -- local hash lookup, zero boundary crossing
-QB.shared.all(name)
-QB.shared.register(name, key, record)
-QB.shared.onChange(name, function(action, key, record, previous) ... end)
+Kora.shared.get(name, key)      -- local hash lookup, zero boundary crossing
+Kora.shared.all(name)
+Kora.shared.register(name, key, record)
+Kora.shared.onChange(name, function(action, key, record, previous) ... end)
 ```
 A registration in ANY resource fires every subscriber's `onChange` in every
 resource that uses the list — the `/ideas` requirement. Always use `get` for an
@@ -218,7 +218,7 @@ database/cache rather than the replicated client copy.
 - `SetPlayerData(key, value)` to a root key with no DB column mapping is refused
   with a warning rather than silently not persisting.
 - `QBCore.Functions.ExecuteSql` is deprecated (its `wait` arg is ignored) —
-  forwarded to `QB.sql.query`, warned once per calling resource.
+  forwarded to `Kora.sql.query`, warned once per calling resource.
 - `QBCore.Shared.Items/Jobs/...` are legacy-only live views. Writing them
   bypasses the registry, so subscribers won't fire. New code must use
   `getShared`/`allShared` for reads and `registerShared` (or the legacy
@@ -226,7 +226,7 @@ database/cache rather than the replicated client copy.
 - `QBCore.Commands.List` is a table keyed by command name (matching upstream), but
   it reflects commands registered THROUGH the compat (`QBCore.Commands.Add`) or
   present at the last `Refresh`; commands added by another resource straight
-  through `QB.commands` appear only after the next `Add`/`Refresh`.
+  through `Kora.commands` appear only after the next `Add`/`Refresh`.
 - `QBCore:UpdatePlayer` does NOT decrement hunger/thirst here (the `needs` module
   owns decay on its own timer); the handler refreshes the stock HUD and persists,
   so a stock qb-hud keeps working without double-ticking.
@@ -292,4 +292,4 @@ item logic of its own). `kora_lib`'s `zones`/`world`/`stream`/etc. modules use
 natives that exist on RedM but weren't audited for this specific question —
 see `kora_lib`'s own docs for its module-by-module native surface.
 
-Native consumers call `exports.kora_core:<method>`. For existing public callbacks that must retain the QBCore wire, `exports.kora_core:createCallback(name, handler)` registers the same `handler(source, reply, ...)` on both transports. Native clients use `QB.callback.trigger(name, ...)`; new callbacks can use `QB.callback.register` directly.
+Native consumers call `exports.kora_core:<method>`. For existing public callbacks that must retain the QBCore wire, `exports.kora_core:createCallback(name, handler)` registers the same `handler(source, reply, ...)` on both transports. Native clients use `Kora.callback.trigger(name, ...)`; new callbacks can use `Kora.callback.register` directly.

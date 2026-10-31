@@ -1,4 +1,4 @@
--- Core.commands (server realm) -- wraps kora_lib's generic QB.commands with
+-- Core.commands (server realm) -- wraps kora_lib's generic Kora.commands with
 -- kora_core's own permission model and legacy 'QBCore:Notify' messaging. The
 -- registration mechanics (RegisterCommand, owner-tracking, chat suggestions)
 -- live in kora_lib (modules/commands) so any resource can use them, not just
@@ -12,7 +12,7 @@
 ---@param handler fun(source:integer, args:string[], raw:string)
 ---@param permission string|nil  -- default 'user'
 function Core.commands.addCommand(name, help, args, argsRequired, handler, permission)
-    QB.commands.add(name, help, args, argsRequired, handler, {
+    Kora.commands.add(name, help, args, argsRequired, handler, {
         permission = permission or 'user',
         resource = GetInvokingResource() or GetCurrentResourceName(),
         checkPermission = Core.permissions.hasPermission,
@@ -22,16 +22,16 @@ end
 
 ---@param name string
 function Core.commands.removeCommand(name)
-    QB.commands.remove(name)
+    Kora.commands.remove(name)
 end
 
 ---Re-send all chat suggestions to one source (on (re)connect).
 ---@param src integer
 function Core.commands.refreshCommands(src)
-    QB.commands.refresh(src)
+    Kora.commands.refresh(src)
 end
 
 ---@return table[]  -- {name, help, permission} for each command
 function Core.commands.listCommands()
-    return QB.commands.list()
+    return Kora.commands.list()
 end

@@ -2,7 +2,7 @@
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 mocks.install()
-QB.rewards = {}
+Kora.rewards = {}
 dofile('../kora_lib/modules/rewards/shared.lua')
 
 dofile('config.lua')

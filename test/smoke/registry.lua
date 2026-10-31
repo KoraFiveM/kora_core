@@ -20,8 +20,8 @@ dofile('shared/locations.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
 local ownershipRegistry
-local serverRegistry = QB.resources.serverRegistry
-QB.resources.serverRegistry = function(onDispose)
+local serverRegistry = Kora.resources.serverRegistry
+Kora.resources.serverRegistry = function(onDispose)
     ownershipRegistry = serverRegistry(onDispose)
     return ownershipRegistry
 end

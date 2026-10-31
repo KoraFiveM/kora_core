@@ -1,7 +1,7 @@
 -- Core.consumables (server realm) -- the generic item-effect bridge. Reads
 -- an item's shared `.effect` table (set by whichever resource registered the
 -- item, e.g. kora_ambulance's bandage, kora_drugs' every drug item) and plays it
--- back via QB.status/QB.fx when the item is used -- ONE hook services every
+-- back via Kora.status/Kora.fx when the item is used -- ONE hook services every
 -- effect-bearing item in the whole framework, so a new drug/medical item
 -- needs only a data entry, never new game logic.
 --
@@ -28,7 +28,7 @@ local function onUsingItem(payload, src)
         or Core.registry.getShared('weapons', payload.itemName)
     if not def or not def.effect then return true end
 
-    local ok, err = QB.status.apply(src, payload.itemName, def.effect)
+    local ok, err = Kora.status.apply(src, payload.itemName, def.effect)
     if not ok then
         print(('[qbcore:consumables] failed to apply effect for %s: %s'):format(payload.itemName, tostring(err)))
     end

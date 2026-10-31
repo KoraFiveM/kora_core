@@ -11,9 +11,9 @@
 ---@param license string
 ---@return integer
 function Core.users.getMaxCharacters(license)
-    local row = QB.sql.single('SELECT `max_characters` FROM `users` WHERE `license` = ?', { license })
+    local row = Kora.sql.single('SELECT `max_characters` FROM `users` WHERE `license` = ?', { license })
     if not row then
-        QB.sql.execute('INSERT IGNORE INTO `users` (`license`) VALUES (?)', { license })
+        Kora.sql.execute('INSERT IGNORE INTO `users` (`license`) VALUES (?)', { license })
         return Config.identity.maxCharacters
     end
     return row.max_characters or Config.identity.maxCharacters
@@ -23,11 +23,11 @@ end
 ---@param license string
 ---@param maxCharacters integer|nil
 function Core.users.setMaxCharacters(license, maxCharacters)
-    QB.sql.execute(
+    Kora.sql.execute(
         'INSERT INTO `users` (`license`, `max_characters`) VALUES (?, ?) '
             .. 'ON DUPLICATE KEY UPDATE `max_characters` = VALUES(`max_characters`)',
         -- maxCharacters is nil when clearing the override; a trailing nil
         -- would truncate this array to one element for two placeholders.
-        { license, maxCharacters or QB.sql.NULL }
+        { license, maxCharacters or Kora.sql.NULL }
     )
 end

@@ -13,9 +13,9 @@ end
 ---Opens the per-player language selector. The chosen language belongs to the
 ---FiveM client and is saved by kora_lib in KVP storage, not PlayerData.
 function Core.locales.openSelector()
-    local current = QB.locale.getLanguage()
+    local current = Kora.locale.getLanguage()
     local items = {}
-    for _, code in ipairs(QB.locale.getLanguages()) do
+    for _, code in ipairs(Kora.locale.getLanguages()) do
         items[#items + 1] = {
             id = code,
             label = languageName(code),
@@ -26,14 +26,14 @@ function Core.locales.openSelector()
 
     -- kora_lib resolves NUI requests before returning them across a resource
     -- export boundary; kora_core therefore receives the result directly here.
-    local result = QB.nui.openMenu(items, 'Language')
+    local result = Kora.nui.openMenu(items, 'Language')
     if not result or result.cancelled or not result.selectedId then return end
 
-    local ok, err = QB.locale.setLanguage(result.selectedId)
+    local ok, err = Kora.locale.setLanguage(result.selectedId)
     if ok then
-        QB.notify.send({ title = 'Language', message = ('Language set to %s.'):format(languageName(result.selectedId)), type = 'success' })
+        Kora.notify.send({ title = 'Language', message = ('Language set to %s.'):format(languageName(result.selectedId)), type = 'success' })
     else
-        QB.notify.send({ title = 'Language', message = err, type = 'error' })
+        Kora.notify.send({ title = 'Language', message = err, type = 'error' })
     end
 end
 

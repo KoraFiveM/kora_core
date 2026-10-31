@@ -4,7 +4,7 @@
 -- @kora_core/init.lua mirror) and TriggerClientEvent(-1) (reaches every client).
 --
 -- Subscriptions and registered records are OWNER-TRACKED via
--- QB.resources.serverRegistry so a resource that registered items and then
+-- Kora.resources.serverRegistry so a resource that registered items and then
 -- restarts neither leaks nor double-registers.
 
 local RI = CoreInternal.registry
@@ -54,7 +54,7 @@ local function normaliseRoleGrades(record)
     record.grades = normalised
 end
 
-local subRegistry = QB.resources.serverRegistry(function(owner)
+local subRegistry = Kora.resources.serverRegistry(function(owner)
     for _, r in pairs(RI.registries) do
         for subId, sub in pairs(r.subscribers) do
             if sub.resource == owner then r.subscribers[subId] = nil end
@@ -102,7 +102,7 @@ function Core.registry.registerShared(name, key, record)
     if owner then
         -- subRegistry only needs one dispose call per resource (its callback
         -- does its own manual sweep below, not per-id cleanup), so the
-        -- resource name doubles as its own tracking id -- QB.resources.
+        -- resource name doubles as its own tracking id -- Kora.resources.
         -- serverRegistry's track(resource, id) requires both.
         subRegistry.track(owner, owner)
         ownedRecords[owner] = ownedRecords[owner] or {}

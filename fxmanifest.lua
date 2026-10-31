@@ -27,8 +27,8 @@ provide 'qb-core'
 
 -- Both are shared_script (not shared_scripts) so they resolve BEFORE the table
 -- below, kora_lib strictly before qbsql: '@kora_sql/init.lua' extends and asserts on
--- the QB table '@kora_lib/init.lua' creates. '@kora_core/init.lua' is NOT included
--- here -- it's for OTHER resources to pull QB.shared.* into their own VM. It
+-- the Kora table '@kora_lib/init.lua' creates. '@kora_core/init.lua' is NOT included
+-- here -- it's for OTHER resources to pull Kora.shared.* into their own VM. It
 -- must still be listed in `files` below so FiveM can resolve that @-import.
 shared_script '@kora_lib/init.lua'
 shared_script '@kora_sql/init.lua'

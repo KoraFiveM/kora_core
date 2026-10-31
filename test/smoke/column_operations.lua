@@ -11,8 +11,8 @@ dofile('modules/money/server.lua'); dofile('modules/inventory/server.lua')
 local caller = 'kora_banking'
 GetInvokingResource = function() return caller end
 exports.kora_sql = { hasActivePlayerOperation = function() return false end }
-QB.sql.transactionChecked = function() return { success = true } end
-QB.sql.update = function() return 1 end
+Kora.sql.transactionChecked = function() return { success = true } end
+Kora.sql.update = function() return 1 end
 local data = CoreInternal.player.freshData('DURABLE', 'license:durable', 1, {})
 assert(Core.player.login(1, 'DURABLE', data))
 local function finish(token, amount)
@@ -28,8 +28,8 @@ end)
 
 h.test('interleaved saves cannot enqueue or restore the fenced money snapshot', function()
     assert(Core.money.setMoney(1, 'bank', 1000))
-    local ordinaryFlush = QB.sql.flush
-    QB.sql.flush = function() coroutine.yield('pending flush'); return true end
+    local ordinaryFlush = Kora.sql.flush
+    Kora.sql.flush = function() coroutine.yield('pending flush'); return true end
     local thread = coroutine.create(function() return Core.persistence.beginPlayerColumnOperation('sale', { 'DURABLE' }, { 'money' }) end)
     local ok, wait = coroutine.resume(thread)
     h.assertTrue(ok); h.assertEqual(wait, 'pending flush')
@@ -44,7 +44,7 @@ h.test('interleaved saves cannot enqueue or restore the fenced money snapshot', 
     end
     local resumed, token = coroutine.resume(thread)
     h.assertTrue(resumed); h.assertTrue(type(token) == 'string')
-    QB.sql.flush = ordinaryFlush
+    Kora.sql.flush = ordinaryFlush
     finish(token, 700)
     h.assertEqual(Core.money.getMoney(1, 'bank'), 700)
     h.assertEqual(Core.persistence.flushAll(), 0, 'Committed money is already the encoded baseline')
@@ -64,22 +64,22 @@ h.test('offline writes and character login cannot cross an active operation', fu
 end)
 
 h.test('an offline writer already in flight blocks a later durable operation', function()
-    local update = QB.sql.update
-    QB.sql.update = function() coroutine.yield('offline update'); return 1 end
+    local update = Kora.sql.update
+    Kora.sql.update = function() coroutine.yield('offline update'); return 1 end
     local thread = coroutine.create(function() return Core.money.addOfflineMoney('INFLIGHT', 'bank', 25) end)
     h.assertTrue(coroutine.resume(thread))
     local token, code = Core.persistence.beginPlayerColumnOperation('racing', { 'INFLIGHT' }, { 'money' })
     h.assertEqual(token, nil); h.assertEqual(code, 'pending')
     h.assertFalse(Core.player.login(2, 'INFLIGHT', {}))
     h.assertTrue(coroutine.resume(thread))
-    QB.sql.update = update
+    Kora.sql.update = update
     token = assert(Core.persistence.beginPlayerColumnOperation('racing', { 'INFLIGHT' }, { 'money' }))
     h.assertTrue(Core.persistence.abortPlayerColumnOperation(token))
 end)
 
 h.test('a stale character query is rejected when a transaction crosses its read', function()
-    local single = QB.sql.single
-    QB.sql.single = function(sql)
+    local single = Kora.sql.single
+    Kora.sql.single = function(sql)
         if sql:find('qbcore_player_column_operations', 1, true) then return nil end
         coroutine.yield('read'); return { citizenid = 'RACE' }
     end
@@ -89,7 +89,7 @@ h.test('a stale character query is rejected when a transaction crosses its read'
     assert(Core.persistence.abortPlayerColumnOperation(token))
     local ok, value, err = coroutine.resume(thread)
     h.assertTrue(ok); h.assertEqual(value, nil); h.assertTrue(type(err) == 'string')
-    QB.sql.single = single
+    Kora.sql.single = single
 end)
 
 h.test('inventory fallback mutators cannot edit live item references while fenced', function()
@@ -107,12 +107,12 @@ h.test('inventory fallback mutators cannot edit live item references while fence
 end)
 
 h.test('flush failure releases the fence without publishing different money', function()
-    local flush = QB.sql.flush
-    QB.sql.flush = function() return false, 'controlled storage failure' end
+    local flush = Kora.sql.flush
+    Kora.sql.flush = function() return false, 'controlled storage failure' end
     local token, code = Core.persistence.beginPlayerColumnOperation('failed', { 'DURABLE' }, { 'money' })
     h.assertEqual(token, nil); h.assertEqual(code, 'unavailable')
     h.assertTrue(Core.money.addMoney(1, 'bank', 1))
-    QB.sql.flush = flush
+    Kora.sql.flush = flush
 end)
 
 h.test('a yielding legacy transfer cannot be captured between its debit and credit', function()
@@ -134,8 +134,8 @@ h.test('a yielding legacy transfer cannot be captured between its debit and cred
 end)
 
 h.test('offline credit rechecks a login that completes during its storage guard', function()
-    local single, first = QB.sql.single, true
-    QB.sql.single = function()
+    local single, first = Kora.sql.single, true
+    Kora.sql.single = function()
         if first then first = false; coroutine.yield('offline guard') end
         return nil
     end
@@ -146,25 +146,25 @@ h.test('offline credit rechecks a login that completes during its storage guard'
     local resumed, credited, err = coroutine.resume(thread)
     h.assertTrue(resumed); h.assertFalse(credited); h.assertEqual(err, 'player is online')
     h.assertFalse(Core.player.login(6, 'LOGIN_RACE', latest), 'One character must have only one authoritative live balance')
-    QB.sql.single = single
+    Kora.sql.single = single
 end)
 
 h.test('a core restart recovers durable fences before login and publishes current data', function()
-    local query, single, checked, update = QB.sql.query, QB.sql.single, QB.sql.transactionChecked, QB.sql.update
+    local query, single, checked, update = Kora.sql.query, Kora.sql.single, Kora.sql.transactionChecked, Kora.sql.update
     local stored, committed = {}, { cash = 500, bank = 42, crypto = 0 }
-    QB.sql.query = function() return Core.util.deepClone(stored) end
-    QB.sql.single = function(sql)
+    Kora.sql.query = function() return Core.util.deepClone(stored) end
+    Kora.sql.single = function(sql)
         if sql:find('qbcore_player_column_operations', 1, true) then return stored[1] end
         return { citizenid = 'RESTART', license = 'license:restart', money = json.encode(committed), inventory = '{}' }
     end
-    QB.sql.transactionChecked = function(statements)
+    Kora.sql.transactionChecked = function(statements)
         for _, statement in ipairs(statements) do
             local p = statement.values
             stored[#stored + 1] = { citizenid = p[1], column_name = p[2], resource = p[3], operation_key = p[4], fingerprint = p[5] }
         end
         return { success = true }
     end
-    QB.sql.update = function() stored = {}; return 1 end
+    Kora.sql.update = function() stored = {}; return 1 end
     assert(Core.persistence.beginPlayerColumnOperation('survives-restart', { 'RESTART' }, { 'money' }))
     dofile('modules/persistence/operations.lua')
     local stale = CoreInternal.player.freshData('RESTART', 'license:restart', 1, {})
@@ -177,7 +177,7 @@ h.test('a core restart recovers durable fences before login and publishes curren
     h.assertTrue(Core.player.login(4, 'RESTART', stale))
     h.assertEqual(Core.money.getMoney(4, 'bank'), 42, 'Stale pre-operation login data must reload after recovered commit')
     h.assertEqual(#stored, 0)
-    QB.sql.query, QB.sql.single, QB.sql.transactionChecked, QB.sql.update = query, single, checked, update
+    Kora.sql.query, Kora.sql.single, Kora.sql.transactionChecked, Kora.sql.update = query, single, checked, update
 end)
 
 h.test('trusted inventory operations fence money, items and metadata together', function()

@@ -9,12 +9,12 @@ local PI = CoreInternal.player
 local II = CoreInternal.inventory
 
 -- Registered useable-item handlers: name -> { resource, handler(src, item) }.
--- OWNER-TRACKED via QB.resources.serverRegistry, same as commands/registry, so a
+-- OWNER-TRACKED via Kora.resources.serverRegistry, same as commands/registry, so a
 -- resource that registered useables and then restarts doesn't leave dead
 -- handlers behind (its handlers would otherwise fire against a stale closure).
 local useables = {}
 
-local useableRegistry = QB.resources.serverRegistry(function(name)
+local useableRegistry = Kora.resources.serverRegistry(function(name)
     useables[name] = nil
 end)
 
@@ -43,7 +43,7 @@ end
 local function items(src) local p = PI.handle(src); return p and p.PlayerData.items or nil end
 
 local function validSlot(slot)
-    return QB.util.isInteger(slot) and slot >= 1 and slot <= Config.inventory.slots
+    return Kora.util.isInteger(slot) and slot >= 1 and slot <= Config.inventory.slots
 end
 
 ---@param src integer
@@ -269,7 +269,7 @@ function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local from = it[fromSlot]
     if not from then return false, 'empty source slot' end
     amount = tonumber(amount) or from.amount
-    if not QB.util.isFiniteNumber(amount) then return false, 'amount must be finite' end
+    if not Kora.util.isFiniteNumber(amount) then return false, 'amount must be finite' end
     amount = math.min(math.floor(amount), from.amount)
     if amount <= 0 then return false, 'amount must be positive' end
     if fromSlot == toSlot then return true end
@@ -373,7 +373,7 @@ end
 ---@param identifier string
 ---@return table
 function Core.inventory.stashGet(identifier)
-    local row = QB.sql.single('SELECT `items` FROM `inventories` WHERE `identifier` = ?', { identifier })
+    local row = Kora.sql.single('SELECT `items` FROM `inventories` WHERE `identifier` = ?', { identifier })
     if not row then return {} end
     local ok, v = pcall(json.decode, row.items or '')
     return ok and v or {}
@@ -384,7 +384,7 @@ end
 ---@param stashItems table
 ---@return boolean
 function Core.inventory.stashSet(identifier, stashItems)
-    QB.sql.enqueue('inventories', 'identifier',
+    Kora.sql.enqueue('inventories', 'identifier',
         { pk = identifier, cols = { items = json.encode(stashItems or {}), kind = 'stash' } },
         { mode = 'assign' })
     return true

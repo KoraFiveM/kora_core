@@ -81,7 +81,7 @@ Generic partial condition update, for periodic autosave of a vehicle that's curr
 - `boolean`
 
 ### `Core.garage.saveVehicleProperties(plate, properties)`
-Persists a complete `QB.vehicle.getProperties` snapshot without changing the
+Persists a complete `Kora.vehicle.getProperties` snapshot without changing the
 vehicle's state. Fuel, engine health, and body health are saved in their
 dedicated columns; all other mutable properties are saved in `mods` and are
 restored by `kora_garages` when the vehicle is taken out.
@@ -92,7 +92,7 @@ store callback continues to accept only safe cosmetic properties from a client.
 
 #### Parameters
 - `plate: string`
-- `properties: table` — result of `QB.vehicle.getProperties(vehicle)`.
+- `properties: table` — result of `Kora.vehicle.getProperties(vehicle)`.
 
 #### Returns
 - `boolean`, `string | nil` — `false, 'unknown vehicle'` when no active row exists.
@@ -115,5 +115,5 @@ exports.kora_core:saveVehicleProperties(plate, properties)
 
 ## Notes
 - **`mods` are opaque JSON**, never auto-applied to a spawned vehicle — apply them yourself if your garage UI has a tuning system.
-- **`spawnVehicle` uses `CreateVehicle` directly**, not `QB.entities` — the vehicle must be visible to every player, not just the spawner.
+- **`spawnVehicle` uses `CreateVehicle` directly**, not `Kora.entities` — the vehicle must be visible to every player, not just the spawner.
 - **This module never touches money.** Charge/refund the impound fee via `Core.money` before calling `impound`/`retrieveImpound`.

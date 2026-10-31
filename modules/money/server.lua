@@ -348,7 +348,7 @@ function Core.money.addOfflineMoney(citizenid, account, amount)
     if PI.byCitizenId[citizenid] then return false, 'player is online' end
     local path = '$.' .. json.encode(account)
     if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(citizenid) then return false, 'player data is busy' end
-    local called, result, err = pcall(QB.sql.update,
+    local called, result, err = pcall(Kora.sql.update,
         'UPDATE `players` SET `money` = JSON_SET(`money`, ?, '
             .. 'COALESCE(JSON_EXTRACT(`money`, ?), 0) + ?) '
             .. 'WHERE `citizenid` = ? AND `deleted_at` IS NULL',

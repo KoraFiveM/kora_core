@@ -10,12 +10,12 @@ local PI = CoreInternal.player
 -- CFX export-boundary callbacks may arrive as callable tables/funcrefs.
 -- Current qb-core uses this check for player extension hooks in both live and
 -- offline objects.
-local isCallable = QB.util.isCallable
+local isCallable = Kora.util.isCallable
 
 -- `provide 'qb-core'` alone doesn't make exports['qb-core']:GetCoreObject()
 -- resolve here; registering the __cfx_export event does (same identity hijack as
 -- kora_target/client/compat/ox-target.lua).
-local provideExport = QB.compat.provideExport
+local provideExport = Kora.compat.provideExport
 
 -- Built-ins accept modern colon calls and the direct dot calls used by older
 -- resources. A receiver may be a msgpack copy after crossing a CFX export.
@@ -580,7 +580,7 @@ function F.GetSource(identifier)
     return 0
 end
 
--- Callbacks -> kora_lib's QB.callback, PLUS real qb-core's raw net-event wire
+-- Callbacks -> kora_lib's Kora.callback, PLUS real qb-core's raw net-event wire
 -- protocol (QBCore:Server:TriggerCallback / QBCore:Client:TriggerCallback).
 -- Some legacy scripts skip QBCore.Functions.TriggerCallback entirely and
 -- fire the raw event themselves, so a handler registered via CreateCallback
@@ -598,7 +598,7 @@ local legacyCallbacks = {}
 -- Real QBCore hands the legacy handler a RESPONDER function as its second
 -- argument -- function(source, cb, ...) ... cb(result) end -- and the handler
 -- is expected to call that responder, not `return` its result. kora_lib's
--- QB.callback.register instead ships back whatever the registered function
+-- Kora.callback.register instead ships back whatever the registered function
 -- RETURNS. Bridging one onto the other means giving the legacy handler a
 -- `cb` that resolves a promise, then awaiting that promise for the actual
 -- return. A handler that never calls `cb` (a legitimate early-return, e.g.
@@ -606,7 +606,7 @@ local legacyCallbacks = {}
 -- coroutine and kora_lib's pending request forever -- the timeout guards that.
 function F.CreateCallback(name, handler)
     legacyCallbacks[name] = handler
-    QB.callback.register(name, function(src, ...)
+    Kora.callback.register(name, function(src, ...)
         local p = promise.new()
         local settled = false
 
@@ -634,13 +634,13 @@ end
 Core.compat.createCallback = F.CreateCallback
 
 -- Real QBCore's TriggerCallback forwards EVERY value the client handler
--- returned to `cb`, not just the first -- kora_lib's QB.callback.trigger (called
+-- returned to `cb`, not just the first -- kora_lib's Kora.callback.trigger (called
 -- here cross-resource, kora_core -> kora_lib) now supports that end to end, so
 -- table.pack/unpack is all that's needed to match it faithfully.
 function F.TriggerCallback(name, src, cb, ...)
     local args = { ... }
     CreateThread(function()
-        local results = table.pack(QB.callback.trigger(src, name, table.unpack(args)))
+        local results = table.pack(Kora.callback.trigger(src, name, table.unpack(args)))
         cb(table.unpack(results, 1, results.n))
     end)
 end
@@ -731,9 +731,9 @@ function F.HasItem(src, items, amount) return Core.inventory.hasItem(src, items,
 
 function F.ExecuteSql(_, query, cb)
     print('^3[qbcore:qb-core-bridge]^7 ExecuteSql is deprecated and its `wait` argument is ignored; use '
-        .. 'QB.sql.query or exports.kora_sql:query.')
+        .. 'Kora.sql.query or exports.kora_sql:query.')
     CreateThread(function()
-        local rows = QB.sql.query(query, {})
+        local rows = Kora.sql.query(query, {})
         if cb then cb(rows) end
     end)
 end
@@ -763,7 +763,7 @@ function F.GetPlayerByLicense(license)
 end
 
 function F.GetOfflinePlayerByLicense(license)
-    local row = QB.sql.single(
+    local row = Kora.sql.single(
         'SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL LIMIT 1',
         { license }
     )
@@ -814,13 +814,13 @@ end
 function F.GetPlayersOnDuty(job) return F.GetPlayersByJob(job, true) end
 function F.GetDutyCount(job) local _, count = F.GetPlayersByJob(job, true); return count end
 
--- Server-side closest-entity helpers -- thin forwards to QB.world.getClosestEntity
--- (see AGENTS.md's "thin forwards to QB.*, not reimplementations"). GetClosestPlayer
--- additionally maps the ped QB.world returns back to a player id via QB.closest.player,
+-- Server-side closest-entity helpers -- thin forwards to Kora.world.getClosestEntity
+-- (see AGENTS.md's "thin forwards to Kora.*, not reimplementations"). GetClosestPlayer
+-- additionally maps the ped Kora.world returns back to a player id via Kora.closest.player,
 -- matching real qb-core's (playerId, distance) signature.
 function F.GetClosestPlayer(source, coords)
     coords = coords and (type(coords) == 'table' and vector3(coords.x, coords.y, coords.z) or coords) or nil
-    local result = QB.closest.player(source, coords)
+    local result = Kora.closest.player(source, coords)
     return result.id or -1, result.distance or -1
 end
 
@@ -828,7 +828,7 @@ local function closestFromPool(source, coords, entityType, excludeSelf)
     coords = coords and (type(coords) == 'table' and vector3(coords.x, coords.y, coords.z) or coords)
         or GetEntityCoords(GetPlayerPed(source))
     local options = excludeSelf and { excludeEntities = { GetPlayerPed(source) } } or nil
-    local entity, _, distance = QB.world.getClosestEntity(entityType, coords, options)
+    local entity, _, distance = Kora.world.getClosestEntity(entityType, coords, options)
     return entity or -1, distance or -1
 end
 function F.GetClosestObject(source, coords) return closestFromPool(source, coords, 'object', false) end
@@ -870,14 +870,14 @@ end
 
 local function awaitEntity(entity)
     if not entity or entity == 0 then return false end
-    local ready = QB.loops.controlled(function()
+    local ready = Kora.loops.controlled(function()
         return DoesEntityExist(entity) and entity or nil
     end, false, 5000, 25)
     return ready or false
 end
 
 local function awaitVehicleWarp(ped, vehicle)
-    return QB.loops.controlled(function()
+    return Kora.loops.controlled(function()
         if GetVehiclePedIsIn(ped) == vehicle then return true end
         TaskWarpPedIntoVehicle(ped, vehicle, -1)
     end, false, 2000, 25)
@@ -891,7 +891,7 @@ function F.SpawnVehicle(source, model, coords, warp)
     local vehicle = awaitEntity(CreateVehicle(model, coords.x, coords.y, coords.z, heading, true, true))
     if not vehicle then return false end
 
-    local owned = QB.loops.controlled(function()
+    local owned = Kora.loops.controlled(function()
         return DoesEntityExist(vehicle) and NetworkGetEntityOwner(vehicle) == source
     end, false, 5000, 25)
     if not owned then return discardEntity(vehicle) end
@@ -925,7 +925,7 @@ end
 -- both transports for a single TriggerClientCallback call would invoke the
 -- client's handler twice for one logical request, so this now speaks the raw
 -- wire exclusively (matching real qb-core's own implementation), and the
--- kora_lib path is left for cross-resource callers that talk to QB.callback
+-- kora_lib path is left for cross-resource callers that talk to Kora.callback
 -- directly rather than through this function.
 QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
 
@@ -998,14 +998,14 @@ end
 
 function F.IsPlayerBanned(src)
     local license = F.GetIdentifier(src, 'license')
-    local row = QB.sql.single('SELECT id, reason, expire FROM bans WHERE license = ?', { license })
+    local row = Kora.sql.single('SELECT id, reason, expire FROM bans WHERE license = ?', { license })
     if not row then return false end
     if os.time() < tonumber(row.expire) then
         local t = os.date('*t', tonumber(row.expire))
         return true, ('You have been banned from the server:\n%s\nYour ban expires %d/%d/%d %d:%d\n')
             :format(row.reason, t.day, t.month, t.year, t.hour, t.min)
     end
-    QB.sql.query('DELETE FROM bans WHERE id = ?', { row.id })
+    Kora.sql.query('DELETE FROM bans WHERE id = ?', { row.id })
     return false
 end
 
@@ -1039,7 +1039,7 @@ end
 
 function F.ExploitBan(playerId, origin)
     local name = GetPlayerName(playerId)
-    QB.sql.insert('INSERT INTO bans (name, license, discord, ip, reason, expire, bannedby) VALUES (?, ?, ?, ?, ?, ?, ?)', {
+    Kora.sql.insert('INSERT INTO bans (name, license, discord, ip, reason, expire, bannedby) VALUES (?, ?, ?, ?, ?, ?, ?)', {
         name, F.GetIdentifier(playerId, 'license'), F.GetIdentifier(playerId, 'discord'),
         F.GetIdentifier(playerId, 'ip'), origin, 2147483647, 'Anti Cheat',
     })
@@ -1050,7 +1050,7 @@ end
 local function createUniqueId(generator, query)
     for _ = 1, 100 do
         local value = generator()
-        local exists = QB.sql.scalar(query, { value })
+        local exists = Kora.sql.scalar(query, { value })
         if not exists or tonumber(exists) == 0 then return value end
     end
     QBCore.ShowError(GetCurrentResourceName(), 'createUniqueId: exceeded 100 retries')
@@ -1330,7 +1330,7 @@ function P.CreatePlayer(srcOrData, charinfo, cid)
 end
 function P.DeleteCharacter(src, citizenid) return Core.multichar.deleteCharacter(src, citizenid) end
 function P.ForceDeleteCharacter(citizenid)
-    return QB.sql.query('UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
+    return Kora.sql.query('UPDATE `players` SET `deleted_at` = NOW() WHERE `citizenid` = ?', { citizenid })
 end
 function P.CheckPlayerData(src, playerData)
     playerData = playerData or {}
@@ -1377,13 +1377,13 @@ function P.CreateSerialNumber() return randomId(9, false) end
 -- Real qb-core's QBCore.Commands.List is a TABLE keyed by command name, not a
 -- function -- scripts read List[name] and iterate pairs(List). We keep a keyed
 -- table rebuilt whenever a command is added/refreshed through the compat.
--- (Commands another resource registers straight through QB.commands aren't
+-- (Commands another resource registers straight through Kora.commands aren't
 -- reflected until the next Add/Refresh -- documented in AGENTS.md.)
 --
 -- Real qb-core's List entries also carry `params`/`argsrequired`/`callback`
 -- (not just name/help/permission) -- QBCore:CallCommand (qb-core-events.lua)
 -- invokes .callback directly, and checks .argsrequired/.params before doing
--- so. Core.commands.listCommands() (QB.commands.list()) only ever returns
+-- so. Core.commands.listCommands() (Kora.commands.list()) only ever returns
 -- {name, help, permission} -- it has no reason to leak a raw handler function
 -- to every caller -- so those three extra fields are captured HERE, at
 -- QBCore.Commands.Add time, in a side table keyed by name and merged into the

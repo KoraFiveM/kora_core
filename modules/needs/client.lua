@@ -5,7 +5,7 @@
 local function playerCanTakeNeedsDamage()
     if Core.development.isDevMode() then return nil end
 
-    local ped = QB.cache.ped()
+    local ped = Kora.cache.ped()
     if not ped or ped == 0 or IsEntityDead(ped) then return nil end
 
     -- Ambulance flows can mark a player dead/last-stand before GTA reports the

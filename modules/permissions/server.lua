@@ -10,14 +10,14 @@ local PREFIX = 'qbcore'
 ---@param src integer
 ---@return string
 function Core.permissions.getPermission(src)
-    return QB.permissions.getLevel(src, LEVELS, PREFIX)
+    return Kora.permissions.getLevel(src, LEVELS, PREFIX)
 end
 
 ---@param src integer
 ---@param permission string
 ---@return boolean
 function Core.permissions.hasPermission(src, permission)
-    return QB.permissions.hasPermission(src, permission, PREFIX)
+    return Kora.permissions.hasPermission(src, permission, PREFIX)
 end
 
 ---Grant a runtime permission by adding an ace principal for the player's license.

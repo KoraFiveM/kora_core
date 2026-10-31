@@ -86,7 +86,7 @@ h.test('using an item with an effect table applies the status effect and metadat
     Core.metadata.setMetaData(1, 'stress', 50)
 
     local appliedName, appliedOpts
-    handle.QB.status.apply = function(target, name, opts)
+    handle.Kora.status.apply = function(target, name, opts)
         h.assertEqual(target, 1)
         appliedName, appliedOpts = name, opts
         return true
@@ -104,13 +104,13 @@ end)
 
 h.test('using an item with no effect table is a harmless no-op', function()
     local statusApplyCalled = false
-    handle.QB.status.apply = function() statusApplyCalled = true; return true end
+    handle.Kora.status.apply = function() statusApplyCalled = true; return true end
 
     local hunger = Core.metadata.getMetaData(1, 'hunger')
     local allowed = registeredHookCallback({ itemName = 'water_bottle', inventoryId = 'player:1', inventoryType = 'player' }, 1)
 
     h.assertTrue(allowed)
-    h.assertFalse(statusApplyCalled, 'QB.status.apply should never be called for an item with no effect table')
+    h.assertFalse(statusApplyCalled, 'Kora.status.apply should never be called for an item with no effect table')
     h.assertEqual(Core.metadata.getMetaData(1, 'hunger'), hunger, 'hunger should be unchanged')
 end)
 

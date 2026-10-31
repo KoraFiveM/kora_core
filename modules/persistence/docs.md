@@ -19,7 +19,7 @@ local flushed = exports.kora_core:flushAll()
 ```
 
 ### `Core.persistence.saveNow(player)`
-Enqueues one player at **immediate** priority: samples position and applies the two change gates. This call does not acknowledge a database commit. The logout lifecycle separately freezes mutations, enqueues a fresh complete mutable snapshot and awaits `QB.sql.flush('players')`; a failed or uncertain flush retains the character and marks the snapshot retryable.
+Enqueues one player at **immediate** priority: samples position and applies the two change gates. This call does not acknowledge a database commit. The logout lifecycle separately freezes mutations, enqueues a fresh complete mutable snapshot and awaits `Kora.sql.flush('players')`; a failed or uncertain flush retains the character and marks the snapshot retryable.
 
 #### Parameters
 - `player: table` — The live player handle (from `CoreInternal.player.handle(src)`).
@@ -27,7 +27,7 @@ Enqueues one player at **immediate** priority: samples position and applies the 
 ## Notes
 - **The two gates.** A column is written only if (1) it's marked **dirty** since the last flush *and* (2) its freshly-encoded JSON is **byte-different** from the `_encoded` baseline. Gate 2 catches "set to the same value" churn — a hunger tick landing on the current value writes nothing.
 - **Position throttle.** Position is sampled at flush time from the ped; it's only marked dirty if the player moved past `Config.persistence.positionEpsilon` metres or `Config.persistence.positionMaxAge` ms elapsed. A parked player never re-writes position.
-- **Coalescing flush.** `flushAll` batches every dirty player into a single `QB.sql.enqueueMany('players', …)` — one boundary crossing per interval, not one per player. The flush loop runs every `Config.persistence.interval` ms with `±intervalJitter` so saves don't thundering-herd, and nudges kora_sql to drain promptly afterward.
+- **Coalescing flush.** `flushAll` batches every dirty player into a single `Kora.sql.enqueueMany('players', …)` — one boundary crossing per interval, not one per player. The flush loop runs every `Config.persistence.interval` ms with `±intervalJitter` so saves don't thundering-herd, and nudges kora_sql to drain promptly afterward.
 - **Immediate-flush paths.** `saveNow` enqueues at `immediate` priority without a commit acknowledgement. Logout additionally awaits confirmation before unloading. txAdmin shutdown (`serverShuttingDown`) and a scheduled restart within 60s flush everyone immediately, as does the resource-stop handler.
 - **Bounded-durability caveat.** The `onResourceStop` final drain is best-effort with no guarantee FXServer lets the yield complete. This **bounds** worst-case data loss to one flush interval — it does not eliminate it. Tune `Config.persistence.interval` accordingly.
 - **`license`/`cid` are never in a write-set.** They aren't in `COLUMN_FOR`, so nothing can mark them dirty; the collect/save paths also skip them explicitly as belt-and-braces (the schema's two unique keys make writing them a corruption hazard).

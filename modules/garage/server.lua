@@ -4,7 +4,7 @@
 -- whether `citizenid` or `job` is set on a row (by convention, not enforced
 -- at the SQL level -- a row is expected to have exactly one of the two).
 --
--- spawnVehicle uses the raw CreateVehicle native, NEVER QB.entities (kora_lib's
+-- spawnVehicle uses the raw CreateVehicle native, NEVER Kora.entities (kora_lib's
 -- entity spawner is explicitly local/non-networked) -- a duty or owned
 -- vehicle must be visible to every player, not just the one who spawned it.
 --
@@ -64,14 +64,14 @@ function Core.garage.createVehicle(citizenid, model, plate, job, extra)
     extra = extra or {}
     local modelName = type(model) == 'number' and tostring(model) or model
 
-    local ok, err = QB.sql.execute(
+    local ok, err = Kora.sql.execute(
         'INSERT INTO `player_vehicles` (`plate`,`model`,`vehicle`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
         .. 'VALUES (?,?,?,?,?,?,?,?)',
         {
             -- Exactly one of citizenid/job is set; the other is a real SQL NULL.
             -- Writing it as a bare nil would leave a hole in this array and the
             -- driver would reject the whole statement.
-            plate, modelName, modelName, citizenid or QB.sql.NULL, job or QB.sql.NULL,
+            plate, modelName, modelName, citizenid or Kora.sql.NULL, job or Kora.sql.NULL,
             extra.fuel or Config.garage.defaultFuel,
             extra.engineHealth or Config.garage.defaultEngineHealth,
             extra.bodyHealth or Config.garage.defaultBodyHealth,
@@ -85,14 +85,14 @@ end
 ---@param plate string
 ---@return table|nil
 function Core.garage.getByPlate(plate)
-    local row = QB.sql.single('SELECT * FROM `player_vehicles` WHERE `plate` = ? AND `deleted_at` IS NULL', { plate })
+    local row = Kora.sql.single('SELECT * FROM `player_vehicles` WHERE `plate` = ? AND `deleted_at` IS NULL', { plate })
     return hydrate(row)
 end
 
 ---@param citizenid string
 ---@return table[]
 function Core.garage.getByOwner(citizenid)
-    local rows = QB.sql.query(
+    local rows = Kora.sql.query(
         'SELECT * FROM `player_vehicles` WHERE `citizenid` = ? AND `deleted_at` IS NULL ORDER BY `id`', { citizenid }
     ) or {}
     for _, row in ipairs(rows) do hydrate(row) end
@@ -114,10 +114,10 @@ function Core.garage.storeVehicle(plate, snapshot)
     if snapshot.garageId ~= nil then
         if type(snapshot.garageId) ~= 'string' or #snapshot.garageId < 1 or #snapshot.garageId > 50 then return false, 'invalid garage id' end
         if snapshot.ownerCitizenId and row.citizenid ~= snapshot.ownerCitizenId then return false, 'vehicle ownership changed' end
-        local values = { snapshot.garageId, snapshot.fuel or QB.sql.NULL, snapshot.engineHealth or QB.sql.NULL,
-            snapshot.bodyHealth or QB.sql.NULL, snapshot.mods and json.encode(snapshot.mods) or QB.sql.NULL, plate }
+        local values = { snapshot.garageId, snapshot.fuel or Kora.sql.NULL, snapshot.engineHealth or Kora.sql.NULL,
+            snapshot.bodyHealth or Kora.sql.NULL, snapshot.mods and json.encode(snapshot.mods) or Kora.sql.NULL, plate }
         if snapshot.ownerCitizenId then values[#values + 1] = snapshot.ownerCitizenId end
-        local affected, err = QB.sql.update(
+        local affected, err = Kora.sql.update(
             'UPDATE `player_vehicles` SET `state`=\'garaged\', `garage_id`=?, '
             .. '`fuel`=COALESCE(?,`fuel`), `engine_health`=COALESCE(?,`engine_health`), '
             .. '`body_health`=COALESCE(?,`body_health`), `mods`=COALESCE(?,`mods`) '
@@ -125,7 +125,7 @@ function Core.garage.storeVehicle(plate, snapshot)
         if err or affected ~= 1 then return false, err or 'vehicle is no longer available' end
         return true
     end
-    local ok, err = QB.sql.execute(
+    local ok, err = Kora.sql.execute(
         'UPDATE `player_vehicles` SET `state` = \'garaged\', '
         .. '`fuel` = COALESCE(?, `fuel`), `engine_health` = COALESCE(?, `engine_health`), '
         .. '`body_health` = COALESCE(?, `body_health`), `mods` = COALESCE(?, `mods`), '
@@ -186,7 +186,7 @@ function Core.garage.spawnVehicle(src, plate, coords, heading, expectedOwner)
 
         local values = { row.plate }
         if expectedOwner then values[#values + 1] = expectedOwner end
-        local affected, err = QB.sql.update(
+        local affected, err = Kora.sql.update(
             'UPDATE `player_vehicles` SET `state` = \'out\' '
             .. 'WHERE `plate` = ? AND `state` = \'garaged\' AND `deleted_at` IS NULL' .. (expectedOwner and ' AND `citizenid`=?' or ''),
             values
@@ -217,7 +217,7 @@ function Core.garage.impound(plate, fee, impoundLot)
     local row = Core.garage.getByPlate(plate)
     if not row then return false, 'unknown vehicle' end
 
-    local ok, err = QB.sql.execute(
+    local ok, err = Kora.sql.execute(
         'UPDATE `player_vehicles` SET `state` = \'impounded\', `impound_fee` = ?, `impound_lot` = ?, `impounded_at` = NOW() WHERE `plate` = ?',
         { fee, impoundLot, plate }
     )
@@ -249,7 +249,7 @@ function Core.garage.retrieveImpound(src, plate)
         end
     end
 
-    local affected, err = QB.sql.update(
+    local affected, err = Kora.sql.update(
         'UPDATE `player_vehicles` SET `state` = \'garaged\', `impound_fee` = NULL, '
         .. '`impound_lot` = NULL, `impounded_at` = NULL '
         .. 'WHERE `plate` = ? AND `state` = \'impounded\' AND `deleted_at` IS NULL',
@@ -271,7 +271,7 @@ end
 function Core.garage.updateState(plate, patch)
     if not Core.garage.getByPlate(plate) then return false end
 
-    local ok = QB.sql.execute(
+    local ok = Kora.sql.execute(
         'UPDATE `player_vehicles` SET '
         .. '`fuel` = COALESCE(?, `fuel`), `engine_health` = COALESCE(?, `engine_health`), '
         .. '`body_health` = COALESCE(?, `body_health`), `mods` = COALESCE(?, `mods`), '
@@ -279,11 +279,11 @@ function Core.garage.updateState(plate, patch)
         {
             -- Every patch field is optional and COALESCE'd in SQL, so an absent
             -- one must bind as NULL rather than leaving a hole in this array.
-            patch.fuel or QB.sql.NULL,
-            patch.engineHealth or QB.sql.NULL,
-            patch.bodyHealth or QB.sql.NULL,
-            patch.mods and json.encode(patch.mods) or QB.sql.NULL,
-            patch.position and json.encode(patch.position) or QB.sql.NULL,
+            patch.fuel or Kora.sql.NULL,
+            patch.engineHealth or Kora.sql.NULL,
+            patch.bodyHealth or Kora.sql.NULL,
+            patch.mods and json.encode(patch.mods) or Kora.sql.NULL,
+            patch.position and json.encode(patch.position) or Kora.sql.NULL,
             plate,
         }
     )
@@ -298,7 +298,7 @@ end
 ---health are kept in their dedicated columns so a later garage spawn cannot
 ---be overridden by the JSON snapshot.
 ---@param plate string
----@param properties table Result of QB.vehicle.getProperties.
+---@param properties table Result of Kora.vehicle.getProperties.
 ---@return boolean, string|nil
 function Core.garage.saveVehicleProperties(plate, properties)
     if type(properties) ~= 'table' then return false, 'vehicle properties must be a table' end
@@ -328,6 +328,6 @@ end
 ---@param plate string
 ---@return boolean
 function Core.garage.deleteVehicle(plate)
-    local ok = QB.sql.execute('UPDATE `player_vehicles` SET `deleted_at` = NOW() WHERE `plate` = ?', { plate })
+    local ok = Kora.sql.execute('UPDATE `player_vehicles` SET `deleted_at` = NOW() WHERE `plate` = ?', { plate })
     return ok ~= nil
 end

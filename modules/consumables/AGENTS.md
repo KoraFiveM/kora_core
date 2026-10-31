@@ -1,7 +1,7 @@
 # consumables module guide
 
 ## Purpose
-The generic item-effect bridge. Reads an item's shared `.effect` table (set by whichever resource registered the item, e.g. kora_ambulance's bandage, kora_drugs' every drug item) and plays it back via `QB.status`/metadata when the item is used — ONE hook services every effect-bearing item in the whole framework, so a new drug/medical item needs only a data entry, never new game logic. Server only.
+The generic item-effect bridge. Reads an item's shared `.effect` table (set by whichever resource registered the item, e.g. kora_ambulance's bandage, kora_drugs' every drug item) and plays it back via `Kora.status`/metadata when the item is used — ONE hook services every effect-bearing item in the whole framework, so a new drug/medical item needs only a data entry, never new game logic. Server only.
 
 This layer is **cosmetic/status only** and never denies an item use — real gameplay effects (actually healing HP, etc.) stay in each job resource's own `Core.inventory.createUseable` handler, which runs independently of this hook.
 
@@ -17,5 +17,5 @@ This layer is **cosmetic/status only** and never denies an item use — real gam
 - **Effect application never denies the use.** `onUsingItem` always returns `true` so a status-apply failure (logged, not raised) can't block whatever the item's own `createUseable` handler does.
 
 ## Best practices
-- Give a new effect-bearing item a shared `.effect` table (`hungerDelta`/`thirstDelta`/`stressDelta`, plus whatever `QB.status`/`QB.fx` consume) instead of writing a bespoke `createUseable` handler just to apply cosmetic status changes.
+- Give a new effect-bearing item a shared `.effect` table (`hungerDelta`/`thirstDelta`/`stressDelta`, plus whatever `Kora.status`/`Kora.fx` consume) instead of writing a bespoke `createUseable` handler just to apply cosmetic status changes.
 - Real, non-cosmetic gameplay effects still belong in the item's own `createUseable` handler — don't try to encode them into `.effect`.

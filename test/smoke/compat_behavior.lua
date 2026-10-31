@@ -433,13 +433,13 @@ h.test('required-field saves reject fences while ordinary partial saves stay com
 end)
 
 h.test('offline factory evaluates nested defaults without retaining callable values', function()
-    local scalar = QB.sql.scalar
-    QB.sql.scalar = function() return nil end
+    local scalar = Kora.sql.scalar
+    Kora.sql.scalar = function() return nil end
     local p = QBCore.Player.CheckPlayerData(nil, {
         citizenid = 'GENERATED_DEFAULTS', license = 'license:defaults', cid = 1,
         charinfo = { firstname = 'Preserved' },
     })
-    QB.sql.scalar = scalar
+    Kora.sql.scalar = scalar
     local function serializable(value)
         h.assertTrue(type(value) ~= 'function', 'PlayerData must not retain default generators')
         if type(value) == 'table' then for _, child in pairs(value) do serializable(child) end end
@@ -456,36 +456,36 @@ h.test('legacy offline save uses native mutable fields and refuses online or fen
     h.assertFalse(QBCore.Player.SaveOffline(p.PlayerData), 'an offline snapshot cannot overwrite an online character')
     local offline = Core.compat.buildOfflinePlayer(CoreInternal.player.freshData('OFFLINE_SAVE', 'license:save', 1, {}))
     offline:SetJob('police', 0)
-    local oldUpdate, oldBusy = QB.sql.update, Core.persistence._hasColumnOperation
+    local oldUpdate, oldBusy = Kora.sql.update, Core.persistence._hasColumnOperation
     local statement, params
-    QB.sql.update = function(sql, values) statement, params = sql, values; return 1 end
+    Kora.sql.update = function(sql, values) statement, params = sql, values; return 1 end
     h.assertTrue(offline:Save())
     h.assertFalse(statement:find('`license` =', 1, true))
     h.assertFalse(statement:find('`cid` =', 1, true))
     h.assertEqual(json.decode(params[4]).grade.level, 1, 'save translates the job into native grade storage')
     Core.persistence._hasColumnOperation = function() return true end
     local ok, err = offline:Save()
-    Core.persistence._hasColumnOperation, QB.sql.update = oldBusy, oldUpdate
+    Core.persistence._hasColumnOperation, Kora.sql.update = oldBusy, oldUpdate
     h.assertFalse(ok)
     h.assertEqual(err, 'player data is busy')
 end)
 
 h.test('first offline save inserts plainly and identity collisions never overwrite', function()
-    local scalar = QB.sql.scalar
-    QB.sql.scalar = function() return nil end
+    local scalar = Kora.sql.scalar
+    Kora.sql.scalar = function() return nil end
     local p = QBCore.Player.CheckPlayerData(nil, { citizenid = 'NEW_OFFLINE', license = 'license:new', cid = 1 })
-    QB.sql.scalar = scalar
-    local oldUpdate, oldSingle, oldExecute = QB.sql.update, QB.sql.single, QB.sql.execute
+    Kora.sql.scalar = scalar
+    local oldUpdate, oldSingle, oldExecute = Kora.sql.update, Kora.sql.single, Kora.sql.execute
     local inserted
-    QB.sql.update = function() return 0 end
-    QB.sql.single = function() return nil end
-    QB.sql.execute = function(sql) inserted = sql; return { affectedRows = 1 } end
+    Kora.sql.update = function() return 0 end
+    Kora.sql.single = function() return nil end
+    Kora.sql.execute = function(sql) inserted = sql; return { affectedRows = 1 } end
     h.assertTrue(p:Save())
     h.assertTrue(inserted:find('INSERT INTO `players`', 1, true))
     h.assertFalse(inserted:find('ON DUPLICATE', 1, true), 'first-save collisions must fail, not update another row')
-    QB.sql.execute = function() return nil, 'duplicate identity' end
+    Kora.sql.execute = function() return nil, 'duplicate identity' end
     local ok, err = p:Save()
-    QB.sql.update, QB.sql.single, QB.sql.execute = oldUpdate, oldSingle, oldExecute
+    Kora.sql.update, Kora.sql.single, Kora.sql.execute = oldUpdate, oldSingle, oldExecute
     h.assertFalse(ok)
     h.assertEqual(err, 'duplicate identity')
 end)
@@ -495,17 +495,17 @@ h.test('persisted native grades round-trip through offline loading and legacy lo
     local offline = Core.compat.buildOfflinePlayer(native)
     offline:SetJob('police', 0)
     offline:SetGang('ballas', 1)
-    local oldUpdate, oldSingle, oldScalar = QB.sql.update, QB.sql.single, QB.sql.scalar
+    local oldUpdate, oldSingle, oldScalar = Kora.sql.update, Kora.sql.single, Kora.sql.scalar
     local oldIdentifiers, oldPlayerName = Core.identity.getIdentifiers, GetPlayerName
     GetPlayerName = function() return "Roundtrip Player" end
     local row = { citizenid = native.citizenid, license = native.license, cid = native.cid }
-    QB.sql.scalar = function() return nil end
-    QB.sql.update = function(_, values)
+    Kora.sql.scalar = function() return nil end
+    Kora.sql.update = function(_, values)
         row.name, row.money, row.charinfo, row.job, row.gang = values[1], values[2], values[3], values[4], values[5]
         row.position, row.metadata, row.inventory, row.phone = values[6], values[7], values[8], values[9]
         return 1
     end
-    QB.sql.single = function(sql)
+    Kora.sql.single = function(sql)
         if sql:find('SELECT * FROM `players`', 1, true) then return Core.util.deepClone(row) end
         return nil
     end
@@ -524,21 +524,21 @@ h.test('persisted native grades round-trip through offline loading and legacy lo
     h.assertEqual(QBCore.Functions.GetPlayer(87).PlayerData.gang.grade.level, 1)
     h.assertEqual(CoreInternal.player.handle(87).PlayerData.job.grade.level, 1)
     h.assertEqual(CoreInternal.player.handle(87).PlayerData.gang.grade.level, 2)
-    QB.sql.update, QB.sql.single, QB.sql.scalar = oldUpdate, oldSingle, oldScalar
+    Kora.sql.update, Kora.sql.single, Kora.sql.scalar = oldUpdate, oldSingle, oldScalar
     Core.identity.getIdentifiers, GetPlayerName = oldIdentifiers, oldPlayerName
 end)
 
 h.test('legacy command tuple arguments adapt without changing native or public contracts', function()
-    local add = QB.commands.add
+    local add = Kora.commands.add
     local captured
-    QB.commands.add = function(name, help, args, required, callback, options)
+    Kora.commands.add = function(name, help, args, required, callback, options)
         captured = { args = args, required = required, callback = callback, options = options }
         return add(name, help, args, required, callback, options)
     end
     local tuple = { { 'id', 'ID of a person' }, { name = 'reason', help = 'Reason' } }
     local callback = function() end
     QBCore.Commands.Add('legacy_drivinglicense', 'License', tuple, true, callback, 'admin')
-    QB.commands.add = add
+    Kora.commands.add = add
     h.assertEqual(captured.args[1].name, 'id')
     h.assertEqual(captured.args[1].help, 'ID of a person')
     h.assertEqual(captured.args[2].name, 'reason')
