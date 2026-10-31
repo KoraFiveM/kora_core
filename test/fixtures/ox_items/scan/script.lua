@@ -1,0 +1,6 @@
+exports.inv:AddItem(source, 'sandwich', 1)
+-- exports.inv:AddItem(source, 'commented_out', 1)
+Player.Functions.RemoveItem('burger', 1)
+HasItem(src, "ghost_item")
+local x = GetItemCount(src, name)
+exports.inv:AddItem(src, 'weapon_pistol', 1)
