@@ -110,6 +110,7 @@ Config.compat = {
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
     clientMetadataKeys = {},              -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes; empty is secure by default
     callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
+    qbxFacade = false,                    -- publish the qbx_core/qbx_vehicles export+event surface for stock ox_inventory (`inventory:framework qbx`); also enabled by `setr kora:qbxFacade true`. See compat/server/qbx.lua
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 

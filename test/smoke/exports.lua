@@ -53,6 +53,7 @@ dofile('compat/server/qb-core.lua')
 dofile('compat/server/qb-core-events.lua')
 dofile('compat/server/qb-multicharacter.lua')
 dofile('compat/server/qb-spawn.lua')
+dofile('compat/server/qbx.lua')
 
 local flattened = {}
 _G.exports = function(name, fn)

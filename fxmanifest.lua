@@ -94,7 +94,7 @@ shared_scripts {
 --                       Core.permissions (via addCommand's permission check)
 --   dependencySupervisor  reactive-only (onResourceStart), no dependency on
 --                         anything above; OFF by default via Config
---   compat/*     LAST (before finalise) so it calls Core.* directly and
+--   compat/*     LAST (before finalise; qbx.lua needs QBCore.Functions from qb-core.lua) so it calls Core.* directly and
 --                GetInvokingResource() resolves to the real external consumer
 --   build/finalise.lua  absolutely last -- flattens Core.<module>.<fn> to exports
 server_scripts {
@@ -129,6 +129,7 @@ server_scripts {
     'compat/server/qb-core-events.lua',
     'compat/server/qb-multicharacter.lua',
     'compat/server/qb-spawn.lua',
+    'compat/server/qbx.lua', -- opt-in (kora:qbxFacade); registers nothing while off
     'build/finalise.lua'
 }
 
