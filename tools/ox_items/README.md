@@ -42,9 +42,12 @@ Only the stock file is read, for names; nothing is copied.
 - `money` and `black_money` keep ox semantics: emitted label-only like stock (framework keeps
   bank; stock `inventory:accounts '["money"]'`). Kora's `cash` item is mapped to `money`
   (`aliases` in `mapping.json`), not emitted.
-- Stock-only items (`burger`, `mustard`, ...) are NOT carried over; they are listed. ox code
-  references `armour`, `clothing`, `identification` by name: the report warns if the registry
-  lacks them.
+- Stock-only demo items (`testburger`, `scrapmetal`) are NOT carried over; they are listed.
+  Every stock item that ox code names (`armour`, `bandage`, `clothing`, `garbage`,
+  `identification`, `mastercard`, `paperbag`, `parachute`, `phone`, and the `init.lua` loot-table
+  items `burger`, `sprunk`, `mustard`, `panties`) is defined in the kora registry
+  (`shared/items.lua`); the report warns if one is ever missing. `money`/`black_money` are
+  covered by the generator's reserved entries.
 
 ## Missing-item scan (heuristic)
 Scans `*.lua` (excluding `test/`) under the kora_core checkout the script lives in, plus any

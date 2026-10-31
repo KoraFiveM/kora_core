@@ -24,12 +24,17 @@ M.ALIASES = { cash = 'money' }
 
 -- Reserved names ox_inventory's own code depends on. Emitted minimally (label
 -- only, same as stock) when kora does not define them, so the generated file
--- never drops them. Other engine-referenced stock names are only warned about.
+-- never drops them. Engine-referenced stock names must be defined in the kora registry
+-- (shared/items.lua); the report warns if one is not.
 M.RESERVED = {
     money = { label = 'Money' },
     black_money = { label = 'Dirty Money' },
 }
-M.ENGINE_REFERENCED = { 'armour', 'parachute', 'clothing', 'identification', 'phone' }
+M.ENGINE_REFERENCED = {
+    'armour', 'bandage', 'clothing', 'garbage', 'identification', 'mastercard',
+    'paperbag', 'parachute', 'phone',                      -- named in ox modules/
+    'burger', 'sprunk', 'mustard', 'panties',              -- named in ox init.lua loot tables
+}
 
 -- Fallback ammo mapping for ammo-looking items that carry no `ammoType`.
 M.AMMO_BY_NAME = {

@@ -64,4 +64,12 @@ h.test('CLI writes items.lua, mapping and reports', function()
     os.execute("rm -rf '" .. out .. "'")
 end)
 
+h.test('real registry defines every item stock ox_inventory names in code', function()
+    local real = {}
+    for _, rec in ipairs((gen.loadRegistry('.'))) do real[rec.name] = rec end
+    for _, name in ipairs(gen.ENGINE_REFERENCED) do h.assertTrue(real[name] ~= nil, name .. ' missing from registry') end
+    h.assertEqual(real.identification.unique, true)
+    h.assertEqual(real.bandage.label, 'Bandage') -- existing kora records are untouched
+end)
+
 h.report("ox_items")
