@@ -4,7 +4,7 @@ Offline generator: kora_core item registry -> stock ox_inventory `data/items.lua
 (Q-D8: kora_core is the source of truth, the ox file is generated). Plain Lua 5.4,
 no DB, no network, read-only on its inputs.
 
-    lua5.4 tools/ox_items/generate.lua [--out out/ox_items/items.lua] [--ox-dir <ox_inventory>]
+    lua5.4 tools/ox_items/generate.lua [--out out/ox_items/items.lua] --ox-dir <path-to-ox_inventory>
                                        [--scan <dir>]... [--no-default-scan] [--image-url]
                                        [--use-export resource.fn] [--strict]
 
@@ -47,8 +47,9 @@ Only the stock file is read, for names; nothing is copied.
   lacks them.
 
 ## Missing-item scan (heuristic)
-Scans `*.lua` (excluding `test/`) under `/workspace/oxp/base/kora_core`, `ref/kora_inventory`,
-`ref/kora_consumables` (override with `--scan`) for literal names in `AddItem/RemoveItem/HasItem/
-GetItemCount/CreateUseableItem/...` calls. Dynamic names and shop/crafting tables are invisible,
+Scans `*.lua` (excluding `test/`) under the kora_core checkout the script lives in, plus any
+extra directories given with a repeatable `--scan <dir>` (e.g. `--scan <path-to-kora_inventory>
+--scan <path-to-kora_consumables>`; `--no-default-scan` skips the checkout) for literal names in
+`AddItem/RemoveItem/HasItem/GetItemCount/CreateUseableItem/...` calls. Dynamic names and shop/crafting tables are invisible,
 so an empty list is necessary, not sufficient. ox_inventory silently drops unknown items on load:
 the list must be empty before go-live (`--strict` exits 2 otherwise).

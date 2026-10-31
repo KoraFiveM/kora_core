@@ -586,9 +586,9 @@ local USAGE = [[
 usage: lua5.4 tools/ox_items/generate.lua [options]
   --out <path>          items.lua output path (default ./out/ox_items/items.lua)
   --root <dir>          kora_core tree holding shared/ (default: this repo)
-  --ox-dir <dir>        stock ox_inventory (default ../../ref/ox_inventory-2.48.1 or ./ref/...)
-  --scan <dir>          directory to scan for item names (repeatable)
-  --no-default-scan     do not scan the default kora resource locations
+  --ox-dir <dir>        REQUIRED: stock ox_inventory resource (read for names only)
+  --scan <dir>          extra directory to scan for item names (repeatable)
+  --no-default-scan     do not scan --root (this kora_core checkout) by default
   --image-url           use the registry imageUrl instead of the local image name
   --use-export <r.fn>   point useable items at a server export (also sets consume = 0)
   --strict              exit 2 if the missing-item report is not empty
@@ -614,23 +614,10 @@ function M.main(argv)
     end
 
     if not opts.oxDir then
-        for _, candidate in ipairs({ repoRoot .. '/../../ref/ox_inventory-2.48.1', './ref/ox_inventory-2.48.1' }) do
-            if readFile(candidate .. '/data/weapons.lua') then opts.oxDir = candidate; break end
-        end
-    end
-    if not opts.oxDir then
-        io.stderr:write('stock ox_inventory not found; pass --ox-dir\n')
+        io.stderr:write('--ox-dir <path-to-ox_inventory> is required\n' .. USAGE .. '\n')
         return 1
     end
-    if opts.defaultScan then
-        for _, d in ipairs({ '/workspace/oxp/base/kora_core', repoRoot .. '/../../ref/kora_inventory',
-            repoRoot .. '/../../ref/kora_consumables' }) do
-            local p = io.popen('test -d ' .. shellQuote(d) .. ' && echo y')
-            local exists = p and p:read('l') == 'y'
-            if p then p:close() end
-            if exists then opts.scanDirs[#opts.scanDirs + 1] = d end
-        end
-    end
+    if opts.defaultScan then table.insert(opts.scanDirs, 1, opts.root) end
 
     local ok, result = pcall(M.build, opts)
     if not ok then io.stderr:write('generate: ' .. tostring(result) .. '\n'); return 1 end
