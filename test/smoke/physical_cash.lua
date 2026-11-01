@@ -94,7 +94,6 @@ h.test('money APIs delegate add remove set and transfer', function()
     end
 end)
 
--- --- transaction tax over the physical-cash path ---
 -- Same carve-out rules as the ledger path, but every leg goes through the
 -- provider, so the tax leg and the net leg are separate provider calls.
 local bank = { accounts = {}, ok = true }

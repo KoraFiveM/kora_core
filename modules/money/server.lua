@@ -33,9 +33,7 @@ local function providerFor(account)
     return provider
 end
 
---------------------------------------------------------------------------------
 -- Transaction tax
---------------------------------------------------------------------------------
 -- A slice of every taxable transaction is deposited into the banking account
 -- named by Config.money.tax.account (the "government"), held by whatever
 -- resource Config.money.tax.provider names -- qb-banking by default, but the
@@ -47,10 +45,8 @@ end
 --             simply vanishing;
 --   add       the player receives `amount - tax`;
 --   transfer  the sender pays `amount`, the recipient receives `amount - tax`.
--- Charging on top would mean a call that succeeded yesterday can fail today for
--- insufficient funds, so every shop/job/heist resource in the wild would need
--- re-auditing for money it never knew it had to have. Carving out keeps the
--- payer's side of each existing call site byte-identical.
+-- Charging on top could make an existing call fail for insufficient funds; carving out
+-- keeps the payer's side of every call site identical.
 --
 -- setMoney is NEVER taxed: it is an absolute assignment (admin edits, resets,
 -- migrations), not a transaction.
@@ -221,9 +217,7 @@ AddEventHandler('onResourceStop', function(resource)
     if type(cfg) == 'table' and resource == cfg.provider then taxAccountReady = false end
 end)
 
---------------------------------------------------------------------------------
 -- Physical-cash mirror
---------------------------------------------------------------------------------
 -- While kora_inventory owns an account, the PlayerData.money ledger for it is a
 -- constant 0 and the real balance is the item stack. Stock qb-* scripts read
 -- PlayerData.money.cash directly, so the REAL balance is mirrored into the
@@ -342,10 +336,7 @@ local function emitMoneyChange(src, account, amount, action, reason)
     if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
-    -- Legacy third-party hook: stock qb-hud's money popup (and other old
-    -- resources) listen ONLY to this event, not the two above. Our own kora_hud
-    -- uses the statebag mirror above instead (see kora_hud/client/bridge/qbcore.lua),
-    -- so this emission is purely for drop-in legacy resources.
+    -- Legacy hook: stock qb-hud's money popup listens ONLY to this event (kora_hud uses the statebag).
     local isRemove = action == 'remove'
     TriggerClientEvent('hud:client:OnMoneyChange', src, account, amount, isRemove)
     -- Legacy qb-phone hook: fired specifically on a bank-account removal.
@@ -629,9 +620,8 @@ local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
 
     if provider then
         if amount ~= math.floor(amount) then return false, 'physical cash amount must be whole' end
-        -- Take the tax off the sender first, then move the net: the pair costs
-        -- the sender the same as an untaxed transfer of `amount`, so it cannot
-        -- newly fail for funds, and a failed move has one thing to compensate.
+        -- Tax off the sender first, then move the net: costs the sender what an untaxed
+        -- transfer of `amount` would, and a failed move has one thing to compensate.
         if tax > 0 then
             local ok, removed, err = pcall(function() return exports[provider]:physicalCashRemove(fromSrc, account, tax, reason) end)
             if not ok then return false, 'physical cash provider failed' end

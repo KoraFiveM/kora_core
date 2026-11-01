@@ -149,8 +149,6 @@ local function writeLegacyRoot(src, key, value)
     return Core.player.setPath(src, { key }, data[key])
 end
 
--- --- the per-player QBPlayer compat object -----------------------------------
-
 -- The legacy view stays current through the funnel hook. Its nested tables
 -- are detached so direct edits must be reconciled before entering authority.
 local function buildQBPlayer(src)
@@ -309,11 +307,7 @@ local function buildQBPlayer(src)
     end
     function F.Logout() return Core.player.logout(src) end
 
-    -- --- methods present on CURRENT qb-core's player object (server/player.lua's
-    -- varargMethods/noargMethods) that classic-era compat lacked. Added so a
-    -- script written against modern qb-core (`Player.Functions.Notify(...)`,
-    -- `Player.Functions.HasItem(...)`, the reputation + extension methods) works
-    -- too -- this object is the UNION of both qb-core eras.
+    -- Methods from CURRENT qb-core's player object that classic-era compat lacked; this object is the UNION of both eras.
     function F.Notify(text, type_, length) TriggerClientEvent('QBCore:Notify', src, text, type_, length) end
     function F.HasItem(items, amount) return Core.inventory.hasItem(src, items, amount) end
 
@@ -601,8 +595,6 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
     end
 end
 
--- --- QBCore.Functions.* ------------------------------------------------------
-
 local F = QBCore.Functions
 
 function F.GetPlayer(src)
@@ -754,7 +746,6 @@ RegisterNetEvent('QBCore:Server:TriggerCallback', function(name, ...)
     end
 end)
 
--- Useable items.
 QBCore.UsableItems = QBCore.UsableItems or {}
 function F.CreateUseableItem(name, cb)
     if type(cb) == 'table' and not isCallable(cb) then cb = cb.cb or cb.callback end
@@ -775,7 +766,6 @@ AddEventHandler('onResourceStop', function(resource)
 end)
 function F.UseItem(src, item) return Core.inventory.useItem(src, type(item) == 'table' and item.name or item) end
 
--- Permissions / admin.
 -- Upstream HasPermission takes a permission name *or* an array of them (any
 -- match passes); our native one is single-permission only.
 function F.HasPermission(src, perm)
@@ -829,14 +819,7 @@ end
 
 function F.PaycheckInterval() return Config.jobs.paycheckInterval or 300000 end
 
--- ---------------------------------------------------------------------------
--- Parity block: the rest of real qb-core's QBCore.Functions.* surface
--- (server/functions.lua) plus the server/exports.lua registry mutators, so a
--- third-party script calling any of them -- via GetCoreObject OR directly via
--- exports['qb-core']:Fn(...) -- resolves. Native-heavy helpers are ported
--- almost verbatim from upstream (self-contained CFX code); semantic ones map
--- onto our Core.* implementations.
--- ---------------------------------------------------------------------------
+-- Parity block: the rest of real qb-core's QBCore.Functions.* surface plus server/exports.lua registry mutators, also reachable as exports['qb-core']:Fn(...). Native-heavy helpers are ported nearly verbatim from upstream.
 
 function F.GetCoords(entity)
     local coords = GetEntityCoords(entity, false)
@@ -882,8 +865,7 @@ end
 --
 -- The `jd.type == job` arm is live: CoreInternal.player.buildJob copies the
 -- registry's job type onto PlayerData.job, and toLegacyJobOrGang shallow-copies
--- it into this legacy view. (It was dead until that change -- the type was
--- registry-only, so passing 'leo' here matched nothing.) The modern equivalent
+-- it into this legacy view. The modern equivalent
 -- with an O(1) index is Core.jobs.getPlayersByJobType; this scan is kept
 -- because upstream's shape allows a caller to pass either a name or a type in
 -- the same argument and the two can't be told apart here.
@@ -1004,18 +986,7 @@ function F.CreateVehicle(source, model, vehtype, coords, warp)
     return vehicle
 end
 
--- Client callbacks: real qb-core's own raw wire protocol
--- (QBCore:Client:TriggerClientCallback / QBCore:Server:TriggerClientCallback).
--- This used to route through kora_lib's callback system instead, but that meant
--- TriggerClientCallback would deliver over ONE transport (kora_lib) while a
--- handler registered via the client's CreateClientCallback is reachable over
--- TWO (kora_lib AND the raw net event, since CreateClientCallback now also
--- stores into legacyClientCallbacks -- see compat/client/qb-core.lua). Firing
--- both transports for a single TriggerClientCallback call would invoke the
--- client's handler twice for one logical request, so this now speaks the raw
--- wire exclusively (matching real qb-core's own implementation), and the
--- kora_lib path is left for cross-resource callers that talk to Kora.callback
--- directly rather than through this function.
+-- Uses the raw wire exclusively (as real qb-core does): CreateClientCallback is reachable over both kora_lib and the raw event, so also routing this through kora_lib would invoke the client handler twice per request.
 QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
 
 function F.TriggerClientCallback(name, source, ...)
@@ -1312,8 +1283,6 @@ local function GetShared(namespace, item)
     return item and ns[item] or ns
 end
 
--- --- QBCore.Player.* ---------------------------------------------------------
-
 local P = QBCore.Player
 
 local function applyPlayerDefaults(data, defaults)
@@ -1462,7 +1431,6 @@ function P.CreateFingerId() return randomId(2, true) .. randomId(3, false) .. ra
 function P.CreateWalletId() return 'QB-' .. tostring(math.random(10000000, 99999999)) end
 function P.CreateSerialNumber() return randomId(9, false) end
 
--- --- QBCore.Commands ---------------------------------------------------------
 -- Real qb-core's QBCore.Commands.List is a TABLE keyed by command name, not a
 -- function -- scripts read List[name] and iterate pairs(List). We keep a keyed
 -- table rebuilt whenever a command is added/refreshed through the compat.
@@ -1537,7 +1505,6 @@ end
 QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src); rebuildCommandList() end
 rebuildCommandList()
 
--- --- QBCore.Config -----------------------------------------------------------
 Core.compat.populateLegacyConfig()
 
 -- Force the lazy QBCore.Shared data views to materialise as REAL keys now.
@@ -1553,7 +1520,6 @@ for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
     local _ = QBCore.Shared[k]
 end
 
--- --- Exports -----------------------------------------------------------------
 -- GetCoreObject supports upstream's optional `filters` array (return a subset of
 -- the object). Beyond it, real qb-core exposes GetShared plus EVERY
 -- QBCore.Functions.* as a direct exports['qb-core']:Fn(...) -- mirror that with

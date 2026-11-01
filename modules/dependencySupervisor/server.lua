@@ -5,20 +5,11 @@
 -- driven entirely by Config.dependencySupervisor (disabled by default -- this
 -- is new behavior with no existing convention to lean on).
 --
--- Mechanism: Config.dependencySupervisor.map[provider] lists resources that
--- should be restarted whenever `provider` (re)starts. Restarting uses the
--- standard ExecuteCommand('restart <name>') idiom (see kora_admin's
--- /restartresource command, resources/kora_admin/server/commands/privileged.lua).
--- Two guards keep this safe:
---   * a dependent is only restarted if it is CURRENTLY 'started'. This is
---     what prevents firing on first boot -- server.cfg's ensure order means
---     a dependent that hasn't started yet has state 'missing' (or similar),
---     never 'started' -- and it also skips a dependent the operator
---     deliberately stopped.
---   * a per-resource cooldown (Config.dependencySupervisor.cooldownMs) blocks
---     restarting the SAME resource again within the window, so a restart
---     storm (e.g. two providers in a dependent's chain starting close
---     together) collapses to one restart instead of looping.
+-- Config.dependencySupervisor.map[provider] lists resources restarted (via
+-- ExecuteCommand('restart <name>')) whenever `provider` (re)starts. Two guards:
+--   * a dependent is only restarted if it is CURRENTLY 'started' -- no firing on
+--     first boot (ensure order), and an operator-stopped resource stays stopped.
+--   * a per-resource cooldown (cooldownMs) collapses restart storms to one restart.
 --
 -- No `Core.dependencySupervisor` table -- this module is purely reactive
 -- (same pattern as modules/consumables/server.lua's onUsingItem hook); it has

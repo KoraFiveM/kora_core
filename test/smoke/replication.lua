@@ -20,26 +20,22 @@ dofile('modules/player/server.lua')
 
 local serverQueueOp = Core.replication._queueOp
 
--- Log a player in so the funnel has a handle.
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 local player = CoreInternal.player.handle(1)
 
 h.test('N mutations in one frame coalesce into ONE delta with per-path last value', function()
     for i=#handle.clientEvents,1,-1 do handle.clientEvents[i]=nil end
-    -- Same path written 3 times in one "frame" -> one op with the last value.
     serverQueueOp(player, { 'metadata', 'hunger' }, 90)
     serverQueueOp(player, { 'metadata', 'hunger' }, 80)
     serverQueueOp(player, { 'metadata', 'hunger' }, 70)
-    -- A second distinct path -> a second op in the same batch.
     serverQueueOp(player, { 'money', 'cash' }, 1234)
-    handle.drainTimeouts()   -- fire the end-of-frame SetTimeout(0)
+    handle.drainTimeouts()
 
     local delta = handle.lastClient('qbcore:rep:delta')
     h.assertTrue(delta ~= nil, 'expected a delta event')
     local ops = delta.args[2]
     h.assertEqual(#ops, 2, 'coalesced to two distinct paths')
-    -- Find the hunger op; its value must be the LAST write (70).
     local hunger
     for _, op in ipairs(ops) do if op.p[2] == 'hunger' then hunger = op end end
     h.assertEqual(hunger.v, 70, 'last write wins within a frame')
@@ -150,10 +146,8 @@ h.test('coalesced inventory root and slot writes reproduce server state on the c
 end)
 
 h.test('client applies a snapshot then a delta batch to its mirror', function()
-    -- Snapshot at seq 0 primes the mirror.
     TriggerEvent('qbcore:rep:snapshot', 0, { money = { cash = 100 }, metadata = { hunger = 100 } })
     h.assertEqual(clientRep.getData({ 'money', 'cash' }), 100)
-    -- Delta batch seq 1 applies in order.
     TriggerEvent('qbcore:rep:delta', 1, {
         { p = { 'money', 'cash' }, v = 250 },
         { p = { 'metadata', 'hunger' }, v = 80 },

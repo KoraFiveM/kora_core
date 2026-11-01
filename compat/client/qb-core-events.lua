@@ -5,8 +5,6 @@
 -- third-party resource fires (spawn/delete vehicle, teleports, /me, etc.),
 -- porting the real qb-core client/events.lua bodies.
 
--- Teleport Commands ----------------------------------------------------------
-
 RegisterNetEvent('QBCore:Command:TeleportToCoords', function(x, y, z, h)
     local ped = PlayerPedId()
     SetPedCoordsKeepVehicle(ped, x + 0.0, y + 0.0, z + 0.0)
@@ -32,7 +30,6 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
         return 'marker'
     end
 
-    -- Fade screen to hide how clients get teleported.
     DoScreenFadeOut(650)
     local faded = Kora.loops.controlled(IsScreenFadedOut, false, 2000, 25)
     if not faded then
@@ -90,7 +87,6 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
         Wait(0)
     end
 
-    -- Remove black screen once the loop has ended.
     DoScreenFadeIn(650)
     if vehicle > 0 then
         FreezeEntityPosition(vehicle, false)
@@ -99,18 +95,14 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
     end
 
     if not found then
-        -- If we can't find the coords, set the coords to the old ones.
         SetPedCoordsKeepVehicle(ped, oldCoords['x'], oldCoords['y'], oldCoords['z'] - 1.0)
         QBCore.Functions.Notify('Unable to teleport to waypoint', 'error', 5000)
         return
     end
 
-    -- If Z coord was found, set coords in found coords.
     SetPedCoordsKeepVehicle(ped, x, y, groundZ)
     QBCore.Functions.Notify('Teleported to waypoint', 'success', 5000)
 end)
-
--- PVP toggle ------------------------------------------------------------------
 
 -- Ported verbatim from real qb-core's client/events.lua. Real qb-core admin
 -- commands fire this after flipping the server-side PVP flag so this client's
@@ -120,8 +112,6 @@ RegisterNetEvent('QBCore:Client:PvpHasToggled', function(enabled)
     SetCanAttackFriendly(PlayerPedId(), enabled, false)
     NetworkSetFriendlyFireOption(enabled)
 end)
-
--- Vehicle Commands -----------------------------------------------------------
 
 RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
     local ped = PlayerPedId()
@@ -192,12 +182,7 @@ RegisterNetEvent('QBCore:Client:VehicleInfo', function(info)
     TriggerEvent('QBCore:Client:' .. info.event .. 'Vehicle', data)
 end)
 
--- Vehicle lifecycle compatibility -------------------------------------------
--- kora_lib's shared cache already owns the bounded local-player telemetry poll.
--- Subscribe to its edge changes rather than keeping a separate
--- client loop and server relay alive just to re-fire these local QBCore events.
--- The legacy event names and payload shape remain unchanged for vehiclekeys,
--- fuel, seatbelt, garage, and other QBCore-era consumers.
+-- Subscribes to kora_lib's shared-cache edge changes (instead of a separate poll/relay) to re-fire the local legacy vehicle events with their original names and payloads.
 local lastVehicleSeat = Kora.cache.seat()
 
 local function emitVehicleInfo(event, vehicle, seat)
@@ -247,8 +232,6 @@ Kora.cache.onChange('vehicle', function(vehicle, previousVehicle)
     end
 end)
 
--- Lifecycle ------------------------------------------------------------------
-
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     -- Ensure the mirror requests a snapshot if it somehow hasn't yet.
     if Core.replication.getData() == nil then Core.replication.requestResync() end
@@ -259,48 +242,19 @@ end)
 -- TriggerClientEvent during character logout.
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function() end)
 
--- QBCore:Client:OnPlayerUpdated -- upstream applies the pushed `val` directly
--- into its plain QBCore.PlayerData global for the given `key` (or the whole
--- blob when key is 'all'/nil). We deliberately do NOT do that here: this
--- kora_core is server-authoritative via its own seq-tracked delta-replication
--- protocol (modules/replication/client.lua), and accepting an arbitrary
--- externally-pushed blob would let a foreign resource desync the mirror
--- (TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'all', garbage)
--- is exactly as reachable from a hostile resource as from a legitimate one).
--- So this handler ONLY re-announces the mirror's CURRENT, correct,
--- server-authoritative data via the same derived local legacy events
--- modules/replication/client.lua's fireLegacy fires on every delta -- `val`
--- is never read.
+-- QBCore:Client:OnPlayerUpdated: upstream applies the pushed `val` into QBCore.PlayerData. We deliberately do NOT: the mirror is
+-- server-authoritative via seq-tracked delta replication, and an externally pushed blob would let a foreign resource desync it.
+-- This handler ONLY re-announces the mirror's CURRENT data via the local legacy events; `val` is never read.
 --
--- The key=='all'/nil case goes through Core.replication.reannounceFull()
--- rather than a bare TriggerEvent('QBCore:Player:SetPlayerData', ...) here:
--- that event is RegisterNetEvent'd in modules/replication/client.lua with its
--- own foreign-write acceptor (any resource's raw trigger of the full-blob
--- event gets MERGED into the live mirror, since a genuine legacy resource is
--- expected to write it that way). Firing it locally without that module's
--- private REFIRE_TOKEN would be indistinguishable from a foreign write, so
--- our own re-announcement -- built from toLegacyPlayerData's translated
--- (zero-based) view -- would get merged straight back into the internal
--- (one-based) mirror, corrupting it. reannounceFull() reuses the exact same
--- REFIRE_TOKEN'd path fireLegacy already uses on every delta, so this is
--- correctly recognised as our own re-fire. The job/gang branches below have
--- no such acceptor (OnJobUpdate/OnGangUpdate are plain fan-out events, not
--- merged into anything), so a direct translate-and-fire is safe there and
--- kept local, guarded on the specific Core.compat function since Core is an
+-- key=='all'/nil goes through Core.replication.reannounceFull() rather than a bare TriggerEvent('QBCore:Player:SetPlayerData'):
+-- that event has a foreign-write acceptor in modules/replication/client.lua which MERGES raw triggers into the mirror, so firing
+-- without its private REFIRE_TOKEN would merge our zero-based view back into the one-based mirror. The job/gang branches have no
+-- such acceptor, so they translate-and-fire locally, guarded on the specific Core.compat function since Core is an
 -- auto-vivifying proxy (build/initiate.lua).
 --
--- `token`: modules/replication/client.lua's fireLegacy fires THIS event
--- itself (real qb-core's actual protocol name) with the same
--- 'qbcore:rep:refire' token it uses for QBCore:Player:SetPlayerData, since it
--- already fired OnJobUpdate/OnGangUpdate directly for that same delta a few
--- lines above -- re-deriving and firing them again here would double them.
--- Duplicated string literal rather than a shared import: same "small enough
--- to duplicate per compat file" idiom as provideExport in the kora_lib compat/
--- files (modules/replication/client.lua's own copy is intentionally private).
--- A genuine external TriggerClientEvent (the real qb-core wire shape,
--- `(key, val)`) never supplies a 3rd argument, so `token` is simply nil there
--- and this guard never fires -- the translate-and-fire path below still runs
--- exactly as before for a real external trigger.
+-- `token`: fireLegacy fires this event itself with 'qbcore:rep:refire' after already firing OnJobUpdate/OnGangUpdate for the
+-- delta; re-firing them here would double them. The literal is duplicated on purpose (private per compat file). A genuine
+-- external trigger `(key, val)` never supplies it, so it is nil there.
 RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key, _, token)
     local data = Core.replication.getData()
     if not data then return end
@@ -320,16 +274,7 @@ RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key, _, token)
     -- arbitrary key/val pair directly -- see the comment above this handler.
 end)
 
--- Legacy QBCore:Notify -- real qb-core registers this on the client so any
--- resource (and kora_core's own admin commands / compat GetCoreObject:Notify) can
--- fire TriggerClientEvent('QBCore:Notify', src, text, type, length) and have it
--- shown. Without this handler the event is emitted server-side (see
--- compat/server/qb-core.lua and modules/commands/server.lua) but silently
--- dropped client-side. Route it through the SAME path QBCore.Functions.Notify
--- uses (which forwards to kora_lib's Kora.notify.send), so there's one notify code
--- path. QBCore is the global assembled in compat/shared/coreobject.lua and
--- compat/client/qb-core.lua (loaded before this file), so Functions.Notify is
--- present by the time this fires.
+-- Legacy QBCore:Notify, routed through QBCore.Functions.Notify (-> Kora.notify.send) so server-side emissions (compat and admin commands) are not silently dropped client-side.
 RegisterNetEvent('QBCore:Notify', function(text, type_, length, icon)
     QBCore.Functions.Notify(text, type_, length, icon)
 end)
@@ -350,8 +295,6 @@ end)
 RegisterNetEvent('qb-core:client:KeyPressed', function()
     CoreInternal.compat.keyPressed()
 end)
-
--- /me command 3D text --------------------------------------------------------
 
 local function Draw3DText(coords, str)
     local onScreen, worldX, worldY = World3dToScreen2d(coords.x, coords.y, coords.z)
@@ -384,14 +327,8 @@ RegisterNetEvent('QBCore:Command:ShowMe3D', function(senderId, msg)
     end)
 end)
 
--- Shared table updates -------------------------------------------------------
--- Real qb-core patches its in-VM QBCore.Shared tables from these events. In our
--- build QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are live legacy views
--- over getter-backed registries (see compat/shared/coreobject.lua), and the
--- authoritative sync happens over qbcore:registry:delta -- the client registry
--- is server-owned and has no local "set" API. So these stay thin, best-effort
--- local patches for any resource that still broadcasts the legacy shared-update
--- events; a subsequent registry delta will reconcile if it diverges.
+-- Real qb-core patches QBCore.Shared from these events. Here Shared.* are live views over getter-backed registries synced via
+-- qbcore:registry:delta (no local set API), so these stay thin best-effort patches; a later registry delta reconciles divergence.
 RegisterNetEvent('QBCore:Client:OnSharedUpdate', function(tableName, key, value)
     local tbl = QBCore.Shared[tableName]
     if type(tbl) == 'table' then
@@ -410,21 +347,9 @@ RegisterNetEvent('QBCore:Client:OnSharedUpdateMultiple', function(tableName, val
     TriggerEvent('QBCore:Client:UpdateObject')
 end)
 
--- QBCore:Client:SharedUpdate -- a DIFFERENT real qb-core event from the two
--- above (singular 'SharedUpdate', not 'OnSharedUpdate'/'OnSharedUpdateMultiple'):
--- upstream fires it ONCE per player, right after playerConnecting, carrying the
--- ENTIRE QBCore.Shared table as one payload -- a full push at connect time, not
--- an incremental delta. Upstream's own client handler for it just merges that
--- payload into its plain QBCore.Shared global. We deliberately do NOT do that
--- here: QBCore.Shared.{Items,Vehicles,Jobs,Gangs,Weapons} are already LIVE
--- compatibility views (compat/shared/coreobject.lua's metatable), kept
--- current by the registry snapshot every joining client already requests
--- (modules/registry/client.lua) -- overwriting them with a one-shot snapshot
--- payload would be a stale, one-time regression, not an update. So this handler
--- is an effective no-op; it exists only so a third-party script that hooks the
--- EVENT NAME itself (rather than reading QBCore.Shared) still observes it fire.
--- Only emitted server-side at all when Config.compat.fireSharedUpdateAtLogin is
--- on (compat/server/qb-core-events.lua) -- off by default.
+-- QBCore:Client:SharedUpdate (singular; distinct from OnSharedUpdate*): upstream sends the ENTIRE QBCore.Shared once at connect.
+-- Deliberately an effective no-op: our Shared.* views are already live via the registry snapshot, and overwriting them with a
+-- one-shot payload would regress them. It exists so scripts hooking the event name still see it fire; only emitted when
+-- Config.compat.fireSharedUpdateAtLogin is on (compat/server/qb-core-events.lua).
 RegisterNetEvent('QBCore:Client:SharedUpdate', function(_sharedTable)
-    -- Intentional no-op -- see comment above.
 end)

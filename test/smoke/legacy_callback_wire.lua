@@ -68,8 +68,6 @@ local function invokeViaKoraLib(name, src, ...)
     return table.unpack(results, 2, results.n)
 end
 
--- --- server half -------------------------------------------------------------
-
 h.test('raw QBCore:Server:TriggerCallback reaches a CreateCallback handler and replies over QBCore:Client:TriggerCallback', function()
     QBCore.Functions.CreateCallback('test:x', function(source, cb, arg) cb(arg * 2) end)
 
@@ -137,7 +135,6 @@ h.test('server->client raw wire: the QBCore:Server:TriggerClientCallback reply r
     h.assertTrue(QBCore.ClientCallbacks['test:svc29'] == nil, 'the entry must be cleared after use')
 end)
 
--- --- client half ---------------------------------------------------------
 -- Loading compat/client/qb-core.lua into the SAME process, on top of the
 -- already-loaded QBCore global, is safe here even though both realm files
 -- write into QBCore.Functions: every server-side test above already ran

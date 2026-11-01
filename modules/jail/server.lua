@@ -6,16 +6,9 @@
 -- prison resource later needs no changes here or in a job resource calling
 -- Core.jail.jailPlayer.
 --
--- Persisted via the already-existing metadata.jailed field, storing a UNIX
--- release timestamp (not a duration) -- surviving relog for free, no schema
--- change. jailed = 0 means "not jailed" (its existing default).
---
--- metadata.injail is mirrored alongside it: real qb-core's metadata key is
--- `injail`, not `jailed`, and legacy scripts read it directly (real
--- the ambulance flow checks `metadata['injail'] > 0` on hospital respawn and on
--- leaving a hospital bed) rather than through any Core.jail accessor. Same
--- "legacy view alongside the modern shape" pattern already used for the
--- isLoggedIn state bag -- see kora_core/modules/player/server.lua.
+-- Persisted in metadata.jailed as a UNIX release timestamp (not a duration); 0 = not jailed.
+-- metadata.injail is mirrored alongside it because legacy scripts (e.g. the ambulance
+-- flow) read qb-core's `injail` key directly.
 
 local PI = CoreInternal.player
 
@@ -33,7 +26,6 @@ end
 local function scheduleRelease(src, player, releaseAt)
     SetTimeout(math.max(0, releaseAt - os.time()) * 1000, function()
         local current = PI.handle(src)
-        -- A source can reconnect or receive a new sentence before this timer fires.
         if current ~= player or current.PlayerData.metadata.jailed ~= releaseAt then return end
 
         if releaseAt > os.time() then

@@ -4,11 +4,6 @@
 -- -- there is no native multi-target send, and a -1 broadcast + client-side
 -- filter would leak alert content (coords, message) to every connected
 -- client instead of just the on-duty roster it's meant for.
---
--- Rendering (blips/sound/notify) is deliberately NOT this module's job --
--- kora_core ships no NUI/UI of its own (see compat/AGENTS.md), same as every
--- other Core.* module. A job resource's own client code decides how to
--- present a 'qbcore:client:dispatchAlert' push.
 
 ---@class CoreDispatchAlert
 ---@field jobs string[] Job names to notify (on-duty members only).
@@ -39,10 +34,7 @@ function Core.dispatch.alert(payload)
     assert(type(payload) == 'table' and type(payload.jobs) == 'table' and #payload.jobs > 0,
         'Core.dispatch.alert requires payload.jobs as a non-empty array.')
 
-    -- Dedup: a player who somehow matches more than one requested job (not
-    -- possible today -- single-job PlayerData -- but getPlayersByJob is
-    -- called once per job, so a src appearing under two different job names
-    -- would otherwise be sent the same alert twice) is only notified once.
+    -- Dedup: a src listed under more than one requested job is notified once.
     local recipients = {}
     for _, jobName in ipairs(payload.jobs) do
         for _, src in ipairs(Core.jobs.getPlayersByJob(jobName, true)) do
@@ -56,15 +48,9 @@ function Core.dispatch.alert(payload)
         count = count + 1
     end
 
-    -- Server-side mirror of the same alert, for a resource that OWNS the
-    -- presentation of dispatch (a dispatch/MDT UI) rather than merely receiving
-    -- one alert as a recipient. Such a resource cannot use the client push
-    -- above: it reaches every recipient, so each of their clients would ask the
-    -- server to record the same incident, once per recipient. One server-side
-    -- event fires exactly once per alert, which is what a call log needs.
-    --
-    -- Fired unconditionally and after the fan-out, so a listener that errors
-    -- cannot stop recipients being notified.
+    -- Server-side mirror for a dispatch/MDT resource that records incidents: the client
+    -- push reaches every recipient, so recording from it would log once per recipient.
+    -- Fired after the fan-out so a listener error cannot stop recipients being notified.
     TriggerEvent('qbcore:server:dispatchAlert', payload, count)
 
     if Config.dispatch.legacyEvents then

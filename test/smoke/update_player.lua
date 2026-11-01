@@ -26,7 +26,6 @@ local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname
 Core.player.login(1, 'CID1', data)
 
 h.test('QBCore:UpdatePlayer saves once, then a repeat within the cooldown window is a no-op', function()
-    -- Mark something dirty so saveNow has a column to enqueue.
     Core.metadata.setMetaData(1, 'hunger', 77)
 
     local before = #handle.sqlCalls.enqueue

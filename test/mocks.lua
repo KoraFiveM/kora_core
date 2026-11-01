@@ -13,7 +13,6 @@ M.SOURCE = 1
 function M.install(opts)
     opts = opts or {}
     local isClient = opts.client == true
-    -- --- FiveM natives ---
     local eventHandlers = {}
     local netHandlers = {}
     local clientEvents = {}     -- recorded TriggerClientEvent
@@ -177,7 +176,6 @@ function M.install(opts)
     _G.os = os
     _G.math = math
 
-    -- --- fake kora_lib Kora ---
     local Kora = {}
     Kora.util = {
         isFiniteNumber = function(value)
@@ -345,7 +343,6 @@ function M.install(opts)
     _G.Kora = Kora
     _G.exports = setmetatable({}, { __index = function() return setmetatable({}, { __index = function() return function() end end }) end })
 
-    -- Build the Core table (as build/initiate.lua would).
     _G.Core = setmetatable({}, { __index = function(self, k) local m = {}; rawset(self, k, m); return m end })
     _G.CoreInternal = {}
 
@@ -375,13 +372,11 @@ function M.install(opts)
             for _, handler in ipairs(cacheListeners[key] or {}) do handler(value, previous) end
         end,
         setCloneLocalNetPayloads = function(value) cloneLocalNetPayloads = value == true end,
-        -- Drain pending SetTimeout callbacks (end-of-frame flush in replication).
         drainTimeouts = function()
             local pending = timeouts
             timeouts = {}
             for _, fn in ipairs(pending) do fn() end
         end,
-        -- Resume every CreateThread coroutine once.
         step = function()
             for _, co in ipairs(threads) do coroutine.resume(co) end
         end,
@@ -407,7 +402,6 @@ function M.stableEncode(v)
     elseif t == 'boolean' then return v and 'true' or 'false'
     elseif t == 'string' then return ('%q'):format(v)
     elseif t == 'table' then
-        -- Array?
         local n = #v
         local isArray = n > 0
         for k in pairs(v) do if type(k) ~= 'number' then isArray = false break end end
@@ -445,7 +439,7 @@ function M.simpleDecode(text)
     local parseValue
 
     local function parseString()
-        pos = pos + 1 -- opening quote
+        pos = pos + 1
         local buf = {}
         while true do
             local c = text:sub(pos, pos)
@@ -470,7 +464,7 @@ function M.simpleDecode(text)
     end
 
     local function parseObject()
-        pos = pos + 1 -- {
+        pos = pos + 1
         local out = {}
         skip()
         if text:sub(pos, pos) == '}' then pos = pos + 1; return out end
@@ -478,7 +472,7 @@ function M.simpleDecode(text)
             skip()
             local k = parseString()
             skip()
-            pos = pos + 1 -- :
+            pos = pos + 1
             local v = parseValue()
             -- A JSON object always has string keys; that is precisely the shape
             -- the inventory column round-trips through.
@@ -492,7 +486,7 @@ function M.simpleDecode(text)
     end
 
     local function parseArray()
-        pos = pos + 1 -- [
+        pos = pos + 1
         local out, n = {}, 0
         skip()
         if text:sub(pos, pos) == ']' then pos = pos + 1; return out end

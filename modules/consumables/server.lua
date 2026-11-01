@@ -9,15 +9,11 @@
 -- gameplay effects (actually healing HP, etc) stay in each job resource's own
 -- Core.inventory.createUseable handler, which runs independently of this hook.
 --
--- Two real integration constraints, both confirmed by reading kora_inventory's
--- own source (not assumed):
---   1. kora_core is a DEPENDENCY of kora_inventory, so FXServer starts kora_core
---      first -- registering the hook must be deferred to onResourceStart,
---      never called unconditionally at load time, or it errors against a
---      not-yet-running kora_inventory.
---   2. kora_inventory's runHooks passes (payload, src) to a 'usingItem' hook --
---      relies on that fix (see kora_inventory/server.lua's runHooks) rather
---      than parsing src back out of payload.inventoryId.
+-- Integration constraints:
+--   1. kora_core starts before kora_inventory, so hook registration is deferred to
+--      onResourceStart, never done unconditionally at load time.
+--   2. kora_inventory's runHooks passes (payload, src) to a 'usingItem' hook; src is
+--      not parsed back out of payload.inventoryId.
 
 local registered = false
 
@@ -45,15 +41,8 @@ local function register()
     if not Config.consumables.enabled then return end
     if GetResourceState('kora_inventory') ~= 'started' then return end
 
-    -- Deliberately NOT gated on `registered` -- this must re-run every time
-    -- kora_inventory (re)starts. A kora_inventory restart wipes ITS hook table
-    -- (fresh resource instance), so the hook we registered before the
-    -- restart is gone from kora_inventory's side even though `registered`
-    -- would still say true on our side. Re-registering here is always
-    -- correct: either kora_inventory has no hook yet (fresh boot / just
-    -- restarted) and this adds it, or it's a duplicate onResourceStart
-    -- fire for an instance we already registered against, which is a
-    -- harmless no-op re-add (kora_inventory's registerHook just appends).
+    -- Deliberately NOT gated on `registered`: a kora_inventory restart wipes its hook
+    -- table, so re-register every time (a duplicate re-add is harmless).
     local ok = pcall(function() exports.kora_inventory:registerHook('usingItem', onUsingItem) end)
     if not ok then
         -- Native kora_inventory compatibility before the ox-style lowercase
@@ -70,10 +59,7 @@ AddEventHandler('onResourceStart', function(resourceName)
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)
-    -- kora_inventory stopping tears down its own hook table with it, so our
-    -- last registration no longer exists on the other side. Reflect that
-    -- in isRegistered() and let the onResourceStart handler above put it
-    -- back the moment kora_inventory comes back up.
+    -- kora_inventory's hook table dies with it; reflect that in isRegistered().
     if resourceName == 'kora_inventory' then registered = false end
 end)
 

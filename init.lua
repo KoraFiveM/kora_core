@@ -8,18 +8,11 @@
 --     shared_script '@kora_lib/init.lua'
 --     shared_script '@kora_core/init.lua'
 --
--- WHY THIS WORKS (same trick as @kora_sql/init.lua): kora_lib's `Kora` table has a
--- metatable with only __index (no __newindex), so `Kora.shared = {...}` here is a
--- plain rawset in the consumer's VM. The mirror is a set of LOCAL tables patched
--- by a delta event, and onChange handlers are dispatched IN-VM -- no boundary
--- crossing per read or per dispatch, and handlers die naturally with the
--- resource (no owner-tracking needed on this side).
---
--- The registry lives in kora_core (server-authoritative). kora_core broadcasts every
--- mutation as 'qbcore:registry:delta'; this file patches the local mirror and
--- fans out to local subscribers. Each registry carries an epoch so a kora_core
--- restart (which bumps the epoch and re-broadcasts a snapshot) triggers a local
--- re-seed rather than silent drift.
+-- Same trick as @kora_sql/init.lua: kora_lib's `Kora` table has only __index, so
+-- `Kora.shared = {...}` is a plain rawset in the consumer's VM. The mirror is LOCAL
+-- tables patched by 'qbcore:registry:delta'; onChange handlers dispatch IN-VM (no
+-- boundary crossing, and they die with the resource). Each registry carries an epoch
+-- so a kora_core restart triggers a re-seed rather than silent drift.
 
 assert(Kora, '@kora_core/init.lua must be loaded AFTER @kora_lib/init.lua (add its shared_script first).')
 
@@ -39,7 +32,6 @@ local function ensure(name)
     return mirror[name]
 end
 
--- Re-seed a registry mirror from a snapshot (dense array + epoch).
 local function reseed(name, keyField, records, epoch)
     local m = ensure(name)
     -- Preserve the array reference across a full resync. Consumers should call
@@ -56,7 +48,6 @@ local function reseed(name, keyField, records, epoch)
     m.epoch = epoch or m.epoch
 end
 
--- Apply one delta into the mirror and fan out to local subscribers.
 local function applyDelta(name, action, key, record, epoch)
     local m = ensure(name)
     -- Epoch gap on a non-remove means we missed a reseed: pull a fresh snapshot
@@ -107,8 +98,6 @@ local function applyDelta(name, action, key, record, epoch)
         end
     end
 end
-
--- --- public Kora.shared API (local, in-VM) ---
 
 ---Read one record by key. Plain local hash lookup -- ZERO boundary crossing.
 ---@param name string
@@ -173,17 +162,10 @@ function Kora.shared.offChange(name, id)
     if subs[name] then subs[name][id] = nil end
 end
 
--- --- wire up the delta stream ---
--- Both realms receive 'qbcore:registry:delta' (server: a plain local
--- TriggerEvent from kora_core's registry/server.lua; client: TriggerClientEvent).
---
--- The net registrations below are CLIENT-ONLY, on purpose. On the client both
--- events arrive over the wire, so without RegisterNetEvent every consumer VM
--- logs "event qbcore:registry:delta was not safe for net" and drops the delta.
--- On the SERVER both arrive as same-VM TriggerEvent from kora_core's registry, so
--- they need no net registration -- and registering them there would let any
--- client TriggerServerEvent poisoned records straight into every consumer's
--- server-side mirror.
+-- Net registrations below are CLIENT-ONLY on purpose: on the client the events arrive
+-- over the wire and are dropped without RegisterNetEvent; on the server they are
+-- same-VM events, and registering them would let any client inject records into every
+-- consumer's mirror.
 local isServerRealm = IsDuplicityVersion and IsDuplicityVersion()
 
 if not isServerRealm then

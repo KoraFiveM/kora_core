@@ -1,24 +1,15 @@
 -- Core.replication (server realm) -- delta emission with per-frame coalescing.
---
--- Legacy qb-core resends the entire PlayerData blob to a client on every field
--- change. Here the wire carries only DELTAS: each op is { p = keyArray, v = value }
--- (or { p, d = true } for a delete). Ops are coalesced per player per frame, so
--- 30 writes to metadata.hunger in one frame produce ONE op. A per-player `seq`
--- lets the client detect a dropped batch and request a resync.
---
+-- Wire ops are { p = keyArray, v = value } (or { p, d = true } for a delete); a per-player `seq` lets the client detect a dropped batch.
 -- Loaded before player.lua (player.adopt calls into here).
 
 local PI = CoreInternal.player
 
--- Players with pending ops this frame: citizenid -> true. A single SetTimeout(0)
--- drains all of them at end of frame.
 local pendingPlayers = {}
 local flushScheduled = false
 
 -- Rate-limit resync requests: citizenid -> last-served timestamp.
 local lastResync = {}
 
--- Serialise a key path to a stable map key for per-frame op coalescing.
 local function opKey(path)
     return table.concat(path, '\31')   -- unit separator; item/meta keys may contain '.'
 end
@@ -73,7 +64,6 @@ function Core.replication._queueOp(player, path, value)
         end
     end
     local key = opKey(path)
-    -- Copy the path array (the caller may reuse/mutate it).
     local pcopy = {}
     for i = 1, #path do pcopy[i] = path[i] end
     if value == nil then

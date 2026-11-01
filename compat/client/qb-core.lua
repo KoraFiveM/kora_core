@@ -38,8 +38,6 @@ local function resolveLocalizedText(value)
     return ok and translated or value.key
 end
 
--- Callbacks ------------------------------------------------------------------
-
 QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
 
 -- legacyClientCallbacks is CreateClientCallback's single source of truth --
@@ -206,8 +204,6 @@ end)
 -- does, so it needs the same responder/promise bridge.
 function F.CreateCallback(name, handler) F.CreateClientCallback(name, handler) end
 
--- Player ---------------------------------------------------------------------
-
 -- Real returns QBCore.PlayerData; if cb is supplied it calls cb(data) too.
 -- QBCore.PlayerData itself is kept in sync by modules/replication/client.lua
 -- (the same place the legacy QBCore:Player:SetPlayerData event fires from --
@@ -304,7 +300,6 @@ function F.LookAtEntity(entity, timeout, speed)
     SetEntityHeading(ped, targetHeading)
 end
 
--- Function to run an animation
 --- @param animDict string: The name of the animation dictionary
 --- @param animName string - The name of the animation within the dictionary
 --- @param upperbodyOnly boolean - If true, the animation will only affect the upper body of the ped
@@ -331,7 +326,7 @@ function F.PlayAnim(animDict, animName, upperbodyOnly, duration)
         return animPromise.value
     end
     TaskPlayAnim(ped, animDict, animName, 8.0, 8.0, runTime, flags, 0, true, true, true)
-    Wait(10) -- Wait a bit for the animation to start, then check if it exists
+    Wait(10)
     local currentTime = GetAnimDuration(animDict, animName)
     if currentTime == 0 then
         animPromise:reject(invoked .. ' :^1  Animation does not exist')
@@ -348,8 +343,6 @@ end
 function F.IsWearingGloves()
     return Core.player.isWearingGloves()
 end
-
--- NUI Calls ------------------------------------------------------------------
 
 -- Real qb-core SendNUIMessage's its own notify. We forward to kora_lib's notifier
 -- instead. The full real signature (text, texttype, length, icon) is honoured,
@@ -394,8 +387,6 @@ function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableCo
         end
     end, owner)
 end
-
--- World Getters --------------------------------------------------------------
 
 function F.GetVehicles()
     return GetGamePool('CVehicle')
@@ -499,8 +490,6 @@ function F.GetClosestObject(coords)
     local entity, _, distance = Kora.world.getClosestEntity('object', coords)
     return entity or -1, distance or -1
 end
-
--- Vehicle --------------------------------------------------------------------
 
 local warnedClientNetworkVehicle = false
 
@@ -1033,7 +1022,7 @@ function F.SetVehicleProperties(vehicle, props)
     end
 end
 
--- Drawing / streaming / misc (ported verbatim from real qb-core) -------------
+-- Ported verbatim from real qb-core.
 
 function F.DrawText(x, y, width, height, scale, r, g, b, a, text)
     SetTextFont(4)
@@ -1282,11 +1271,7 @@ function F.GetGroundHash(entity)
     return materialHash, entityHit, surfaceNormal, endCoords, success, retval
 end
 
--- --- QBCore.Config -----------------------------------------------------------
--- config.lua is a shared_script (loaded identically into both realms -- see
--- fxmanifest.lua), so this is the exact same mapping compat/server/qb-core.lua
--- builds from the same shared `Config` global, at zero network cost. Previously
--- QBCore.Config was populated server-side only, leaving it an empty `{}` here.
+-- config.lua is a shared_script (both realms), so this is the same mapping the server compat builds, at zero network cost.
 Core.compat.populateLegacyConfig()
 
 -- Force the lazy QBCore.Shared data views to materialise as REAL keys, same
@@ -1302,7 +1287,6 @@ for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
     local _ = QBCore.Shared[k]
 end
 
--- Direct client exports ------------------------------------------------------
 -- Real qb-core ends client/functions.lua with `for fn, func in pairs(QBCore.Functions) do exports(fn, func) end`,
 -- exposing every function as exports['qb-core']:Fn(...). We can't call exports()
 -- with the qb-core identity from here (we're the kora_core resource), so we use the
@@ -1324,15 +1308,7 @@ provideExport('qb-core', 'GetCoreObject', function(filters)
     return result
 end)
 
--- GetShared is a top-level export in real qb-core (shared/main.lua), not a
--- Functions entry, on BOTH realms -- it was previously only registered
--- server-side (compat/server/qb-core.lua), which is why a client script
--- (@qb-recyclejob/client.lua) calling exports['qb-core']:GetShared('Items')
--- got "No such export". Reads QBCore.Shared[namespace], which coreobject.lua's
--- metatable resolves to a live compatibility view -- identical
--- body to the server compat's copy, including the canonical-casing fallback
--- (real-world legacy scripts don't reliably call this with PascalCase, e.g.
--- qb-recyclejob's OWN client.lua calls GetShared('items')).
+-- GetShared is a top-level export in real qb-core (shared/main.lua), registered on BOTH realms. Reads QBCore.Shared[namespace] (a live compat view from coreobject.lua), with a canonical-casing fallback because legacy scripts call it with 'items' (e.g. qb-recyclejob).
 local function getShared(namespace, item)
     local ns = QBCore.Shared[namespace]
     if not ns and Core.compat.canonicalSharedNamespace then

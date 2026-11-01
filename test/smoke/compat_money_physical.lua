@@ -103,7 +103,6 @@ h.test('Functions.SetMoney cash sets the item-backed balance', function()
     h.assertEqual(Core.money.getMoney(1, 'bank'), 321)
 end)
 
--- --- cash mirror ---------------------------------------------------------------
 local function deltaValue(path1, path2)
     local ev = handle.lastClient('qbcore:rep:delta')
     if not ev then return nil end

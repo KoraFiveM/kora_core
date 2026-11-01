@@ -186,7 +186,6 @@ h.test('QBCore.Shared.VehicleHashes resolves a seeded vehicle by GetHashKey(mode
 end)
 
 h.test('QBCore.Shared.VehicleHashes REFRESHES when the vehicle registry changes (not a one-shot build)', function()
-    -- Read it once first so the cached view is built and rawset onto Shared.
     local before = QBCore.Shared.VehicleHashes
     h.assertTrue(before[GetHashKey('newcar')] == nil, 'newcar must not be registered yet')
     local ok = Core.registry.registerShared('vehicles', 'newcar', { model = 'newcar', name = 'New Car', brand = 'Test', price = 1 })

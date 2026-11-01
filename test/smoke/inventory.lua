@@ -28,7 +28,6 @@ h.test('non-unique items stack into the lowest matching slot', function()
     player.PlayerData.items = {}
     Core.inventory.addItem(1, 'water_bottle', 2)
     Core.inventory.addItem(1, 'water_bottle', 3)
-    -- Both land in one slot with amount 5.
     local matching = 0
     local totalSlots = 0
     for _, item in pairs(player.PlayerData.items) do

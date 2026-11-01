@@ -2,8 +2,6 @@
 -- RandomInt) plus the small helpers the player funnel needs (pathGet/pathSet,
 -- deepClone). Shared realm: identical on client and server.
 --
--- These are deliberately tiny and deterministic (the codebase convention for
--- utilities), so they can be unit-tested with no mocks.
 
 local charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 local digits = '0123456789'

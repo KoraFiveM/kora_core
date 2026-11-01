@@ -42,8 +42,6 @@ local sessions = {}
 
 local READY_RETRY_MS, READY_MAX_ATTEMPTS = 50, 40
 
--- --- groups -------------------------------------------------------------------
-
 -- qbx groups are `{ [name] = grade }` with qbx's ZERO-based grades, the same
 -- numbering ox_inventory's shop/stash `groups` data is written against. kora's
 -- internal grades are one-based, hence toLegacyGradeLevel.
@@ -94,8 +92,6 @@ end
 AddEventHandler('QBCore:Server:OnJobUpdate', onRoleUpdate)
 AddEventHandler('QBCore:Server:OnGangUpdate', onRoleUpdate)
 
--- --- lifecycle + state bags -----------------------------------------------------
-
 -- loadInventory is the trigger ox_inventory's bridge watches to build the
 -- player's inventory, and its handler reads GetPlayer(src).PlayerData at once.
 -- Set it only after Core.player.login has finished (isLoggedIn true, snapshot
@@ -143,8 +139,6 @@ AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
     if bag and bag.state then bag.state:set('loadInventory', false, true) end
     TriggerEvent('qbx_core:server:playerLoggedOut', src)
 end)
-
--- --- qbx_core exports -----------------------------------------------------------
 
 -- Receiver-agnostic call: accepts player.Fn(args) and player:Fn(args), including
 -- a msgpack copy of the player coming back across the export boundary.
@@ -234,8 +228,6 @@ provideExport('qbx_core', 'GetPlayersData', getPlayersData)
 provideExport('qbx_core', 'CanUseItem', canUseItem)
 provideExport('qbx_core', 'GetGroups', getGroups)
 provideExport('qbx_core', 'IsGradeBoss', isGradeBoss)
-
--- --- qbx_vehicles ---------------------------------------------------------------
 
 -- ox_inventory keys trunk/glovebox on the returned id. kora's vehicle table is
 -- `player_vehicles` (sql/005_vehicles.sql): integer `id`, UNIQUE `plate`,

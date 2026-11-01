@@ -37,17 +37,13 @@ RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
     Core.metadata.setMetaData(src, key, value)
 end)
 
--- Stock client-inbound `QBCore:ToggleDuty` (qb-policejob / qb-ambulancejob /
--- qb-mechanicjob duty points trigger it). It used to be left unregistered
--- because kora_core cannot know a job resource's approved duty locations: any
--- client can fire it from anywhere. Duty is a low-impact flag (it gates
--- paychecks and dispatch for a job the player ALREADY holds, and flipping it
--- grants no job, grade, item or money), so it is registered behind
--- Config.compat.toggleDutyEvent (default true; set false to restore the strict
--- "job resources own duty transitions" behaviour). Anti-abuse kept: the caller
--- must be loaded, must hold a real job (not the default/unemployed one), and is
--- rate-limited per source. The flip goes through Core.jobs.setJobDuty so the
--- duty index and QBCore:Server:SetDuty / QBCore:Client:SetDuty still fire.
+-- Stock client-inbound `QBCore:ToggleDuty` (qb-policejob / qb-ambulancejob / qb-mechanicjob duty points).
+-- kora_core cannot know a job resource's approved duty locations, but duty is a low-impact flag
+-- (gates paychecks and dispatch for a job the player ALREADY holds; grants no job, grade, item or money),
+-- so it is registered behind Config.compat.toggleDutyEvent (default true; false restores strict
+-- "job resources own duty transitions"). Anti-abuse: the caller must be loaded, hold a real job
+-- (not the default/unemployed one), and is rate-limited per source. The flip goes through
+-- Core.jobs.setJobDuty so the duty index and QBCore:Server:SetDuty / QBCore:Client:SetDuty still fire.
 local TOGGLE_DUTY_COOLDOWN_MS = 2000
 local dutyCooldowns = {}
 RegisterNetEvent('QBCore:ToggleDuty', function()
@@ -89,8 +85,7 @@ end)
 -- AddEventHandler for it) would otherwise be a complete no-op here. No Core.*
 -- action needed: Core.player.login's adopt() already fires the equivalent
 -- PlayerLoaded/OnPlayerLoaded signals, at character-select time rather than
--- at spawn-confirm time like upstream -- a pre-existing timing difference,
--- out of scope to rearchitect for this compat shim.
+-- a pre-existing timing difference.
 RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function() end)
 
 -- UpdateObject: legacy resources call this to grab a fresh core object handle
@@ -249,10 +244,7 @@ end)
 -- snapshot-request-on-load), so this is OFF by default (Config.compat.
 -- fireSharedUpdateAtLogin) -- it exists only for the rare third-party script
 -- that hooks the EVENT NAME itself rather than reading the data it carries.
--- Hooked off the same modern 'qbcore:server:playerLoaded' event
--- modules/player/server.lua fires immediately alongside (same tick as)
--- TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src), rather than adding
--- compat-specific logic to that Core.* module directly.
+-- Hooked off 'qbcore:server:playerLoaded' (fired alongside QBCore:Client:OnPlayerLoaded) rather than adding compat logic to the Core.* module.
 if Config.compat.fireSharedUpdateAtLogin then
     AddEventHandler('qbcore:server:playerLoaded', function(src)
         TriggerClientEvent('QBCore:Client:SharedUpdate', src, QBCore.Shared)

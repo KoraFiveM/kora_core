@@ -127,7 +127,6 @@ h.test('register with an existing key updates in place (action=update)', functio
 end)
 
 h.test('unregister swap-removes and keeps list/index/getter consistent', function()
-    -- Add two, remove the first, ensure the moved element's index is correct.
     Core.registry.registerShared('items', 'itemA', { name = 'itemA', label = 'A' })
     Core.registry.registerShared('items', 'itemB', { name = 'itemB', label = 'B' })
     local before = Core.registry.countShared('items')

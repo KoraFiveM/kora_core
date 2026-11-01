@@ -35,17 +35,7 @@ function QBCore.Shared.FirstToUpper(value)
     return (value:gsub('^%l', string.upper))
 end
 
--- Upstream's IsFunction is a plain `type(value) == 'function'` check with one
--- extra branch for a CFX export-boundary funcref table (`__cfx_functionReference`).
--- This codebase has a well-established local `isCallable` pattern for treating a
--- callable-via-metatable table (e.g. an export identity-hijack proxy) as callable
--- too (see compat/server/qb-core.lua, modules/registry/shared.lua's RI.isCallable,
--- modules/replication/client.lua) -- broader than upstream's own check. We follow
--- that established local convention here rather than upstream's narrower literal
--- body: a legacy script passing a funcref that crossed an export boundary (the
--- exact scenario IsFunction exists to detect) is the same shape our other
--- isCallable call sites already accept, so treating them differently here would
--- be an inconsistency, not a feature.
+-- Broader than upstream's IsFunction: also accepts callable-via-metatable tables (export funcrefs / identity proxies), matching the local isCallable convention.
 function QBCore.Shared.IsFunction(value)
     if type(value) == 'function' then return true end
     if type(value) == 'table' then
@@ -65,10 +55,7 @@ QBCore.Shared.StarterItems = {
 
 -- Ped component-3 (arms/gloves) drawable indices that mean "no gloves" for the
 -- default freemode models -- verbatim from real qb-core shared/functions.lua.
--- Shaped as a number-keyed SET (index -> true), matching how compat/client/
--- qb-core.lua's F.IsWearingGloves already indexes it: `(QBCore.Shared.
--- MaleNoGloves or {})[armIndex]`. That existing read was previously a dead
--- no-op (the table didn't exist); populating it here activates it.
+-- Shaped as a number-keyed SET (index -> true), as compat/client/qb-core.lua's F.IsWearingGloves indexes it.
 QBCore.Shared.MaleNoGloves = {
     [0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
     [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true,
@@ -137,16 +124,7 @@ if not IsDuplicityVersion() then
     end
 end
 
--- Jobs/Gangs grades are stored INTERNALLY as a one-based array (see
--- shared/jobs.lua, shared/gangs.lua, and CoreInternal.player.buildJob/buildGang
--- in modules/player/shared.lua -- all three deliberately agree on that shape,
--- and test/smoke/registry.lua pins it). Real qb-core's QBCore.Shared.Jobs/Gangs
--- instead key `grades` by the STRINGIFIED ZERO-BASED grade level ('0', '1', ...),
--- which plenty of legacy scripts read directly (`Jobs[name].grades[tostring(lvl)]`,
--- `for lvl, grade in pairs(job.grades) do ...`). Rather than migrate the internal
--- one-based convention (and everything built on it) to match, this reshapes ONLY
--- the externally-exposed QBCore.Shared view -- the internal registry/player code
--- never sees it.
+-- Grades are stored INTERNALLY as a one-based array; real qb-core keys `grades` by the stringified ZERO-BASED level ('0', '1', ...), which legacy scripts read directly. This reshapes ONLY the exposed QBCore.Shared view.
 local function toLegacyGrades(gradesArray)
     local legacy = {}
     if gradesArray then
@@ -199,16 +177,7 @@ local function buildLegacyGradeView(regName)
     return buildLegacyView(regName, toLegacyRecord)
 end
 
--- QBCore.Shared.VehicleHashes -- upstream keys the Vehicles records a SECOND
--- way, by joaat(model) instead of by model string, for callers that only
--- have a spawned vehicle's model hash (GetEntityModel) rather than its name.
--- Unlike the model-keyed Vehicles compatibility view, this needs a different
--- key and therefore gets its own branch. It is built from the same getter-backed
--- vehicles registry and kept fresh with the identical
--- refresh-on-change wiring buildLegacyGradeView uses above (onSharedChange for
--- in-VM mutation, 'qbcore:registry:synced' for the client snapshot gap) --
--- otherwise this cached view would go stale the first time a vehicle is
--- added/updated/removed after the first read.
+-- QBCore.Shared.VehicleHashes: Vehicles keyed a second way, by joaat(model), for callers holding only GetEntityModel's hash. Same refresh-on-change wiring as buildLegacyGradeView, else the cached view goes stale.
 local function buildVehicleHashesView()
     local view = {}
 
@@ -292,13 +261,13 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
         local gradeRegName = legacyGradeRegistries[k]
         if gradeRegName and CoreInternal and CoreInternal.registry and CoreInternal.registry.registries[gradeRegName] then
             local view = buildLegacyGradeView(gradeRegName)
-            rawset(t, k, view)   -- cache the stable reference
+            rawset(t, k, view)
             return view
         end
 
         if k == 'VehicleHashes' and CoreInternal and CoreInternal.registry and CoreInternal.registry.registries.vehicles then
             local view = buildVehicleHashesView()
-            rawset(t, k, view)   -- cache the stable reference
+            rawset(t, k, view)
             return view
         end
 
@@ -313,14 +282,13 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
         local regName = map[k]
         if regName and CoreInternal and CoreInternal.registry and CoreInternal.registry.registries[regName] then
             local view = buildLegacyView(regName)
-            rawset(t, k, view)   -- cache the stable reference
+            rawset(t, k, view)
             return view
         end
         return nil
     end,
 })
 
--- Legacy grade-level translation -------------------------------------------
 -- Job/gang grade LEVELS are stored internally as one-based (see the
 -- toLegacyGrades comment above -- same design choice, applied to the
 -- PLAYER side of the same data instead of just the Shared.Jobs/Gangs view).
@@ -460,17 +428,7 @@ local function fromLegacyPlayerData(playerData)
     return internal
 end
 
--- GetShared's namespace parameter is a Lua table key -- case-sensitive by
--- construction, since QBCore.Shared.Items/.Vehicles/etc. are PascalCase.
--- Real-world legacy scripts don't reliably match that casing (e.g.
--- qb-recyclejob calls `GetShared('items')`, lowercase) -- a plain
--- QBCore.Shared[namespace] lookup silently returns nil for them, and since
--- GetShared's own callers almost always cache the result in a file-scope
--- local at resource start (`local sharedItems = exports['qb-core']:
--- GetShared('items')`), the nil doesn't surface until something LATER in
--- the file indexes it, with an error that gives no hint the real problem was
--- casing. Both compat/{server,client}/qb-core.lua's GetShared fall back to
--- this canonical-casing lookup before giving up.
+-- GetShared's namespace is case-sensitive (PascalCase) but legacy scripts call e.g. GetShared('items') (qb-recyclejob); a plain lookup returns nil and the error only surfaces much later, so both realms' GetShared fall back to this canonical-casing lookup.
 local SHARED_NAMESPACE_ALIASES = {
     items = 'Items', vehicles = 'Vehicles', jobs = 'Jobs', gangs = 'Gangs',
     weapons = 'Weapons', locations = 'Locations', vehiclehashes = 'VehicleHashes',
@@ -579,7 +537,6 @@ function Core.compat.populateLegacyConfig()
     }
 end
 
--- Debug helper (legacy QBCore.Debug prints a table).
 function QBCore.Debug(tbl, indent)
     indent = indent or 0
     local pad = string.rep('  ', indent)

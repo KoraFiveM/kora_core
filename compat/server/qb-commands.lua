@@ -23,8 +23,6 @@ local MAX_MESSAGE = 255
 local NEARBY_RADIUS = 20.0
 local DV_RADIUS = 5.0
 
--- --- helpers ----------------------------------------------------------------
-
 local function reply(src, message, kind)
     if src == 0 then
         print(('[qbcore:commands] %s'):format(message))
@@ -95,8 +93,6 @@ local function moneyType(arg)
     end
 end
 
--- --- registration -----------------------------------------------------------
-
 local existing = {}
 for _, command in ipairs(Core.commands.listCommands()) do existing[command.name] = true end
 
@@ -119,8 +115,6 @@ local function register(name, help, params, argsRequired, permission, handler)
 end
 
 local function param(name, help) return { name = name, help = help } end
-
--- --- teleport ---------------------------------------------------------------
 
 register('tp', 'TP To Player or Coords (Admin Only)', {
     param('id/x', 'ID of player or X position'), param('y', 'Y position'), param('z', 'Z position'),
@@ -174,8 +168,6 @@ AddEventHandler('qbcore:server:playerLoaded', function(src)
     if QBCore.Config.Server.PVP == false then TriggerClientEvent('QBCore:Client:PvpHasToggled', src, false) end
 end)
 
--- --- permissions ------------------------------------------------------------
-
 local function configuredPermission(arg)
     local permission = str(arg, 32)
     permission = permission and permission:lower()
@@ -206,8 +198,6 @@ permissionCommand('addpermission', 'Give Player Permissions (God Only)',
     function(id, permission) F.AddPermission(id, permission) end, { 'Granted', 'to' })
 permissionCommand('removepermission', 'Remove Player Permissions (God Only)',
     function(id, permission) F.RemovePermission(id, permission) end, { 'Removed', 'from' })
-
--- --- open & close server ----------------------------------------------------
 
 register('openserver', 'Open the server for everyone (Admin Only)', {}, false, 'admin', function(src)
     if not QBCore.Config.Server.Closed then return reply(src, 'The server is already open', 'error') end
@@ -248,8 +238,6 @@ AddEventHandler('playerConnecting', function(_, setKickReason, deferrals)
     deferrals.defer()
     deferrals.done(reason)
 end)
-
--- --- vehicles / peds / objects ----------------------------------------------
 
 local function playerVehicle(ped)
     local vehicle = GetVehiclePedIsIn(ped, false)
@@ -319,8 +307,6 @@ deleteAll('dvall', 'Delete All Vehicles (Admin Only)', function() return GetAllV
 deleteAll('dvp', 'Delete All Peds (Admin Only)', function() return GetAllPeds() end, function(ped) return IsPedAPlayer and IsPedAPlayer(ped) end)
 deleteAll('dvo', 'Delete All Objects (Admin Only)', function() return GetAllObjects() end)
 
--- --- money ------------------------------------------------------------------
-
 local function moneyArgs(src, args)
     local id = resolveTarget(args[1])
     if not id then reply(src, 'Player not online', 'error'); return end
@@ -354,8 +340,6 @@ register('setmoney', 'Set Players Money Amount (Admin Only)', MONEY_PARAMS, true
     audit(src, 'setmoney', { target = id, account = account, amount = amount, ok = ok and true or false })
     if not ok then reply(src, 'Could not set money: ' .. tostring(err), 'error') end
 end)
-
--- --- job & gang -------------------------------------------------------------
 
 register('job', 'Check Your Job', {}, false, 'user', function(src)
     local player = src ~= 0 and F.GetPlayer(src)
@@ -396,8 +380,6 @@ end
 
 roleCommand('setjob', 'Set A Players Job (Admin Only)', 'job', Core.jobs.setJob)
 roleCommand('setgang', 'Set A Players Gang (Admin Only)', 'gang', Core.jobs.setGang)
-
--- --- chat -------------------------------------------------------------------
 
 local function messageOf(args, max)
     local parts = {}
