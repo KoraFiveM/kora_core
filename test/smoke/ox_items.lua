@@ -50,10 +50,46 @@ h.test('missing-item scan is heuristic, ignores comments and variables', functio
     h.assertEqual(#report.scan.missing, 2)
 end)
 
+h.test('resource items: emitted with registry field mapping, registry wins, reserved/weapons kept out', function()
+    local res = gen.build({ root = fx, oxDir = fx .. '/ox', scanDirs = { fx .. '/scan', fx .. '/resource' },
+        resourceItems = { fx .. '/resource' } })
+    local ri = assert(load(res.itemsLua, '=items.lua', 't', {}))()
+    h.assertEqual(ri.blank_film.label, 'Blank Film')
+    h.assertEqual(ri.blank_film.client.image, 'blank_film.svg')
+    h.assertEqual(ri.blank_film.description, 'Unexposed film.')
+    h.assertEqual(ri.card_cam.stack, false)
+    h.assertEqual(ri.card_cam.close, false)
+    h.assertEqual(ri.card_cam.client, nil)          -- name defaults to the key; <name>.png image omitted
+    h.assertEqual(ri.water.label, 'Water')          -- registry wins
+    h.assertEqual(ri.money.label, 'Money')          -- reserved keeps ox semantics
+    h.assertEqual(ri.weapon_cardgun, nil)           -- weapons stay excluded
+    local e = res.report.resourceItems[1]
+    h.assertEqual(e.resource, 'resource')
+    h.assertEqual(table.concat(e.items, ','), 'blank_film,card_cam')
+    h.assertEqual(table.concat(e.overlapRegistry, ','), 'water')
+    h.assertEqual(table.concat(e.skippedReserved, ','), 'money')
+    h.assertEqual(table.concat(e.excludedWeapons, ','), 'weapon_cardgun')
+    h.assertEqual(res.report.registryItems, report.registryItems)
+    for _, m in ipairs(res.report.scan.missing) do
+        h.assertTrue(m.name ~= 'blank_film' and m.name ~= 'card_cam', m.name .. ' still reported missing')
+    end
+    h.assertTrue(gen.reportMarkdown(res.report):find('`resource`: 2 item%(s%)') ~= nil)
+    -- without the option the same names are reported missing
+    local without = gen.build({ root = fx, oxDir = fx .. '/ox', scanDirs = { fx .. '/resource' } })
+    h.assertEqual(#without.report.scan.missing, 2)
+end)
+
+h.test('resource config that fails or lacks Config.items is an error', function()
+    local list, err = gen.loadResourceItems(fx .. '/scan')
+    h.assertEqual(list, nil)
+    h.assertTrue(err ~= nil)
+    h.assertTrue(gen.loadResourceItems(fx .. '/resource') ~= nil)
+end)
+
 h.test('CLI writes items.lua, mapping and reports', function()
     local out = os.tmpname() .. '_oxitems'
     local rc = gen.main({ '--root', fx, '--ox-dir', fx .. '/ox', '--no-default-scan', '--scan', fx .. '/scan',
-        '--out', out .. '/items.lua', '--strict' })
+        '--out', out .. '/items.lua', '--strict', '--resource-items', fx .. '/resource' })
     h.assertEqual(rc, 2) -- strict + non-empty missing list
     for _, f in ipairs({ 'items.lua', 'mapping.json', 'report.json', 'report.md' }) do
         local fh = io.open(out .. '/' .. f, 'rb')
@@ -61,6 +97,7 @@ h.test('CLI writes items.lua, mapping and reports', function()
         if fh then fh:close() end
     end
     assert(dofile(out .. '/items.lua').water)
+    h.assertEqual(dofile(out .. '/items.lua').blank_film.label, 'Blank Film')
     os.execute("rm -rf '" .. out .. "'")
 end)
 
