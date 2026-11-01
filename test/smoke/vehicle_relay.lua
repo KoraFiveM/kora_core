@@ -1,9 +1,9 @@
--- The generic legacy vehicle callbacks must stay absent: their protocol lets
--- an arbitrary client choose a model and world coordinates with no owning
--- gameplay resource available to authorize either value.
+-- With Config.compat.vehicleSpawnCallbacks = 'off' the generic legacy vehicle
+-- callbacks stay absent (the default 'limited' is covered by vehicle_spawn.lua).
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
+Config.compat.vehicleSpawnCallbacks = 'off'
 dofile('build/initiate.lua')
 dofile('shared/items.lua'); dofile('shared/vehicles.lua'); dofile('shared/jobs.lua')
 dofile('shared/gangs.lua'); dofile('shared/weapons.lua'); dofile('shared/locations.lua')
@@ -36,6 +36,7 @@ dofile('modules/consumables/server.lua')
 dofile('modules/jail/server.lua')
 dofile('compat/server/qb-core.lua')
 dofile('compat/server/qb-core-events.lua')
+dofile('compat/server/qb-vehicles.lua')
 
 for _, callbackName in ipairs({ 'QBCore:Server:SpawnVehicle', 'QBCore:Server:CreateVehicle' }) do
     h.test(callbackName .. ' is not reachable from the raw client callback wire', function()

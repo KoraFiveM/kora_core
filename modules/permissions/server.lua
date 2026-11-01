@@ -41,8 +41,10 @@ function Core.permissions.removePermission(src, permission)
 end
 
 ---@param src integer
----@return boolean  -- whether the player opted into admin/dev features
+---@return boolean  -- whether the player opted into admin/dev features (a privileged level; PlayerData.optin == false opts out)
 function Core.permissions.isOptin(src)
     -- Opt-in only makes sense for privileged players; default to their perm.
-    return Core.permissions.getPermission(src) ~= 'user'
+    if Core.permissions.getPermission(src) == 'user' then return false end
+    local player = CoreInternal.player and CoreInternal.player.handle and CoreInternal.player.handle(src)
+    return not (player and player.PlayerData.optin == false)
 end

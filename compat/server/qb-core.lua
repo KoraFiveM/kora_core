@@ -55,6 +55,7 @@ end
 -- in modules/money/server.lua.
 local function legacyView(src, playerData)
     local view = Core.compat.toLegacyPlayerData(Core.util.deepClone(playerData))
+    if view.items == nil then view.items = {} end
     if type(view.money) == 'table' and Core.money._mirrorOverlay then Core.money._mirrorOverlay(src, view.money) end
     return view
 end
@@ -171,7 +172,13 @@ local function buildQBPlayer(src)
         return ok, err
     end
 
-    function F.GetName() return handle.PlayerData.name end
+    function F.GetName()
+        local charinfo = handle.PlayerData.charinfo
+        if type(charinfo) == 'table' and charinfo.firstname and charinfo.lastname then
+            return charinfo.firstname .. ' ' .. charinfo.lastname
+        end
+        return handle.PlayerData.name
+    end
     function F.GetPlayerData() return legacyView(src, handle.PlayerData) end
 
     -- Stock lower-cases the name (`job = job:lower()`).
@@ -203,8 +210,19 @@ local function buildQBPlayer(src)
     -- `ignoreTax` is a kora_core addition past stock qb-core's 3-arg signature, so
     -- an unported resource simply passes nil and is taxed like any other
     -- transaction. SetMoney has no such param: it is never taxed.
-    function F.AddMoney(t, amount, reason, ignoreTax) return Core.money.addMoney(src, t, amount, reason, ignoreTax) end
-    function F.RemoveMoney(t, amount, reason, ignoreTax) return Core.money.removeMoney(src, t, amount, reason, ignoreTax) end
+    -- Stock rejects only negative amounts, so a zero-cost purchase succeeds.
+    local function moneyOp(op, t, amount, reason, ignoreTax)
+        t = lowered(t)
+        local n = tonumber(amount)
+        if not n or n < 0 then return false end
+        if n == 0 then
+            for _, account in ipairs(Config.money.types) do if account == t then return true end end
+            return false
+        end
+        return Core.money[op](src, t, n, reason, ignoreTax)
+    end
+    function F.AddMoney(t, amount, reason, ignoreTax) return moneyOp('addMoney', t, amount, reason, ignoreTax) end
+    function F.RemoveMoney(t, amount, reason, ignoreTax) return moneyOp('removeMoney', t, amount, reason, ignoreTax) end
     function F.SetMoney(t, amount, reason) return Core.money.setMoney(src, t, amount, reason or 'qb-compat-setmoney') end
     function F.GetMoney(t) return Core.money.getMoney(src, t) end
 
@@ -233,7 +251,7 @@ local function buildQBPlayer(src)
     -- Legacy full-data writers. SetPlayerData(key, value) targets a root key.
     function F.SetPlayerData(key, value)
         local column = PI.COLUMN_FOR[key]
-        if not column and Config.compat.warnOnUnknownRoot then
+        if not column and key ~= 'optin' and Config.compat.warnOnUnknownRoot then
             print(("^3[qbcore:qb-core-bridge]^7 SetPlayerData('%s', ...) targets an unknown root key with no DB "
                 .. "column mapping; it will not persist."):format(tostring(key)))
         end
@@ -547,14 +565,21 @@ local function forgetPlayer(src)
     QBCore.Players[src] = nil
 end
 
--- Keep QBCore.Players in sync as players load / unload.
-AddEventHandler('qbcore:server:playerLoaded', function(src)
+-- Keep QBCore.Players in sync as players load / unload. Core.player.adopt calls
+-- buildLoadedPlayer so QBCore:Server:PlayerLoaded carries this same Player wrapper.
+function Core.compat.buildLoadedPlayer(src)
     forgetPlayer(src)
     local player = buildQBPlayer(src)
     QBCore.Players[src] = player
     if player and player.PlayerData.citizenid then
         QBCore.PlayersByCitizenId[player.PlayerData.citizenid] = player
     end
+    return player
+end
+AddEventHandler('qbcore:server:playerLoaded', function(src)
+    local existing, handle = QBCore.Players[src], PI.handle(src)
+    if existing and handle and existing.PlayerData.citizenid == handle.citizenid then return end
+    Core.compat.buildLoadedPlayer(src)
 end)
 AddEventHandler('qbcore:server:playerDropped', forgetPlayer)
 AddEventHandler('QBCore:Server:OnPlayerUnload', forgetPlayer)
@@ -574,8 +599,14 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
 
     local root = path[1]
     value = Core.util.deepClone(value)
-    if root == 'metadata' and #path == 1 then
+    if root == 'items' and #path == 1 and value == nil then
+        value = {}
+    elseif root == 'metadata' and #path == 1 then
         value = Core.compat.fillMetadataDefaults(value, player.PlayerData.citizenid)
+    elseif root == 'charinfo' and #path == 1 then
+        value = Core.compat.fillCharinfoDefaults(value, player.PlayerData.citizenid)
+    elseif root == 'position' and #path == 1 then
+        value = Core.compat.legacyPosition(value)
     end
     if root == 'job' or root == 'gang' then
         if #path == 1 then
@@ -596,6 +627,19 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
 end
 
 local F = QBCore.Functions
+
+local function identifierMatches(candidate, value)
+    if type(candidate) ~= 'string' or type(value) ~= 'string' then return false end
+    if candidate == value then return true end
+    local cBare, vBare = candidate:match('^%w+:(.+)$'), value:match('^%w+:(.+)$')
+    return (cBare or candidate) == (vBare or value) and (cBare == nil or vBare == nil)
+end
+
+local function licenseForms(value)
+    if type(value) ~= 'string' or value == '' then return nil end
+    local bare = value:gsub('^license:', '')
+    return 'license:' .. bare, bare
+end
 
 function F.GetPlayer(src)
     src = tonumber(src) or F.GetSource(src)
@@ -656,7 +700,7 @@ end
 function F.GetSource(identifier)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        for _, v in pairs(ids) do if v == identifier then return src end end
+        for _, v in pairs(ids) do if identifierMatches(v, identifier) then return src end end
     end
     return 0
 end
@@ -789,8 +833,16 @@ function F.GetPermission(src)
     end
     return perms
 end
-function F.AddPermission(src, perm) return Core.permissions.addPermission(src, perm) end
-function F.IsOptin(src) return Core.permissions.isOptin(src) end
+function F.AddPermission(src, perm)
+    local ok = Core.permissions.addPermission(src, perm)
+    if ok then QBCore.Commands.Refresh(src) end
+    return ok
+end
+function F.IsOptin(src)
+    if not F.GetIdentifier(src, 'license') or not F.HasPermission(src, 'admin') then return false end
+    local player = F.GetPlayer(src)
+    return player ~= nil and player.PlayerData.optin == true
+end
 -- Full upstream signature: supports the connect-phase setKickReason/deferrals
 -- path so a script kicking during playerConnecting behaves the same.
 function F.Kick(source, reason, setKickReason, deferrals)
@@ -826,20 +878,28 @@ function F.GetCoords(entity)
     return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
 end
 
-function F.GetPlayerByLicense(license)
+local function onlinePlayerByLicense(license)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        if ids.license == license then return F.GetPlayer(src) end
+        if identifierMatches(ids.license, license) then return F.GetPlayer(src) end
     end
     return nil
 end
 
 function F.GetOfflinePlayerByLicense(license)
+    local prefixed, bare = licenseForms(license)
+    if not prefixed then return nil end
     local row = Kora.sql.single(
-        'SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL LIMIT 1',
-        { license }
+        'SELECT `citizenid` FROM `players` WHERE `license` IN (?, ?) AND `deleted_at` IS NULL ORDER BY `cid` LIMIT 1',
+        { prefixed, bare }
     )
     return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
+end
+
+-- Stock falls back to the offline lookup when nobody online holds the license.
+function F.GetPlayerByLicense(license)
+    if type(license) ~= 'string' then return nil end
+    return onlinePlayerByLicense(license) or F.GetOfflinePlayerByLicense(license)
 end
 
 function F.GetPlayerByAccount(account)
@@ -1046,9 +1106,10 @@ function F.RemovePermission(src, permission)
 end
 
 function F.ToggleOptin(src)
-    if not F.HasPermission(src, 'admin') then return end
-    local current = Core.metadata.getMetaData(src, 'optin')
-    Core.metadata.setMetaData(src, 'optin', not current)
+    if not F.GetIdentifier(src, 'license') or not F.HasPermission(src, 'admin') then return end
+    local player = F.GetPlayer(src)
+    if not player then return end
+    player.Functions.SetPlayerData('optin', not player.PlayerData.optin)
 end
 
 function F.IsWhitelisted(src)
@@ -1057,13 +1118,18 @@ function F.IsWhitelisted(src)
 end
 
 function F.IsPlayerBanned(src)
-    local license = F.GetIdentifier(src, 'license')
-    local row = Kora.sql.single('SELECT id, reason, expire FROM bans WHERE license = ?', { license })
+    local prefixed, bare = licenseForms(F.GetIdentifier(src, 'license'))
+    if not prefixed then return false end
+    local row = Kora.sql.single('SELECT id, reason, expire FROM bans WHERE license IN (?, ?)', { prefixed, bare })
     if not row then return false end
-    if os.time() < tonumber(row.expire) then
-        local t = os.date('*t', tonumber(row.expire))
+    local expire = tonumber(row.expire)
+    if not expire then
+        return true, ('You have been banned from the server:\n%s\nThis ban is permanent.\n'):format(row.reason or '')
+    end
+    if os.time() < expire then
+        local t = os.date('*t', expire)
         return true, ('You have been banned from the server:\n%s\nYour ban expires %d/%d/%d %d:%d\n')
-            :format(row.reason, t.day, t.month, t.year, t.hour, t.min)
+            :format(row.reason or '', t.day, t.month, t.year, t.hour, t.min)
     end
     Kora.sql.query('DELETE FROM bans WHERE id = ?', { row.id })
     return false
@@ -1072,7 +1138,7 @@ end
 function F.IsLicenseInUse(license)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        if ids.license == license then return true end
+        if identifierMatches(ids.license, license) then return true end
     end
     return false
 end
@@ -1085,6 +1151,15 @@ function F.GetDatabaseInfo()
         cs = cs:sub(9, -1)
         details.database = cs:sub((cs:find('/') or 0) + 1, -1):gsub('[%?]+[%w%p]*$', '')
         details.exists = details.database ~= ''
+    else
+        for part in cs:gmatch('[^;]+') do
+            local database = part:match('^%s*[Dd]atabase%s*=%s*(.-)%s*$')
+            if database then
+                details.database = database
+                details.exists = database ~= ''
+                break
+            end
+        end
     end
     return details
 end
@@ -1413,9 +1488,7 @@ function P.ForceUpdatePlayerData(src)
 end
 
 function P.GetOfflinePlayer(citizenid) return F.GetOfflinePlayerByCitizenId(citizenid) end
-function P.GetPlayerByLicense(license)
-    return F.GetPlayerByLicense(license) or F.GetOfflinePlayerByLicense(license)
-end
+function P.GetPlayerByLicense(license) return F.GetPlayerByLicense(license) end
 function P.GetOfflinePlayerByLicense(license) return F.GetOfflinePlayerByLicense(license) end
 
 -- Id generators (server/player.lua). CitizenId routes to our identity module;
@@ -1427,7 +1500,10 @@ local function randomId(len, alpha)
     return table.concat(t)
 end
 function P.CreateCitizenId() return Core.identity.generateCitizenId() end
-function P.CreateFingerId() return randomId(2, true) .. randomId(3, false) .. randomId(1, true) .. randomId(2, false) end
+function P.CreateFingerId()
+    return Core.util.randomStr(2) .. Core.util.randomInt(3) .. Core.util.randomStr(1)
+        .. Core.util.randomInt(2) .. Core.util.randomStr(3) .. Core.util.randomInt(4)
+end
 function P.CreateWalletId() return 'QB-' .. tostring(math.random(10000000, 99999999)) end
 function P.CreateSerialNumber() return randomId(9, false) end
 
@@ -1455,11 +1531,12 @@ local function rebuildCommandList()
     for k in pairs(QBCore.Commands.List) do QBCore.Commands.List[k] = nil end
     for _, c in ipairs(Core.commands.listCommands()) do
         local extra = commandExtras[c.name]
-        QBCore.Commands.List[c.name] = {
-            name = c.name,
+        QBCore.Commands.List[c.name:lower()] = {
+            name = c.name:lower(),
             help = c.help,
-            permission = c.permission,
+            permission = extra and extra.permission or c.permission,
             params = extra and extra.params,
+            arguments = extra and extra.params,
             argsrequired = extra and extra.argsrequired,
             callback = extra and extra.callback,
         }
@@ -1469,7 +1546,7 @@ end
 -- and user is builtin.everyone (same as stock qb-core).
 QBCore.Commands.IgnoreList = QBCore.Commands.IgnoreList or { god = true, user = true }
 
-QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
+QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission, ...)
     -- Stock resources also use { { 'id', 'description' } } suggestions. Adapt
     -- that legacy shape here, leaving the native command contract strict and
     -- retaining the caller's original params in the public legacy command list.
@@ -1491,15 +1568,35 @@ QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
         if WasEventCanceled and WasEventCanceled() then return end
         return cb(source, commandArgs, rawCommand)
     end
-    Core.commands.addCommand(name, help, nativeArgs, argsRequired, guarded, permission)
+
+    -- Stock accepts extra permission levels after `permission` (every level gets
+    -- the command ACE; List[name].permission becomes the array). The native
+    -- check uses the least privileged level of the set, matching that union.
+    local levels = { type(permission) == 'string' and permission:lower() or 'user' }
+    local listPermission = levels[1]
+    local extra = select('#', ...)
+    if extra > 0 then
+        for i = 1, extra do
+            local level = select(i, ...)
+            if type(level) == 'string' then levels[#levels + 1] = level:lower() end
+        end
+        listPermission = { table.unpack(levels) }
+    end
+    local nativePermission = levels[1]
+    local rank = { god = 4, admin = 3, mod = 2, user = 1 }
+    for _, level in ipairs(levels) do
+        if (rank[level] or 0) < (rank[nativePermission] or 0) then nativePermission = level end
+    end
+    Core.commands.addCommand(name, help, nativeArgs, argsRequired, guarded, nativePermission)
     -- Stock grants the permission group the `command.<name>` ACE, which is
     -- what QBCore:CallCommand and Commands.Refresh check.
-    local level = type(permission) == 'string' and permission:lower() or 'user'
-    if level:match('^[%w_]+$') and type(name) == 'string' and name:match('^[%w_:%.%-]+$')
-        and not QBCore.Commands.IgnoreList[level] then
-        ExecuteCommand(('add_ace qbcore.%s command.%s allow'):format(level, name))
+    for _, level in ipairs(levels) do
+        if level:match('^[%w_]+$') and type(name) == 'string' and name:match('^[%w_:%.%-]+$')
+            and not QBCore.Commands.IgnoreList[level] then
+            ExecuteCommand(('add_ace qbcore.%s command.%s allow'):format(level, name))
+        end
     end
-    commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb }
+    commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb, permission = listPermission }
     rebuildCommandList()
 end
 QBCore.Commands.Refresh = function(src) Core.commands.refreshCommands(src); rebuildCommandList() end

@@ -217,6 +217,13 @@ function Core.jobs.setJobDuty(src, onDuty)
     indexSetDuty(src, p.PlayerData.job and p.PlayerData.job.name, onDuty)
     TriggerEvent('QBCore:Server:SetDuty', src, onDuty)
     TriggerClientEvent('QBCore:Client:SetDuty', src, onDuty)
+    local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(p.PlayerData.job, 'jobs') or p.PlayerData.job
+    TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
+    TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'job', legacyJob)
+    if Config.compat.jobUpdateEventSource ~= 'client' then
+        TriggerClientEvent('QBCore:Client:OnJobUpdate', src, legacyJob)
+        TriggerClientEvent('QBCore:Client:OnPlayerUpdated', src, 'job', legacyJob)
+    end
     return true
 end
 

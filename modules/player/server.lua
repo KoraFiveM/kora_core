@@ -130,6 +130,8 @@ end
 function Core.player.setPlayerBucket(src, bucket)
     if not (src and bucket) then return false end
     SetPlayerRoutingBucket(src, bucket)
+    local state = Player(src) and Player(src).state
+    if state then state:set('instance', bucket, true) end
     local license = Core.identity.getIdentifiers(src).license
     if license then
         QBCore.Player_Buckets = QBCore.Player_Buckets or {}
@@ -350,7 +352,8 @@ local function adopt(src, player)
     -- Legacy load events (both directions), plus the modern one.
     -- Stock qb-core sends the Player wrapper. Legacy resources (including
     -- qb-inventory) immediately dereference Player.PlayerData here.
-    TriggerEvent('QBCore:Server:PlayerLoaded', player)                     -- legacy server-side
+    -- Stock hands listeners its Player object (.PlayerData/.Functions); the compat layer builds it.
+    TriggerEvent('QBCore:Server:PlayerLoaded', Core.compat.buildLoadedPlayer and Core.compat.buildLoadedPlayer(src) or player)
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
     if Core.money and Core.money.syncState then Core.money.syncState(src) end
@@ -364,7 +367,12 @@ local function adopt(src, player)
     -- Preserve the legacy client event, but dispatch it only after the
     -- snapshot has reached the client.  Legacy consumers now observe usable
     -- PlayerData rather than having to race the replication channel.
-    TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    -- Config.compat.deferClientPlayerLoaded moves this to the stock point: the client's
+    -- QBCore:Server:OnPlayerLoaded after spawn (compat/server/qb-core-events.lua).
+    if Config.compat.deferClientPlayerLoaded ~= true then
+        player._clientLoadedSent = true
+        TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    end
     return true
 end
 
@@ -627,14 +635,14 @@ function Core.player.dropPlayer(src, reason)
     local player = bySource[src]
     if not player then return end
     Core.persistence.saveNow(player)
-    byCitizenId[player.citizenid] = nil
-    bySource[src] = nil
+    -- Legacy-named events fire before eviction so GetPlayer(src) still works in handlers; server-LOCAL only (the client is gone).
+    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
+    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
+    if bySource[src] == player then bySource[src] = nil end
+    if byCitizenId[player.citizenid] == player then byCitizenId[player.citizenid] = nil end
     Core.replication._forget(player)
     Core.persistence._forget(player)
     TriggerEvent('qbcore:server:playerDropped', src, player.citizenid, reason)
-    -- Legacy-named events on the same disconnect path; server-LOCAL only (the client is gone).
-    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
-    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
 end
 
 AddEventHandler('playerDropped', function(reason)

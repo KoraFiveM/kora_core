@@ -82,12 +82,26 @@ end
 -- QBCore:* payloads must be legacy-shaped (grade.level zero-based); this builds a
 -- translated VIEW and never mutates `mirror` (one-based). Guarded on the specific
 -- FUNCTION because Core is an auto-vivifying proxy, so `Core.compat` is always a table.
-local function fireLegacy(changedRoots, inventoryOnly)
-    local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
-
+local function publishLegacyPlayerData(legacyData)
     -- Keep the global `QBCore.PlayerData` that legacy scripts read directly. Guarded:
     -- this module has no hard dependency on the QBCore global (isolated tests).
-    if QBCore then QBCore.PlayerData = legacyData end
+    -- Updated in place so a `local PlayerData = QBCore.PlayerData` captured at load stays current.
+    if not QBCore then return legacyData end
+    local current = QBCore.PlayerData
+    if type(current) ~= 'table' or current == legacyData then
+        QBCore.PlayerData = legacyData
+        return legacyData
+    end
+    for key in pairs(current) do
+        if legacyData[key] == nil then current[key] = nil end
+    end
+    for key, value in pairs(legacyData) do current[key] = value end
+    return current
+end
+
+local function fireLegacy(changedRoots, inventoryOnly)
+    local legacyData = publishLegacyPlayerData(
+        Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror)
 
     announceLegacyPlayerData(legacyData, inventoryOnly)
     if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
@@ -117,8 +131,8 @@ end
 function Core.replication.reannounceFull()
     pendingLegacy = nil
     if not mirror then return false end
-    local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
-    if QBCore then QBCore.PlayerData = legacyData end
+    local legacyData = publishLegacyPlayerData(
+        Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror)
     announceLegacyPlayerData(legacyData)
     return true
 end

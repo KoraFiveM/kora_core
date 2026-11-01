@@ -116,6 +116,21 @@ Config.compat = {
     callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
     qbxFacade = false,                    -- publish the qbx_core/qbx_vehicles export+event surface for stock ox_inventory (`inventory:framework qbx`); also enabled by `setr kora:qbxFacade true`. See compat/server/qbx.lua
     defaultCommands = true,               -- register the 20 stock qb-core commands (tp, tpm, togglepvp, addpermission, removepermission, openserver, closeserver, car, dv, dvall, dvp, dvo, givemoney, setmoney, job, setjob, gang, setgang, ooc, me); a name another resource already registered is kept. See docs/default-commands.md
+    vehicleSpawnCallbacks = 'limited',    -- stock server callbacks QBCore:Server:SpawnVehicle / CreateVehicle: 'off' | 'admin' (kora admin permission only) | 'limited' (any loaded player, validated; see vehicleSpawn). Also backs the networked client QBCore.Functions.SpawnVehicle. See docs/vehicle-spawn.md
+    vehicleSpawn = {
+        maxDistance = 75.0,               -- requested coords must be within this many metres of the caller's ped (limited mode)
+        cooldownMs = 2000,                -- per-player minimum time between spawn requests
+        maxLive = 2,                      -- live compat-spawned vehicles per player; the oldest is deleted to make room
+        allowModels = {},                 -- extra model names accepted besides QBCore.Shared.Vehicles, e.g. { 'adder' }
+        grantKeys = true,                 -- give the requester keys through kora_vehiclekeys when it is started
+        deleteOnDrop = true,              -- delete a player's compat-spawned vehicles when they leave
+    },
+    deferClientPlayerLoaded = false,      -- false: QBCore:Client:OnPlayerLoaded fires at login (kora consumers rely on it). true: stock timing, fired when the client sends QBCore:Server:OnPlayerLoaded after spawn (kora_multichar and stock qb-spawn/qb-multicharacter send it). See docs/index.md
+    stress = {                            -- stock hud:server:GainStress / RelieveStress (ignored while a real qb-hud is started)
+        disabled = false,                 -- true = ignore both events
+        whitelistedJobs = { leo = true, ambulance = true }, -- job names or job types that never gain or lose stress
+        cooldownMs = 250,                 -- per-player minimum time between accepted events
+    },
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 

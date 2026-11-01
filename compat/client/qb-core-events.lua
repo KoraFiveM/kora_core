@@ -115,31 +115,24 @@ end)
 
 RegisterNetEvent('QBCore:Command:SpawnVehicle', function(vehName)
     local ped = PlayerPedId()
+    if type(vehName) ~= 'string' then return end
     local hash = joaat(vehName)
     local veh = GetVehiclePedIsUsing(ped)
     if not IsModelInCdimage(hash) then return end
-    local loaded = QBCore.Functions.LoadModel(hash)
-    if not loaded then
-        return QBCore.Functions.Notify('Unable to load that vehicle', 'error', 5000)
-    end
 
     if IsPedInAnyVehicle(ped) then
         SetEntityAsMissionEntity(veh, true, true)
         DeleteVehicle(veh)
     end
 
-    -- A client event cannot prove why a shared entity is authorized. Keep this
-    -- legacy command functional as a local-only compatibility vehicle; native
-    -- admin/job resources use their guarded server-owned spawn paths.
-    local vehicle = CreateVehicle(hash, GetEntityCoords(ped), GetEntityHeading(ped), false, false)
-    if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then
-        SetModelAsNoLongerNeeded(hash)
+    -- Networked when the server's validated spawn path accepts it, local otherwise.
+    local origin = GetEntityCoords(ped)
+    local vehicle = QBCore.Functions.SpawnVehicle(hash, nil,
+        { x = origin.x, y = origin.y, z = origin.z, w = GetEntityHeading(ped) }, true, true)
+    if not vehicle then
         return QBCore.Functions.Notify('Unable to spawn that vehicle', 'error', 5000)
     end
-    TaskWarpPedIntoVehicle(ped, vehicle, -1)
-    SetVehicleFuelLevel(vehicle, 100.0)
     SetVehicleDirtLevel(vehicle, 0.0)
-    SetModelAsNoLongerNeeded(hash)
     TriggerEvent('vehiclekeys:client:SetOwner', QBCore.Functions.GetPlate(vehicle))
 end)
 
