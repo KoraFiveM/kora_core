@@ -9,6 +9,7 @@ SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-f
 - `Core.garage.getByOwner(citizenid)` — all non-deleted rows for a citizen, hydrated.
 - `Core.garage.storeVehicle(plate, snapshot)` — marks `garaged`, updates condition columns present in `snapshot`. Refuses an impounded vehicle.
 - `Core.garage.spawnVehicle(src, plate, coords, heading)` — spawns a real, networked entity, marks `out`. Refuses an impounded vehicle. Returns a network id.
+- `Core.garage.tagVehicle(entity, id)` — sets the NON-replicated `vehicleid` state bag (`player_vehicles.id`) for stock ox_inventory; called by `spawnVehicle` after the DB transition succeeds. Gated by convar `kora:vehicleIdStateBag` (default 1). Any other owned-vehicle spawn path must call it only after the entity exists and the row update succeeded.
 - `Core.garage.impound(plate, fee, impoundLot)` — marks `impounded`.
 - `Core.garage.retrieveImpound(src, plate)` — clears the impound flag. Ownership-checked for civilian rows.
 - `Core.garage.updateState(plate, patch)` — partial condition update, for periodic autosave of a vehicle that's currently `out`. Unlike `storeVehicle`, does not change `state` or refuse an impounded vehicle.

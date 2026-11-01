@@ -36,6 +36,9 @@ Marks the vehicle `garaged` and snapshots its condition. Does not delete the liv
 #### Returns
 - `boolean`, `string | nil` — `false, 'unknown vehicle'` / `false, 'vehicle is impounded'` on refusal.
 
+### `Core.garage.tagVehicle(entity, id)`
+Sets the server-only `vehicleid` state bag (`player_vehicles.id`, integer) on a spawned owned vehicle. `spawnVehicle` calls it automatically after the entity exists and the `out` transition succeeded; use it from any other server-side spawn path for an owned vehicle (pass the row's `id`). Stock ox_inventory reads this bag before falling back to a per-open plate lookup. Returns `true` if set, `false` if disabled, the id is not a positive integer, or the entity does not exist.
+
 ### `Core.garage.spawnVehicle(src, plate, coords, heading)`
 Spawns `plate` as a real, networked entity and marks it `out`. Refuses an impounded vehicle — retrieve it via `retrieveImpound` first.
 
@@ -115,5 +118,6 @@ exports.kora_core:saveVehicleProperties(plate, properties)
 
 ## Notes
 - **`mods` are opaque JSON**, never auto-applied to a spawned vehicle — apply them yourself if your garage UI has a tuning system.
+- **`vehicleid` state bag** is set non-replicated (`state:set('vehicleid', id, false)`) — never sent to clients, nothing client-supplied is trusted, nothing is cleared on despawn. Convar `kora:vehicleIdStateBag` (default `1`) gates it; set `0` to disable.
 - **`spawnVehicle` uses `CreateVehicle` directly**, not `Kora.entities` — the vehicle must be visible to every player, not just the spawner.
 - **This module never touches money.** Charge/refund the impound fee via `Core.money` before calling `impound`/`retrieveImpound`.
