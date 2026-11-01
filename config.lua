@@ -126,6 +126,11 @@ Config.compat = {
         deleteOnDrop = true,              -- delete a player's compat-spawned vehicles when they leave
     },
     deferClientPlayerLoaded = false,      -- false: QBCore:Client:OnPlayerLoaded fires at login (kora consumers rely on it). true: stock timing, fired when the client sends QBCore:Server:OnPlayerLoaded after spawn (kora_multichar and stock qb-spawn/qb-multicharacter send it). See docs/index.md
+    stress = {                            -- stock hud:server:GainStress / RelieveStress (ignored while a real qb-hud is started)
+        disabled = false,                 -- true = ignore both events
+        whitelistedJobs = { leo = true, ambulance = true }, -- job names or job types that never gain or lose stress
+        cooldownMs = 250,                 -- per-player minimum time between accepted events
+    },
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 

@@ -119,6 +119,18 @@ h.test('GetCoreObject filters the client object exactly like the server export',
     h.assertTrue(filtered.Config == nil, 'unrequested namespaces must not be returned')
 end)
 
+h.test('client callbacks table exists and fallback HasItem accepts the map form', function()
+    h.assertEqual(type(QBCore.ClientCallbacks), 'table')
+    h.assertEqual(type(QBCore.ServerCallbacks), 'table')
+    local old = Core.replication.getData
+    Core.replication.getData = function() return { { name = 'bread', amount = 3 }, { name = 'water', amount = 1 } } end
+    h.assertTrue(QBCore.Functions.HasItem({ bread = 2, water = 1 }))
+    h.assertTrue(not QBCore.Functions.HasItem({ bread = 4 }))
+    h.assertTrue(QBCore.Functions.HasItem({ 'bread', 'water' }))
+    h.assertTrue(QBCore.Functions.HasItem({ bread = 9 }, 3))
+    Core.replication.getData = old
+end)
+
 h.test('Progressbar forwards raw legacy actions and the original owner to the shared adapter', function()
     local captured, owner, complete
     local invoking = GetInvokingResource

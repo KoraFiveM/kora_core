@@ -61,7 +61,7 @@ function Core.dispatch.alert(payload)
                     TriggerEvent(legacy.local_, payload.message or payload.title or '')
                 end
                 for src in pairs(recipients) do
-                    TriggerClientEvent(legacy.client, src, payload.message or payload.title or '', payload.coords)
+                    TriggerClientEvent(legacy.client, src, payload.coords, payload.message or payload.title or '')
                 end
             end
         end

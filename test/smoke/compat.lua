@@ -330,15 +330,16 @@ h.test('logout clears both legacy caches even when a later unload listener reads
     local old = QBCore.Functions.GetPlayer(6)
     h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old'), old)
 
-    local readDuringUnload = false
+    local readDuringUnload, listening = false, true
     AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
-        if src ~= 6 or not CoreInternal.player.handle(src) then return end
+        if not listening or src ~= 6 or not CoreInternal.player.handle(src) then return end
         readDuringUnload = true
         h.assertEqual(QBCore.Functions.GetPlayer(src).PlayerData.citizenid, 'CID-cache-old', 'unload retains character reads')
         h.assertEqual(QBCore.Functions.GetPlayerByCitizenId('CID-cache-old').PlayerData.citizenid, 'CID-cache-old')
     end)
 
     h.assertTrue(Core.player.logout(6))
+    listening = false
     h.assertTrue(readDuringUnload, 'the listener reads after compat cache cleanup')
     h.assertEqual(QBCore.Players[6], nil, 'the source cache must stay empty without another getter call')
     h.assertEqual(QBCore.PlayersByCitizenId['CID-cache-old'], nil, 'the citizenid cache must stay empty')

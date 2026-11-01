@@ -11,7 +11,7 @@ local digits = '0123456789'
 ---@return number
 function Core.util.round(value, places)
     if type(value) ~= 'number' then return 0 end
-    places = places or 0
+    if not places then return math.floor(value + 0.5) end
     local mult = 10 ^ places
     return math.floor(value * mult + 0.5) / mult
 end

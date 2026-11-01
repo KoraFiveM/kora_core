@@ -210,8 +210,19 @@ local function buildQBPlayer(src)
     -- `ignoreTax` is a kora_core addition past stock qb-core's 3-arg signature, so
     -- an unported resource simply passes nil and is taxed like any other
     -- transaction. SetMoney has no such param: it is never taxed.
-    function F.AddMoney(t, amount, reason, ignoreTax) return Core.money.addMoney(src, t, amount, reason, ignoreTax) end
-    function F.RemoveMoney(t, amount, reason, ignoreTax) return Core.money.removeMoney(src, t, amount, reason, ignoreTax) end
+    -- Stock rejects only negative amounts, so a zero-cost purchase succeeds.
+    local function moneyOp(op, t, amount, reason, ignoreTax)
+        t = lowered(t)
+        local n = tonumber(amount)
+        if not n or n < 0 then return false end
+        if n == 0 then
+            for _, account in ipairs(Config.money.types) do if account == t then return true end end
+            return false
+        end
+        return Core.money[op](src, t, n, reason, ignoreTax)
+    end
+    function F.AddMoney(t, amount, reason, ignoreTax) return moneyOp('addMoney', t, amount, reason, ignoreTax) end
+    function F.RemoveMoney(t, amount, reason, ignoreTax) return moneyOp('removeMoney', t, amount, reason, ignoreTax) end
     function F.SetMoney(t, amount, reason) return Core.money.setMoney(src, t, amount, reason or 'qb-compat-setmoney') end
     function F.GetMoney(t) return Core.money.getMoney(src, t) end
 
@@ -617,6 +628,19 @@ end
 
 local F = QBCore.Functions
 
+local function identifierMatches(candidate, value)
+    if type(candidate) ~= 'string' or type(value) ~= 'string' then return false end
+    if candidate == value then return true end
+    local cBare, vBare = candidate:match('^%w+:(.+)$'), value:match('^%w+:(.+)$')
+    return (cBare or candidate) == (vBare or value) and (cBare == nil or vBare == nil)
+end
+
+local function licenseForms(value)
+    if type(value) ~= 'string' or value == '' then return nil end
+    local bare = value:gsub('^license:', '')
+    return 'license:' .. bare, bare
+end
+
 function F.GetPlayer(src)
     src = tonumber(src) or F.GetSource(src)
     local handle = PI.handle(src)
@@ -676,7 +700,7 @@ end
 function F.GetSource(identifier)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        for _, v in pairs(ids) do if v == identifier then return src end end
+        for _, v in pairs(ids) do if identifierMatches(v, identifier) then return src end end
     end
     return 0
 end
@@ -809,7 +833,11 @@ function F.GetPermission(src)
     end
     return perms
 end
-function F.AddPermission(src, perm) return Core.permissions.addPermission(src, perm) end
+function F.AddPermission(src, perm)
+    local ok = Core.permissions.addPermission(src, perm)
+    if ok then QBCore.Commands.Refresh(src) end
+    return ok
+end
 function F.IsOptin(src)
     if not F.GetIdentifier(src, 'license') or not F.HasPermission(src, 'admin') then return false end
     local player = F.GetPlayer(src)
@@ -853,16 +881,17 @@ end
 local function onlinePlayerByLicense(license)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        if ids.license == license then return F.GetPlayer(src) end
+        if identifierMatches(ids.license, license) then return F.GetPlayer(src) end
     end
     return nil
 end
 
 function F.GetOfflinePlayerByLicense(license)
-    if type(license) ~= 'string' then return nil end
+    local prefixed, bare = licenseForms(license)
+    if not prefixed then return nil end
     local row = Kora.sql.single(
-        'SELECT `citizenid` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid` LIMIT 1',
-        { license }
+        'SELECT `citizenid` FROM `players` WHERE `license` IN (?, ?) AND `deleted_at` IS NULL ORDER BY `cid` LIMIT 1',
+        { prefixed, bare }
     )
     return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
 end
@@ -1089,13 +1118,18 @@ function F.IsWhitelisted(src)
 end
 
 function F.IsPlayerBanned(src)
-    local license = F.GetIdentifier(src, 'license')
-    local row = Kora.sql.single('SELECT id, reason, expire FROM bans WHERE license = ?', { license })
+    local prefixed, bare = licenseForms(F.GetIdentifier(src, 'license'))
+    if not prefixed then return false end
+    local row = Kora.sql.single('SELECT id, reason, expire FROM bans WHERE license IN (?, ?)', { prefixed, bare })
     if not row then return false end
-    if os.time() < tonumber(row.expire) then
-        local t = os.date('*t', tonumber(row.expire))
+    local expire = tonumber(row.expire)
+    if not expire then
+        return true, ('You have been banned from the server:\n%s\nThis ban is permanent.\n'):format(row.reason or '')
+    end
+    if os.time() < expire then
+        local t = os.date('*t', expire)
         return true, ('You have been banned from the server:\n%s\nYour ban expires %d/%d/%d %d:%d\n')
-            :format(row.reason, t.day, t.month, t.year, t.hour, t.min)
+            :format(row.reason or '', t.day, t.month, t.year, t.hour, t.min)
     end
     Kora.sql.query('DELETE FROM bans WHERE id = ?', { row.id })
     return false
@@ -1104,7 +1138,7 @@ end
 function F.IsLicenseInUse(license)
     for src in pairs(PI.bySource) do
         local ids = Core.identity.getIdentifiers(src)
-        if ids.license == license then return true end
+        if identifierMatches(ids.license, license) then return true end
     end
     return false
 end
@@ -1117,6 +1151,15 @@ function F.GetDatabaseInfo()
         cs = cs:sub(9, -1)
         details.database = cs:sub((cs:find('/') or 0) + 1, -1):gsub('[%?]+[%w%p]*$', '')
         details.exists = details.database ~= ''
+    else
+        for part in cs:gmatch('[^;]+') do
+            local database = part:match('^%s*[Dd]atabase%s*=%s*(.-)%s*$')
+            if database then
+                details.database = database
+                details.exists = database ~= ''
+                break
+            end
+        end
     end
     return details
 end

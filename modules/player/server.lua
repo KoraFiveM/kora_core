@@ -130,6 +130,8 @@ end
 function Core.player.setPlayerBucket(src, bucket)
     if not (src and bucket) then return false end
     SetPlayerRoutingBucket(src, bucket)
+    local state = Player(src) and Player(src).state
+    if state then state:set('instance', bucket, true) end
     local license = Core.identity.getIdentifiers(src).license
     if license then
         QBCore.Player_Buckets = QBCore.Player_Buckets or {}
@@ -633,14 +635,14 @@ function Core.player.dropPlayer(src, reason)
     local player = bySource[src]
     if not player then return end
     Core.persistence.saveNow(player)
-    byCitizenId[player.citizenid] = nil
-    bySource[src] = nil
+    -- Legacy-named events fire before eviction so GetPlayer(src) still works in handlers; server-LOCAL only (the client is gone).
+    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
+    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
+    if bySource[src] == player then bySource[src] = nil end
+    if byCitizenId[player.citizenid] == player then byCitizenId[player.citizenid] = nil end
     Core.replication._forget(player)
     Core.persistence._forget(player)
     TriggerEvent('qbcore:server:playerDropped', src, player.citizenid, reason)
-    -- Legacy-named events on the same disconnect path; server-LOCAL only (the client is gone).
-    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
-    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
 end
 
 AddEventHandler('playerDropped', function(reason)

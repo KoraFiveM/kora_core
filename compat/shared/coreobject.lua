@@ -13,6 +13,8 @@ QBCore.Player = QBCore.Player or {}
 QBCore.Players = QBCore.Players or {}        -- src -> QBPlayer (kept in sync by the server compat)
 QBCore.PlayersByCitizenId = QBCore.PlayersByCitizenId or {}
 QBCore.Shared = QBCore.Shared or {}
+QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
+QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
 QBCore.Commands = QBCore.Commands or {}
 QBCore.Config = QBCore.Config or {}
 -- Client-realm only in practice (kept server-maintained too before the

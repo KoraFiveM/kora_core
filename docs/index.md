@@ -385,3 +385,12 @@ Part of the [qbcore2](https://github.com/qbcore2) resource set:
 - `QBCore.PlayerData` on the client is updated in place. `QBCore:Client:OnPlayerUpdated` still ignores the pushed value and
   `QBCore:Client:SharedUpdate` stays a no-op by design (server-authoritative mirror). `QBCore:ToggleDuty` notifies on/off duty.
 - Vehicle spawn callbacks: see `vehicle-spawn.md`.
+- Identifier lookups (`GetPlayer`, `GetSource`, `GetPlayerByLicense`, `IsLicenseInUse`, `GetOfflinePlayerByLicense`) accept `license:xxx` or the bare form; `GetIdentifier` still returns its stored form. `IsPlayerBanned` treats a NULL `expire` as permanent.
+  `GetDatabaseInfo` also parses `server=..;database=..` strings (the connection string is never logged).
+- Player drop fires `QBCore:Server:PlayerDropped` / `OnPlayerUnload` before the player is evicted (`GetPlayer(src)` works in handlers); `qbcore:server:playerDropped` follows eviction.
+- `Player.Functions.AddMoney/RemoveMoney` accept amount 0 and lower-case the account; `AddPermission` refreshes commands; `SetPlayerBucket` sets `Player(src).state.instance`;
+  `SetJobDuty` also fires `OnJobUpdate` / `OnPlayerUpdated`; `Shared.Round(v)` returns an integer; `QBCore.ServerCallbacks` / `ClientCallbacks` exist.
+- `Locale` supports `extend/clear/replace/locale/has/delete`, the flat `phrases` field, `fallbackLang`, and `warnOnMissing` defaults to true.
+- `hud:server:GainStress` / `RelieveStress` (number 1-100, clamped 0-100, per-source cooldown, `Config.compat.stress` for `disabled`/`whitelistedJobs`/`cooldownMs`; ignored while a real qb-hud runs).
+- `qb-log:server:CreateLog` is a server-local handler forwarding to `Core.logging.logEvent`; it is deliberately not a net event and never reads webhooks.
+- Legacy `police:client:policeAlert` now receives the stock `(coords, text)` order (kora_police accepts both).

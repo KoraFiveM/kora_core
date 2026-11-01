@@ -245,6 +245,12 @@ function F.HasItem(items, amount)
         return n
     end
     if type(items) == 'table' then
+        if items[1] == nil then
+            for name, need in pairs(items) do
+                if count(name) < (amount or tonumber(need) or 1) then return false end
+            end
+            return true
+        end
         for _, name in ipairs(items) do
             if count(name) < (amount or 1) then return false end
         end

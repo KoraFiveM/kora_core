@@ -238,13 +238,19 @@ end
 ---@param amount integer|nil
 ---@return boolean
 function Core.inventory.hasItem(src, nameOrList, amount)
-    amount = amount or 1
     if type(nameOrList) == 'table' then
+        if nameOrList[1] == nil then
+            for name, need in pairs(nameOrList) do
+                if Core.inventory.getItemCount(src, name) < (amount or tonumber(need) or 1) then return false end
+            end
+            return true
+        end
         for _, name in ipairs(nameOrList) do
-            if Core.inventory.getItemCount(src, name) < amount then return false end
+            if Core.inventory.getItemCount(src, name) < (amount or 1) then return false end
         end
         return true
     end
+    amount = amount or 1
     return Core.inventory.getItemCount(src, nameOrList) >= amount
 end
 

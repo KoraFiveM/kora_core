@@ -60,6 +60,10 @@ h.test('legacy police compat events fire alongside the modern alert', function()
 
     h.assertTrue(localFired, 'the local police:server:policeAlert TriggerEvent should have fired')
     h.assertTrue(#eventsFor('police:client:policeAlert') > before, 'police:client:policeAlert should have reached the on-duty cop')
+    local last = eventsFor('police:client:policeAlert')
+    last = last[#last]
+    h.assertEqual(last.args[2], 'legacy check', 'stock argument order is (coords, text)')
+    h.assertEqual(last.args[1], nil)
 end)
 
 h.test('legacy ambulance compat event fires for an ambulance/ems alert', function()

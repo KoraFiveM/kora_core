@@ -260,3 +260,61 @@ if Config.compat.fireSharedUpdateAtLogin then
 end
 
 -- QBCore:Server:SpawnVehicle / CreateVehicle live in compat/server/qb-vehicles.lua.
+
+-- Stock qb-hud stress events. Client-triggerable by design in stock (stress is cosmetic and already writable through the allow-listed QBCore:Server:SetMetaData), so they are type-checked, clamped and rate-limited per source. Yields to a running qb-hud so the change is not applied twice.
+local stressLast = {}
+
+local function stressDelta(src, amount, sign)
+    local cfg = Config.compat.stress
+    if cfg.disabled then return end
+    if GetResourceState('qb-hud') == 'started' then return end
+    if type(amount) ~= 'number' or amount ~= amount or amount == math.huge or amount == -math.huge then return end
+    amount = math.floor(amount)
+    if amount < 1 or amount > 100 then return end
+    local handle = PI.handle(src)
+    if not handle then return end
+    local job = handle.PlayerData.job
+    if job and (cfg.whitelistedJobs[job.name] or cfg.whitelistedJobs[job.type]) then return end
+    local now = GetGameTimer()
+    if stressLast[src] and (now - stressLast[src]) < cfg.cooldownMs then return end
+    stressLast[src] = now
+    local value = Core.metadata.incrementMetaData(src, 'stress', sign * amount, 0, 100)
+    if value == nil then return end
+    TriggerClientEvent('hud:client:UpdateStress', src, value)
+    return value
+end
+
+RegisterNetEvent('hud:server:GainStress', function(amount)
+    local src = source
+    if stressDelta(src, amount, 1) then
+        TriggerClientEvent('QBCore:Notify', src, 'Feeling More Stressed!', 'error', 1500)
+    end
+end)
+
+RegisterNetEvent('hud:server:RelieveStress', function(amount)
+    local src = source
+    if stressDelta(src, amount, -1) then
+        TriggerClientEvent('QBCore:Notify', src, 'Feeling More Relaxed!')
+    end
+end)
+
+AddEventHandler('qbcore:server:playerDropped', function(src)
+    stressLast[src] = nil
+end)
+
+-- Stock qb-smallresources log event, server-local only (never RegisterNetEvent: a client must not be able to write the log). Forwarded onto Kora logging; webhook URLs are never read.
+AddEventHandler('qb-log:server:CreateLog', function(name, title, color, message, tagEveryone, imageUrl)
+    if type(name) ~= 'string' or name == '' then return end
+    local function text(value, max)
+        if value == nil then return nil end
+        return tostring(value):sub(1, max)
+    end
+    pcall(Core.logging.logEvent, text(name, 64), 0, {
+        title = text(title, 128),
+        color = text(color, 32),
+        message = text(message, 2000),
+        tagEveryone = tagEveryone == true,
+        imageUrl = text(imageUrl, 256),
+        source = 'qb-log',
+    })
+end)
