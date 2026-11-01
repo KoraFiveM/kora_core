@@ -5,7 +5,7 @@ Offline generator: kora_core item registry -> stock ox_inventory `data/items.lua
 no DB, no network, read-only on its inputs.
 
     lua5.4 tools/ox_items/generate.lua [--out out/ox_items/items.lua] --ox-dir <path-to-ox_inventory>
-                                       [--scan <dir>]... [--no-default-scan] [--image-url]
+                                       [--scan <dir>]... [--resource-items <dir>]... [--no-default-scan] [--image-url]
                                        [--use-export resource.fn] [--strict]
 
 `out/` is gitignored. Outputs next to `--out`: `items.lua`, `mapping.json` (QB -> ox
@@ -16,6 +16,22 @@ The generator loads `shared/items.lua`, `shared/upstream/items.lua`, the repo's 
 `shared/upstream/merge.lua` and `shared/weapons.lua` into a private Lua environment, then
 dedupes by name (last wins), exactly like `Core.registry.registerShared`. `--root` can point
 at another tree with the same `shared/` layout (the test fixture does).
+
+## Items resources register at runtime (`--resource-items`)
+Some resources (e.g. kora_cards) do not ship their items in the registry seed: they define
+`Config.items` in `config.lua` and call `Kora.shared.register('items', name, def)` at boot, only
+for names the registry lacks. `--resource-items <resource-dir>` (repeatable) loads that
+`config.lua` in a private sandbox and reads `Config.items`; the items then go through the same
+field mapping and collision policy as registry items.
+- Sandbox: `io`/`os`/`require` are absent; any other unknown global (`lib`, `Kora`, `locale`,
+  `GetConvar`, `vec3`, ...) is an inert callable stub, so unrelated config code cannot break loading.
+  A config that errors or has no `Config.items` table fails the run.
+- Registry wins (matches runtime): a name already in the registry (or from an earlier
+  `--resource-items`) is not taken from the resource and is listed as an overlap. `money`/`black_money`
+  keep ox semantics; weapon items stay excluded. Both are listed per resource.
+- `report.json` `resourceItems` / `report.md` list, per resource, the items it contributed and the
+  overlap/reserved/weapon names. Pass the resource dir to `--scan` as well, or its own
+  `AddItem` calls are not scanned.
 
 ## Field mapping
 | kora | ox |

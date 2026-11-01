@@ -158,6 +158,66 @@ function M.loadRegistry(root)
     return items, env.QBCoreSeed.weapons or {}
 end
 
+-- Globals a resource config.lua may use. Anything else it touches (lib, Kora,
+-- GetConvar, locale helpers, vec3, ...) resolves to an inert stub so loading
+-- cannot fail on code unrelated to Config.items. No io/os/require: read-only.
+local SAFE_GLOBALS = {}
+for _, k in ipairs({ 'assert', 'error', 'ipairs', 'next', 'pairs', 'pcall', 'select', 'tonumber', 'tostring',
+    'type', 'math', 'string', 'table', 'utf8' }) do SAFE_GLOBALS[k] = true end
+
+local function newStub()
+    local stub = {}
+    local function same() return stub end
+    local meta = { __index = same, __call = same, __concat = same, __unm = same,
+        __len = function() return 0 end, __tostring = function() return '' end }
+    for _, op in ipairs({ 'add', 'sub', 'mul', 'div', 'mod', 'pow', 'idiv' }) do meta['__' .. op] = same end
+    return setmetatable(stub, meta)
+end
+
+---Load a resource's config.lua in a private sandbox and read `Config.items`.
+---Returns the items as a list sorted by name, each with `name` set to its key.
+---@param path string resource directory (holds config.lua)
+---@return table|nil items
+---@return string|nil err
+function M.loadResourceItems(path)
+    local file = path .. '/config.lua'
+    local src = readFile(file)
+    if not src then return nil, 'cannot read ' .. file end
+    local stub = newStub()
+    -- `Config = Kora.config.adopt(Config)` would replace Config with the stub; keep the
+    -- first real table assigned to it as the fallback.
+    local firstConfig
+    local env = setmetatable({}, {
+        __index = function(_, k)
+            if SAFE_GLOBALS[k] then return _G[k] end
+            return stub
+        end,
+        __newindex = function(t, k, v)
+            if k == 'Config' and firstConfig == nil and type(v) == 'table' and v ~= stub then firstConfig = v end
+            rawset(t, k, v)
+        end,
+    })
+    local fn, err = load(src, '@' .. file, 't', env)
+    if not fn then return nil, err end
+    local ok, runErr = pcall(fn)
+    if not ok then return nil, tostring(runErr) end
+    local config = rawget(env, 'Config')
+    if config == stub then config = firstConfig end
+    local defs = type(config) == 'table' and rawget(config, 'items') or nil
+    if type(defs) ~= 'table' then return nil, file .. ' defines no Config.items table' end
+    local list = {}
+    for _, name in ipairs(sortedKeys(defs)) do
+        local def = defs[name]
+        if type(name) == 'string' and type(def) == 'table' then
+            local record = {}
+            for k, v in pairs(def) do record[k] = v end
+            record.name = name
+            list[#list + 1] = record
+        end
+    end
+    return list
+end
+
 ---Names of the top-level keys of a stock ox data file (names only).
 local function loadOxTable(path)
     local src = readFile(path)
@@ -374,6 +434,35 @@ function M.build(opts)
     local ox, err = M.loadOxNames(opts.oxDir)
     assert(ox, 'stock ox_inventory data not readable: ' .. tostring(err))
 
+    -- Runtime-registered items. Like the resources' own "register if absent", the
+    -- registry wins; reserved ox names keep ox semantics.
+    local inRegistry = {}
+    for _, rec in ipairs(items) do inRegistry[rec.name] = true end
+    local registryCount = #items
+    local resourceReport, contributed = {}, {}
+    for _, path in ipairs(opts.resourceItems or {}) do
+        local list, lerr = M.loadResourceItems(path)
+        assert(list, 'resource items not readable: ' .. tostring(lerr))
+        local entry = { resource = path:match('([^/]+)/*$') or path, path = path,
+            items = {}, overlapRegistry = {}, skippedReserved = {}, excludedWeapons = {} }
+        for _, rec in ipairs(list) do
+            if inRegistry[rec.name] then
+                entry.overlapRegistry[#entry.overlapRegistry + 1] = rec.name
+            elseif isWeapon(rec) then
+                entry.excludedWeapons[#entry.excludedWeapons + 1] = rec.name
+            elseif M.RESERVED[rec.name] then
+                entry.skippedReserved[#entry.skippedReserved + 1] = rec.name
+            elseif contributed[rec.name] then
+                entry.overlapRegistry[#entry.overlapRegistry + 1] = rec.name .. ' (also from ' .. contributed[rec.name] .. ')'
+            else
+                contributed[rec.name] = entry.resource
+                entry.items[#entry.items + 1] = rec.name
+                items[#items + 1] = rec
+            end
+        end
+        resourceReport[#resourceReport + 1] = entry
+    end
+
     local ammoMap = deriveAmmoMap(weapons, ox)
     local mapping = { weapons = {}, ammo = {}, aliases = {} }
     local unmapped = { weapons = {}, ammo = {} }
@@ -495,7 +584,8 @@ function M.build(opts)
 
     local report = {
         generatedItems = #emitted,
-        registryItems = #items,
+        registryItems = registryCount,
+        resourceItems = resourceReport,
         weaponsMapped = #sortedKeys(mapping.weapons),
         ammoMapped = #sortedKeys(mapping.ammo),
         weaponItemsExcluded = skippedWeaponItems,
@@ -536,6 +626,26 @@ local function reportMarkdown(r)
         r.weaponsMapped, r.ammoMapped, r.weaponItemsExcluded))
     add(r.useExport and ('- Useable items point at server export `%s`.'):format(r.useExport) or
         '- Useable items carry no server export: use goes through the framework bridge (`CanUseItem`).')
+    if #r.resourceItems > 0 then
+        add()
+        add('## Items registered at runtime by resources (`--resource-items`)')
+        add()
+        for _, e in ipairs(r.resourceItems) do
+            add(('- `%s`: %d item(s): %s'):format(e.resource, #e.items,
+                #e.items > 0 and ('`' .. table.concat(e.items, '`, `') .. '`') or 'none'))
+            if #e.overlapRegistry > 0 then
+                add(('  - already defined, registry/earlier resource wins (not taken from this resource): `%s`'):format(
+                    table.concat(e.overlapRegistry, '`, `')))
+            end
+            if #e.excludedWeapons > 0 then
+                add(('  - weapon items, owned by stock data/weapons.lua (not emitted): `%s`'):format(
+                    table.concat(e.excludedWeapons, '`, `')))
+            end
+            if #e.skippedReserved > 0 then
+                add(('  - reserved ox names, ox semantics kept: `%s`'):format(table.concat(e.skippedReserved, '`, `')))
+            end
+        end
+    end
     add()
     add('## Missing items (heuristic scan)')
     add()
@@ -594,13 +704,14 @@ usage: lua5.4 tools/ox_items/generate.lua [options]
   --ox-dir <dir>        REQUIRED: stock ox_inventory resource (read for names only)
   --scan <dir>          extra directory to scan for item names (repeatable)
   --no-default-scan     do not scan --root (this kora_core checkout) by default
+  --resource-items <dir>  resource whose config.lua Config.items it registers at runtime (repeatable)
   --image-url           use the registry imageUrl instead of the local image name
   --use-export <r.fn>   point useable items at a server export (also sets consume = 0)
   --strict              exit 2 if the missing-item report is not empty
   -h, --help]]
 
 function M.main(argv)
-    local opts = { out = './out/ox_items/items.lua', root = repoRoot, scanDirs = {}, defaultScan = true }
+    local opts = { out = './out/ox_items/items.lua', root = repoRoot, scanDirs = {}, resourceItems = {}, defaultScan = true }
     local i = 1
     while i <= #argv do
         local a = argv[i]
@@ -609,6 +720,7 @@ function M.main(argv)
         elseif a == '--root' then opts.root = value()
         elseif a == '--ox-dir' then opts.oxDir = value()
         elseif a == '--scan' then opts.scanDirs[#opts.scanDirs + 1] = value()
+        elseif a == '--resource-items' then opts.resourceItems[#opts.resourceItems + 1] = value()
         elseif a == '--no-default-scan' then opts.defaultScan = false
         elseif a == '--image-url' then opts.imageUrl = true
         elseif a == '--use-export' then opts.useExport = value()
