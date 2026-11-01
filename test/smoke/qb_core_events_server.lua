@@ -45,12 +45,87 @@ h.test('ordinary allow-listed metadata writes keep their existing behavior', fun
     h.assertEqual(Core.metadata.getMetaData(1, 'testClientValue'), 42)
 end)
 
-h.test('generic client duty compatibility event is not registered', function()
-    Core.jobs.setJobDuty(1, false)
-    handle.fireEvent('QBCore:ToggleDuty', 1)
-    h.assertFalse(Core.jobs.getJob(1).onduty,
-        'job resources must own location-aware duty transitions')
+h.test('default client metadata allow-list is hunger/thirst/stress only', function()
+    local keys = {}
+    for key, allowed in pairs(Config.compat.clientMetadataKeys) do if allowed then keys[#keys + 1] = key end end
+    table.sort(keys)
+    h.assertEqual(table.concat(keys, ','), 'hunger,stress,thirst')
 end)
+
+h.test('client hunger/thirst/stress writes are clamped to 0..100', function()
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'hunger', 5000)
+    h.assertEqual(Core.metadata.getMetaData(1, 'hunger'), 100)
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'thirst', -20)
+    h.assertEqual(Core.metadata.getMetaData(1, 'thirst'), 0)
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'stress', 42.5)
+    h.assertEqual(Core.metadata.getMetaData(1, 'stress'), 42.5)
+end)
+
+h.test('client numeric metadata rejects non-numbers and non-finite values', function()
+    handle.fireEvent('QBCore:Server:SetMetaData', 1, 'stress', 10)
+    for _, bad in ipairs({ 'high', true, {}, 0 / 0, math.huge, -math.huge }) do
+        handle.fireEvent('QBCore:Server:SetMetaData', 1, 'stress', bad)
+        h.assertEqual(Core.metadata.getMetaData(1, 'stress'), 10)
+    end
+end)
+
+h.test('sensitive metadata keys are not client-writable by default', function()
+    for _, key in ipairs({ 'isdead', 'inlaststand', 'jailitems', 'injail', 'licences', 'criminalrecord',
+        'callsign', 'money', 'bloodtype', 'inside' }) do
+        Core.metadata.setMetaData(1, key, 'server')
+        handle.fireEvent('QBCore:Server:SetMetaData', 1, key, 'client')
+        h.assertEqual(Core.metadata.getMetaData(1, key), 'server', key)
+    end
+end)
+
+local clock = 100000
+local realTimer = GetGameTimer
+GetGameTimer = function() return clock end
+
+h.test('QBCore:ToggleDuty flips duty for a real job and fires SetDuty events', function()
+    h.assertTrue(Core.jobs.setJob(1, 'police', 1))
+    Core.jobs.setJobDuty(1, false)
+    local fired = 0
+    AddEventHandler('QBCore:Server:SetDuty', function() fired = fired + 1 end)
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    h.assertTrue(Core.jobs.getJob(1).onduty)
+    h.assertEqual(fired, 1)
+    h.assertTrue(handle.lastClient('QBCore:Client:SetDuty') ~= nil)
+end)
+
+h.test('QBCore:ToggleDuty is rate-limited per source', function()
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    local after = Core.jobs.getJob(1).onduty
+    clock = clock + 100
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    h.assertEqual(Core.jobs.getJob(1).onduty, after, 'repeat inside the cooldown is dropped')
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    h.assertEqual(Core.jobs.getJob(1).onduty, not after)
+end)
+
+h.test('QBCore:ToggleDuty ignores the default job and unknown sources', function()
+    h.assertTrue(Core.jobs.setJob(1, Config.jobs.defaultJob, 1))
+    Core.jobs.setJobDuty(1, false)
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    h.assertFalse(Core.jobs.getJob(1).onduty, 'no real job, no toggle')
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 999)
+end)
+
+h.test('QBCore:ToggleDuty can be disabled with Config.compat.toggleDutyEvent', function()
+    h.assertTrue(Core.jobs.setJob(1, 'police', 1))
+    Core.jobs.setJobDuty(1, false)
+    Config.compat.toggleDutyEvent = false
+    clock = clock + 5000
+    handle.fireEvent('QBCore:ToggleDuty', 1)
+    Config.compat.toggleDutyEvent = true
+    h.assertFalse(Core.jobs.getJob(1).onduty)
+end)
+GetGameTimer = realTimer
 
 -- --- Task 1: chatMessage '/'-suppression ------------------------------------
 
