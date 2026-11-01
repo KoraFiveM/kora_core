@@ -91,7 +91,7 @@ QBCoreUpstream.jobs = {
         },
     },
     mechanic2 = {
-        label = 'LS Customs',
+        label = 'LS Customs 2',
         type = 'mechanic',
         defaultDuty = true,
         offDutyPay = false,
@@ -104,7 +104,7 @@ QBCoreUpstream.jobs = {
         },
     },
     mechanic3 = {
-        label = 'LS Customs',
+        label = 'LS Customs 3',
         type = 'mechanic',
         defaultDuty = true,
         offDutyPay = false,
