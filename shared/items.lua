@@ -551,4 +551,19 @@ QBCoreSeed.items = {
     { name = 'qbr_laptop', label = 'Laptop', weight = 100, type = 'item', image = 'qbr_laptop.png', unique = false, useable = false, shouldClose = false, description = '' },
     { name = 'qbr_monitor', label = 'Monitor', weight = 100, type = 'item', image = 'qbr_monitor.png', unique = false, useable = false, shouldClose = false, description = '' },
     { name = 'qbr_speakers', label = 'Speakers', weight = 100, type = 'item', image = 'qbr_speakers.png', unique = false, useable = false, shouldClose = false, description = '' },
+
+    -- Items stock ox_inventory 2.48.1 refers to by name in its own code (modules/
+    -- items/client.lua, server.lua, containers.lua, pefcl, init.lua loot tables),
+    -- so a generated data/items.lua never lacks them. Labels/weights follow ox's
+    -- data/items.lua; `parachute`, `bandage` and `phone` already exist above.
+    { name = 'armour', label = 'Bulletproof Vest', weight = 3000, type = 'item', image = 'armour.png', unique = true, useable = true, shouldClose = true, description = 'Body armour.' },
+    { name = 'clothing', label = 'Clothing', weight = 0, type = 'item', image = 'clothing.png', unique = true, useable = true, shouldClose = true, description = 'An outfit; its metadata carries the components.' },
+    { name = 'identification', label = 'Identification', weight = 0, type = 'item', image = 'card_id.png', unique = true, useable = false, shouldClose = true, description = 'An ID card; its metadata carries the holder details.' },
+    { name = 'mastercard', label = 'Fleeca Card', weight = 10, type = 'item', image = 'card_bank.png', unique = true, useable = false, shouldClose = true, description = 'A bank card.' },
+    { name = 'garbage', label = 'Garbage', weight = 0, type = 'item', image = 'garbage.png', unique = false, useable = false, shouldClose = true, description = 'Trash; its metadata carries the kind.' },
+    { name = 'paperbag', label = 'Paper Bag', weight = 1, type = 'item', image = 'paperbag.png', unique = true, useable = false, shouldClose = false, container = true, description = 'A small paper bag.' },
+    { name = 'burger', label = 'Burger', weight = 220, type = 'item', image = 'burger.png', unique = false, useable = true, shouldClose = true, description = 'A burger.' },
+    { name = 'sprunk', label = 'Sprunk', weight = 350, type = 'item', image = 'sprunk.png', unique = false, useable = true, shouldClose = true, description = 'A fizzy drink.' },
+    { name = 'mustard', label = 'Mustard', weight = 500, type = 'item', image = 'mustard.png', unique = false, useable = true, shouldClose = true, description = 'A bottle of mustard.' },
+    { name = 'panties', label = 'Knickers', weight = 10, type = 'item', image = 'panties.png', unique = false, useable = true, shouldClose = true, description = 'A slightly used pair of knickers.' },
 }
