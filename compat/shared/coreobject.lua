@@ -336,7 +336,19 @@ local function fromLegacyGradeLevel(level)
     return math.max(math.floor(tonumber(level) or 0), 0) + 1
 end
 
-local function toLegacyJobOrGang(record)
+-- Stock qb-core keeps `payment` and `isboss` ON the grade table
+-- (job.grade.payment / job.grade.isboss, gang.grade.isboss). Kora's native job
+-- keeps them at the root, composed from the job definition by buildJob; they
+-- are mirrored into the legacy grade view, falling back to the live registry
+-- definition for rows persisted before they were composed. Values already
+-- present on the grade are never overwritten.
+local function gradeDefinition(kind, record)
+    local def = Core.registry and Core.registry.getShared and Core.registry.getShared(kind, record.name)
+    local index = type(record.grade) == 'table' and tonumber(record.grade.level) or nil
+    return def and def.grades and index and (def.grades[index] or def.grades[1]) or nil
+end
+
+local function toLegacyJobOrGang(record, kind)
     if type(record) ~= 'table' then return record end
     local view = {}
     for k, v in pairs(record) do view[k] = v end
@@ -344,9 +356,77 @@ local function toLegacyJobOrGang(record)
         local grade = {}
         for k, v in pairs(record.grade) do grade[k] = v end
         grade.level = toLegacyGradeLevel(record.grade.level)
+        if grade.isboss == nil or (kind == 'jobs' and grade.payment == nil) then
+            local def = (record.isboss == nil or (kind == 'jobs' and record.payment == nil))
+                and kind and gradeDefinition(kind, record) or nil
+            if grade.isboss == nil then
+                if record.isboss ~= nil then grade.isboss = record.isboss and true or false
+                else grade.isboss = def and def.isboss or false end
+            end
+            if kind == 'jobs' and grade.payment == nil then
+                if record.payment ~= nil then grade.payment = record.payment
+                else grade.payment = def and def.payment or 0 end
+            end
+        end
         view.grade = grade
     end
     return view
+end
+
+-- Stock CheckPlayerData metadata defaults (config.lua PlayerDefaults.metadata),
+-- filled into the legacy VIEW only: existing values are never overwritten and
+-- nothing here is persisted, so a native character gains `criminalrecord`,
+-- `phonedata`, `inside`, ... for resources that index them unguarded.
+-- Function defaults are random per call (bloodtype, fingerprint, walletid) and
+-- would differ on every read, so they are skipped (new characters are seeded
+-- with them natively); phonedata.SerialNumber is derived from the citizenid so
+-- it is stable instead.
+local function stableSerial(citizenid)
+    local hash = 7
+    for i = 1, #tostring(citizenid or '') do hash = (hash * 31 + tostring(citizenid):byte(i)) % 1000000007 end
+    return ('%09d'):format(hash)
+end
+
+local function fillTable(target, defaults, citizenid)
+    for key, default in pairs(defaults) do
+        if type(default) == 'function' then
+            if key == 'SerialNumber' and target[key] == nil then target[key] = stableSerial(citizenid) end
+        elseif target[key] == nil then
+            target[key] = type(default) == 'table' and fillTable({}, default, citizenid) or default
+        elseif type(default) == 'table' and type(target[key]) == 'table' then
+            local copy = {}
+            for k, v in pairs(target[key]) do copy[k] = v end
+            target[key] = fillTable(copy, default, citizenid)
+        end
+    end
+    return target
+end
+
+-- Allocation-free probe: true when anything in `defaults` is missing from
+-- `target`. Almost every read after the first finds a complete table, so the
+-- common case skips building nested copies.
+local function needsFill(target, defaults)
+    for key, default in pairs(defaults) do
+        local current = target[key]
+        if type(default) == 'function' then
+            if key == 'SerialNumber' and current == nil then return true end
+        elseif current == nil then
+            return true
+        elseif type(default) == 'table' and type(current) == 'table' and needsFill(current, default) then
+            return true
+        end
+    end
+    return false
+end
+
+local function fillMetadataDefaults(metadata, citizenid)
+    local defaults = QBCore and QBCore.Config and QBCore.Config.Player
+        and QBCore.Config.Player.PlayerDefaults and QBCore.Config.Player.PlayerDefaults.metadata
+    if type(metadata) ~= 'table' or type(defaults) ~= 'table' then return metadata end
+    local copy = {}
+    for k, v in pairs(metadata) do copy[k] = v end
+    if not needsFill(copy, defaults) then return copy end
+    return fillTable(copy, defaults, citizenid)
 end
 
 -- A legacy-shaped PlayerData table: every root key copied by reference
@@ -362,8 +442,9 @@ local function toLegacyPlayerData(playerData)
     if type(playerData) ~= 'table' then return playerData end
     local view = {}
     for k, v in pairs(playerData) do view[k] = v end
-    view.job = toLegacyJobOrGang(playerData.job)
-    view.gang = toLegacyJobOrGang(playerData.gang)
+    view.job = toLegacyJobOrGang(playerData.job, 'jobs')
+    view.gang = toLegacyJobOrGang(playerData.gang, 'gangs')
+    view.metadata = fillMetadataDefaults(playerData.metadata, playerData.citizenid)
     return view
 end
 
@@ -406,6 +487,7 @@ Core.compat.toLegacyGradeLevel = toLegacyGradeLevel
 Core.compat.fromLegacyGradeLevel = fromLegacyGradeLevel
 Core.compat.toLegacyJobOrGang = toLegacyJobOrGang
 Core.compat.toLegacyPlayerData = toLegacyPlayerData
+Core.compat.fillMetadataDefaults = fillMetadataDefaults
 Core.compat.fromLegacyPlayerData = fromLegacyPlayerData
 Core.compat.canonicalSharedNamespace = canonicalSharedNamespace
 

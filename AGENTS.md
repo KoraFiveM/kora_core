@@ -67,6 +67,13 @@ under the mocks (see `test/`); it lists every exported name.
 - Client helper functions (`GetClosestPed`, `Draw3DText`, `Progressbar`, ...) are
   thin forwards to `Kora.*`, not reimplementations.
 - `compat/server/qbx.lua` is an OPT-IN (`kora:qbxFacade`) `qbx_core`/`qbx_vehicles` export+event facade for stock ox_inventory; it registers nothing while off, and it never publishes a resource/`provide` named qbx_core. See `docs/qbx-facade.md`.
+- `compat/server/qb-commands.lua` registers qb-core's 20 default commands through `QBCore.Commands.Add`
+  (flag `Config.compat.defaultCommands`, docs/default-commands.md). Handlers validate every arg because
+  `QBCore:CallCommand` passes client input, use `Core.money`/`Core.jobs`, and audit through `Core.logging`.
+- Physical-cash mirror (modules/money/server.lua): while kora_inventory owns the cash account the ledger is 0, and
+  the real balance is overlaid onto the compat view (`Core.money._mirrorOverlay`) and onto outgoing replication
+  ops/snapshots (`CoreInternal.player.mirrorOps/mirrorSnapshot`). It is refreshed on `Core.money` changes and
+  `qbcore:server:inventoryChanged`, never persisted, never polled.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,
   and hijacking the name would disable a real character-select UI.
 

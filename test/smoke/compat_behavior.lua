@@ -536,14 +536,18 @@ h.test('legacy command tuple arguments adapt without changing native or public c
         return add(name, help, args, required, callback, options)
     end
     local tuple = { { 'id', 'ID of a person' }, { name = 'reason', help = 'Reason' } }
-    local callback = function() end
+    local invoked
+    local callback = function(...) invoked = { ... } end
     QBCore.Commands.Add('legacy_drivinglicense', 'License', tuple, true, callback, 'admin')
     Kora.commands.add = add
     h.assertEqual(captured.args[1].name, 'id')
     h.assertEqual(captured.args[1].help, 'ID of a person')
     h.assertEqual(captured.args[2].name, 'reason')
     h.assertEqual(captured.required, true)
-    h.assertEqual(captured.callback, callback)
+    -- The native layer gets the PreCommandExecution-guarded wrapper; it must delegate to the caller's callback.
+    captured.callback(5, { 'a' }, 'raw')
+    h.assertEqual(invoked[1], 5)
+    h.assertEqual(invoked[3], 'raw')
     h.assertEqual(captured.options.permission, 'admin')
     h.assertEqual(tuple[1].name, nil, 'do not rewrite the caller table')
     h.assertEqual(QBCore.Commands.List.legacy_drivinglicense.params, tuple)

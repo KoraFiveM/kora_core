@@ -10,6 +10,7 @@
 --     the whole point of building on kora_lib.
 
 local provideExport = Kora.compat.provideExport
+local isCallable = Kora.util.isCallable
 
 local F = QBCore.Functions
 
@@ -112,14 +113,69 @@ end)
 -- Use qb-core's native callback wire for legacy callers. Routing this through
 -- kora_lib's promise-valued export makes a callback timeout surface as an export
 -- exception before the legacy callback can receive its normal nil result.
--- Arg shape matches real: (name, cb, ...).
+-- Arg shape matches qb-core 1.3.0: (name, [cb], ...). When the first argument
+-- after the name is callable it is the callback (and is NOT forwarded); with no
+-- callback every argument is forwarded to the server and the call AWAITS the
+-- reply, returning its first value (`local r = TriggerCallback('name', arg)`).
 --
 -- ALSO stores into QBCore.ServerCallbacks[name], matching upstream's own
 -- side effect of TriggerCallback, so a raw reply (or a script that pokes
 -- ServerCallbacks directly) finds the expected handler.
-function F.TriggerCallback(name, cb, ...)
-    if cb then QBCore.ServerCallbacks[name] = cb end
-    TriggerServerEvent('QBCore:Server:TriggerCallback', name, ...)
+--
+-- The reply wire carries only the callback NAME, so concurrent calls of one name
+-- (stock overwrites the single ServerCallbacks[name] slot and loses all but the
+-- last) are queued per name and answered first-in-first-out. The await form is
+-- bounded by Config.compat.callbackTimeoutMs: a lost reply resolves nil instead
+-- of parking the calling thread forever.
+local pendingCallbacks = {}   -- name -> array of entries awaiting a reply
+
+local function dropPending(name, entry)
+    local queue = pendingCallbacks[name]
+    if not queue then return end
+    for i = 1, #queue do
+        if queue[i] == entry then table.remove(queue, i); break end
+    end
+    if #queue == 0 then
+        pendingCallbacks[name] = nil
+        if QBCore.ServerCallbacks[name] == entry then QBCore.ServerCallbacks[name] = nil end
+    elseif QBCore.ServerCallbacks[name] == entry then
+        QBCore.ServerCallbacks[name] = queue[1]
+    end
+end
+
+function F.TriggerCallback(name, ...)
+    -- Stock only treats a callable FIRST argument as the callback; a leading nil
+    -- (TriggerCallback(name, nil, x)) is the await form and nil is forwarded.
+    local args = table.pack(...)
+    local cb
+    if isCallable(args[1]) then
+        cb = table.remove(args, 1)
+        args.n = args.n - 1
+    end
+
+    if cb == nil and coroutine.isyieldable and not coroutine.isyieldable() then
+        error(("TriggerCallback(%q) without a callback awaits the reply and must be called from a thread "
+            .. "(CreateThread); pass a callback function instead"):format(tostring(name)), 2)
+    end
+
+    local entry = { callback = cb, promise = promise.new() }
+    local queue = pendingCallbacks[name]
+    if not queue then queue = {}; pendingCallbacks[name] = queue end
+    queue[#queue + 1] = entry
+    QBCore.ServerCallbacks[name] = queue[1]
+    TriggerServerEvent('QBCore:Server:TriggerCallback', name, table.unpack(args, 1, args.n))
+
+    if cb == nil then
+        SetTimeout(Config.compat.callbackTimeoutMs or 5000, function()
+            if entry.answered then return end
+            entry.answered = true
+            dropPending(name, entry)
+            print(('^3[qbcore:qb-core-bridge]^7 TriggerCallback(%q) timed out waiting for a server reply'):format(tostring(name)))
+            entry.promise:resolve(nil)
+        end)
+        Citizen.Await(entry.promise)
+        return entry.promise.value
+    end
 end
 
 -- Raw wire, client->server REPLY leg: a legacy script that fired
@@ -128,9 +184,21 @@ end
 -- stale entry a second time.
 RegisterNetEvent('QBCore:Client:TriggerCallback', function(name, ...)
     if type(name) ~= 'string' then return end
-    local cb = QBCore.ServerCallbacks[name]
-    QBCore.ServerCallbacks[name] = nil
-    if cb then cb(...) end
+    local queue = pendingCallbacks[name]
+    local entry = queue and queue[1]
+    if entry then
+        entry.answered = true
+        dropPending(name, entry)
+    else
+        entry = QBCore.ServerCallbacks[name]
+        QBCore.ServerCallbacks[name] = nil
+    end
+    if type(entry) == 'table' and not isCallable(entry) then
+        if entry.promise then entry.promise:resolve(...) end
+        if entry.callback then entry.callback(...) end
+    elseif entry then
+        entry(...)    -- a bare function stored directly in ServerCallbacks by a script
+    end
 end)
 
 -- Not part of real qb-core's CLIENT surface, but kept as a harmless alias some

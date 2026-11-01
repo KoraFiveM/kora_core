@@ -190,13 +190,13 @@ AddEventHandler('QBCore:Server:OnPlayerUpdated', function(src, key)
 
     local job = Core.jobs.getJob(src)
     if job then
-        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job) or job
+        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job, 'jobs') or job
         TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
     end
 
     local gang = Core.jobs.getGang(src)
     if gang then
-        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
+        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang, 'gangs') or gang
         TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
     end
 end)
@@ -228,7 +228,8 @@ RegisterNetEvent('QBCore:CallCommand', function(name, args)
         return
     end
 
-    args = args or {}
+    -- args come straight from the client: only a short array is meaningful.
+    if type(args) ~= 'table' or #args > 16 then args = {} end
     if cmd.argsrequired and cmd.params and #args < #cmd.params then
         TriggerClientEvent('QBCore:Notify', src, 'Missing arguments for this command!', 'error')
         return

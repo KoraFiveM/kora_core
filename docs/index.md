@@ -312,6 +312,30 @@ and must never be trusted for server authorization.
 - `QBCore.Shared.Items/Jobs/...` are legacy-only live views. Writing them
   bypasses the registry, so subscribers won't fire. New code uses
   `getShared`/`allShared` and `registerShared` instead.
+- The 20 stock qb-core commands (`/setjob`, `/givemoney`, `/car`, `/tp`, ...) are
+  registered by default; see [default-commands.md](default-commands.md) and
+  `Config.compat.defaultCommands`. `QBCore.Commands.Add` also fires
+  `QBCore:Server:PreCommandExecution`.
+- With `kora_inventory` cash-as-item on, `PlayerData.money.cash` (server compat
+  view and the replicated client PlayerData) MIRRORS the real cash item balance
+  and is refreshed whenever the cash stack changes (Core.money paths and
+  `qbcore:server:inventoryChanged`; no polling). The persisted ledger stays 0.
+  A `SetPlayerData('money', { cash = x })` write-back means "cash becomes x" and
+  applies the delta against the mirrored balance the script saw (not a live item
+  query), so a stack that moved after the read still receives the intended change;
+  the live balance only gates insufficient funds.
+- `PlayerData.metadata` in the compat view is filled with the stock
+  `CheckPlayerData` defaults (`criminalrecord`, `phonedata`, `inside`, `rep`,
+  `callsign`, `licences.business`, ...) without overwriting stored values;
+  nothing is persisted by this. `job.grade.payment`/`isboss` and
+  `gang.grade.isboss` are present, and `SetJob`/`SetGang` lower-case the name.
+- Client `QBCore.Functions.TriggerCallback(name, ...)` follows qb-core 1.3.0:
+  a function as the first argument after the name is the callback; without one
+  the call awaits and returns the reply. The await form must run in a thread
+  (it errors otherwise), resolves `nil` after `Config.compat.callbackTimeoutMs`
+  with no reply, and concurrent same-name calls are answered first-in-first-out
+  (the reply wire carries only the name). As in stock, a leading `nil` is
+  forwarded and selects the await form.
 - `QBCore.Commands.List` reflects commands registered THROUGH the compat
   (`QBCore.Commands.Add`) or present at the last `Refresh`.
 - Client `QBCore.Functions.Progressbar` translates legacy `prop`/`propTwo`
@@ -332,6 +356,7 @@ and drives `exports.kora_core:getCharacters/selectCharacter/deleteCharacter` (or
 `Config.money.tax` (transaction tax into a government banking account; off by
 default), `Config.inventory.maxWeight/slots`,
 `Config.compat.fireLegacyPlayerDataEvent` (default true),
+`Config.compat.defaultCommands` (default true; the stock qb-core command set),
 `Config.persistence.generatedColumns` (opt into SQL-queryable cash/bank/job
 virtual columns).
 

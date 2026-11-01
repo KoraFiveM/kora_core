@@ -221,8 +221,124 @@ AddEventHandler('onResourceStop', function(resource)
     if type(cfg) == 'table' and resource == cfg.provider then taxAccountReady = false end
 end)
 
+--------------------------------------------------------------------------------
+-- Physical-cash mirror
+--------------------------------------------------------------------------------
+-- While kora_inventory owns an account, the PlayerData.money ledger for it is a
+-- constant 0 and the real balance is the item stack. Stock qb-* scripts read
+-- PlayerData.money.cash directly, so the REAL balance is mirrored into the
+-- legacy-shaped server view and into the replicated client PlayerData. The
+-- ledger (and therefore persistence) is never touched: the mirror is overlaid
+-- onto the compat view and onto the outgoing replication ops/snapshot only.
+-- Refreshes are event-driven (every Core.money change and every
+-- qbcore:server:inventoryChanged); nothing polls.
+local mirrors = setmetatable({}, { __mode = 'k' })   -- player -> { real = {account=n}, sent = {account=n} }
+
+local function mirrorState(player)
+    local st = mirrors[player]
+    if not st then st = { real = {}, sent = {} }; mirrors[player] = st end
+    return st
+end
+
+---Recompute the real balance of every physical account for one player. Returns
+---the state table, or nil when no account is physical.
+local function refreshMirror(player)
+    if next(physicalAccounts) == nil then mirrors[player] = nil; return nil end
+    local st = mirrorState(player)
+    local changed = false
+    for account in pairs(physicalAccounts) do
+        local balance = Core.money.getMoney(player.source, account)
+        if balance ~= nil and st.real[account] ~= balance then
+            st.real[account] = balance
+            changed = true
+            if Core.compat.onPlayerDataChanged then
+                Core.compat.onPlayerDataChanged(player.source, { 'money', account }, balance)
+            end
+        end
+    end
+    if changed then Core.replication._touch(player) end
+    return st
+end
+
+---Overlay the mirrored real balances onto a legacy money table (in place).
+---@param src integer
+---@param money table|nil
+---@return table|nil
+function Core.money._mirrorOverlay(src, money)
+    local player = PI.handle(src)
+    if type(money) ~= 'table' or not player then return money end
+    local st = mirrors[player] or refreshMirror(player)
+    if st then
+        for account, balance in pairs(st.real) do
+            if physicalAccounts[account] then money[account] = balance end
+        end
+    end
+    return money
+end
+
+---The balance the mirror last published for an account (what a script reading
+---PlayerData.money saw), without querying the inventory. nil when not mirrored.
+---@param src integer
+---@param account string
+---@return number|nil
+function Core.money._mirroredBalance(src, account)
+    local player = PI.handle(src)
+    if not player or not physicalAccounts[account] then return nil end
+    local st = mirrors[player] or refreshMirror(player)
+    return st and st.real[account] or nil
+end
+
+---Called by replication at flush: make every outgoing op carry the real balance
+---and append one for an account whose real balance has not been sent yet.
+function PI.mirrorOps(player, ops)
+    local st = mirrors[player]
+    if not st then return end
+    for account, balance in pairs(st.real) do
+        if not physicalAccounts[account] then goto continue end
+        local covered = false
+        for _, op in ipairs(ops) do
+            if op.p[1] == 'money' and not op.d then
+                if #op.p == 1 and type(op.v) == 'table' then
+                    local copy = {}
+                    for k, v in pairs(op.v) do copy[k] = v end
+                    copy[account] = balance
+                    op.v, covered = copy, true
+                elseif #op.p == 2 and op.p[2] == account then
+                    op.v, covered = balance, true
+                end
+            end
+        end
+        if not covered and st.sent[account] ~= balance then
+            ops[#ops + 1] = { p = { 'money', account }, v = balance }
+        end
+        st.sent[account] = balance
+        ::continue::
+    end
+end
+
+---Snapshot payload for a (re)syncing client: PlayerData with real balances.
+function PI.mirrorSnapshot(player)
+    local st = refreshMirror(player)
+    if not st or next(st.real) == nil then return player.PlayerData end
+    local data = {}
+    for k, v in pairs(player.PlayerData) do data[k] = v end
+    data.money = Core.money._mirrorOverlay(player.source, Core.util.deepClone(player.PlayerData.money or {}))
+    for account, balance in pairs(st.real) do st.sent[account] = balance end
+    return data
+end
+
+AddEventHandler('qbcore:server:inventoryChanged', function(src)
+    if next(physicalAccounts) == nil then return end
+    local player = PI.handle(src)
+    if player then refreshMirror(player) end
+end)
+
 local function emitMoneyChange(src, account, amount, action, reason)
     local balance = Core.money.getMoney(src, account)
+    if physicalAccounts[account] then
+        local player = PI.handle(src)
+        if player then refreshMirror(player) end
+    end
     if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
@@ -279,6 +395,7 @@ function Core.money.registerPhysicalCash(account)
             return false, err or 'physical cash import failed'
         end
     end
+    for _, player in pairs(PI.bySource) do refreshMirror(player) end
     return true
 end
 
@@ -286,6 +403,13 @@ function Core.money.unregisterPhysicalCash(account)
     local caller = GetInvokingResource()
     if physicalAccounts[account] ~= caller then return false, 'physical cash provider mismatch' end
     physicalAccounts[account] = nil
+    -- Hand the legacy view and the client mirror back to the ledger value.
+    for src, player in pairs(PI.bySource) do
+        mirrors[player] = nil
+        local ledger = (player.PlayerData.money or {})[account]
+        if Core.compat.onPlayerDataChanged then Core.compat.onPlayerDataChanged(src, { 'money', account }, ledger) end
+        Core.replication._queueOp(player, { 'money', account }, ledger)
+    end
     return true
 end
 

@@ -196,7 +196,7 @@ function Core.jobs.setJob(src, name, grade)
     -- table (real gameplay boot always loads compat/shared/coreobject.lua,
     -- which fills it in; a test dofiling only this module would otherwise
     -- error on a truthy-but-empty `Core.compat`).
-    local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job) or job
+    local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job, 'jobs') or job
     TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'job', legacyJob)
     if Config.compat.jobUpdateEventSource ~= 'client' then
@@ -218,7 +218,7 @@ function Core.jobs.setGang(src, name, grade)
     local gang = CoreInternal.player.buildGang(name, grade)
     local changed, err = Core.player.setPath(src, { 'gang' }, gang)
     if not changed then return false, err end
-    local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang) or gang
+    local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(gang, 'gangs') or gang
     TriggerEvent('QBCore:Server:OnGangUpdate', src, legacyGang)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'gang', legacyGang)
     if Config.compat.jobUpdateEventSource ~= 'client' then
