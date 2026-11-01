@@ -29,7 +29,6 @@ AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
     legacyLoadedPlayer = player
 end)
 
--- Log a player in with a fixed data blob so _encoded is seeded.
 local function loginTestPlayer()
     local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
     Core.player.login(1, 'CID1', data)
@@ -84,7 +83,6 @@ end)
 h.test('setting a value back to its original enqueues ZERO columns (byte-identical gate)', function()
     local p = PI.handle(1)
     local before = p.PlayerData.money.cash
-    -- Change then revert within one window.
     Core.money.setMoney(1, 'cash', before + 999, 't')
     Core.money.setMoney(1, 'cash', before, 't')
     handle.sqlCalls.enqueueMany = {}
@@ -96,7 +94,6 @@ end)
 
 h.test('license and cid never appear in a write set', function()
     local p = PI.handle(1)
-    -- Force them dirty artificially and ensure collectRows skips them.
     p._dirty['license'] = true
     p._dirty['cid'] = true
     p._dirty['money'] = true

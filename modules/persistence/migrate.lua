@@ -8,7 +8,6 @@
 -- 64-bit FNV-1a rendered as hex, padded to CHAR(64), is sufficient and stable.
 
 local function fnv1a(str)
-    -- 64-bit FNV-1a in pure Lua 5.4 (has 64-bit integers).
     local hash = 0xCBF29CE484222325
     local prime = 0x100000001B3
     for i = 1, #str do
@@ -121,12 +120,10 @@ local function ensureVehicleSyncTriggers()
     return true
 end
 
--- ---------------------------------------------------------------------------
 -- Boot-time steps that kora_sql's runner cannot express (it only accepts
 -- CREATE TABLE IF NOT EXISTS / ALTER ... ADD ... IF NOT EXISTS). They inspect
 -- information_schema first, so they are idempotent and do not need any
 -- MariaDB-only `IF [NOT] EXISTS` clause support.
--- ---------------------------------------------------------------------------
 local KORA_STATE_ENUM = "enum('out','garaged','impounded')"
 -- Same strings, ordered so that MariaDB's numeric enum index of a stock script's
 -- integer write lines up with stock's meaning (1 garaged, 2 impounded); 0 (out)

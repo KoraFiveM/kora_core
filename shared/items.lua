@@ -238,7 +238,6 @@ QBCoreSeed.items = {
     -- access through a player item rather than a metadata/ACE policy.
     { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weaponlicense.png', imageUrl = QBCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
 
-    -- QB Drugs
     { name = "baking_soda", label = "Baking soda", weight = 1000, type = "item", image = "baking_soda.png", unique = false, useable = false, shouldClose = true, description = "I can use this for cakes or maybe something else" },
     { name = "gram_bag", label = "Gram Bag", weight = 1, type = "item", image = "gram_bag.png", unique = false, useable = false, shouldClose = true, description = "A small bag containing a gram." },
 
@@ -283,7 +282,6 @@ QBCoreSeed.items = {
     { name = 'shrooms',    label = 'Shrooms',    weight = 100,    type = 'item',    image = 'shrooms.png',    unique = false,    useable = true,    shouldClose = false,    description = ''},
     { name = 'cactus_bulb',    label = 'Cactus Bulb',    weight = 100,    type = 'item',    image = 'cactus_bulb.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'dried_mescaline',    label = 'Dried Mescaline',    weight = 100,    type = 'item',    image = 'dried_mescaline.png',    unique = false,    useable = true,    shouldClose = false,    description = ''},
-    -- Fishing
      { name = 'bass',                label = 'Bass',                weight = 100, type = 'item', image = 'bass.png',                unique = false, useable = false, shouldClose = false, description = 'A feisty freshwater bass, hooked fresh from the water.' },
     { name = 'blue_fish',           label = 'Blue Fish',           weight = 100, type = 'item', image = 'blue_fish.png',           unique = false, useable = false, shouldClose = false, description = 'A slick, silvery bluefish with a sharp bite.' },
     { name = 'catfish',             label = 'Catfish',             weight = 100, type = 'item', image = 'catfish.png',             unique = false, useable = false, shouldClose = false, description = 'A whiskered bottom-feeder pulled up from the murky depths.' },
@@ -322,7 +320,6 @@ QBCoreSeed.items = {
     { name = 'white_bass',          label = 'White Bass',          weight = 100, type = 'item', image = 'white_bass.png',          unique = false, useable = false, shouldClose = false, description = 'A silvery white bass caught from open water.' },
     { name = 'worm',                label = 'Worm',                weight = 100, type = 'item', image = 'worm.png',                unique = false, useable = false, shouldClose = false, description = 'A wriggling worm, perfect for baiting a hook.' },
 
-    --- Metal Detecting
     { name = 'antique_coin',    label = 'Antique Coin',    weight = 100,    type = 'item',    image = 'antique_coin.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'bobby_pin',    label = 'Bobby Pin',    weight = 100,    type = 'item',    image = 'bobby_pin.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'bottle_cap',    label = 'Bottle Cap',    weight = 100,    type = 'item',    image = 'bottle_cap.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
@@ -340,7 +337,6 @@ QBCoreSeed.items = {
     { name = 'ruby_ring_md',    label = 'Found Ruby Ring ',    weight = 100,    type = 'item',    image = 'ruby_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'silver_ring_md',    label = ' Found Silver Ring',    weight = 100,    type = 'item',    image = 'silver_ring_md.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'toy_car',    label = 'Toy Car',    weight = 100,    type = 'item',    image = 'toy_car.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
-    --- Robberies
     { name = 'art_1',    label = 'Portrait Of A Lady',    weight = 100,    type = 'item',    image = 'art_1.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'art_2',    label = 'Rainy City Scape',    weight = 100,    type = 'item',    image = 'art_2.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'art_3',    label = 'The Commuters',    weight = 100,    type = 'item',    image = 'art_3.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
@@ -354,7 +350,6 @@ QBCoreSeed.items = {
     { name = 'qbr_laptop',    label = 'Laptop',    weight = 100,    type = 'item',    image = 'qbr_laptop.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'qbr_monitor',    label = 'Monitor',    weight = 100,    type = 'item',    image = 'qbr_monitor.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'qbr_speakers',    label = 'Speakers',    weight = 100,    type = 'item',    image = 'qbr_speakers.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
-
 
     -- Missing inventory defaults from qb-core 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf.
     -- Existing native definitions above retain their configured values.

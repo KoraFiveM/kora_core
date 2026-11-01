@@ -40,8 +40,6 @@ loginAs(3, 'EMS1')
 loginAs(4, 'TOW1')
 loginAs(5, 'CIV1')
 
--- --- job type on PlayerData -------------------------------------------------
-
 h.test('buildJob copies the registry job type onto PlayerData.job', function()
     Core.jobs.setJob(1, 'police', 2)
     local job = Core.jobs.getJob(1)
@@ -67,8 +65,6 @@ h.test('setJob refuses a job that is not registered', function()
     h.assertEqual(err, 'unknown job', 'and say why')
 end)
 
--- --- the name index ---------------------------------------------------------
-
 h.test('getPlayersByJob tracks membership and duty separately', function()
     Core.jobs.setJob(2, 'police', 1)
 
@@ -88,8 +84,6 @@ h.test('changing job moves a player out of the old job set', function()
     equalSets(Core.jobs.getPlayersByJob('ambulance'), { 2 }, 'and present in the new one')
 end)
 
--- --- the type index ---------------------------------------------------------
-
 h.test('getPlayersByJobType spans every job carrying that type', function()
     Core.jobs.setJob(2, 'police', 1); Core.jobs.setJobDuty(2, true)
     Core.jobs.setJob(3, 'ambulance', 1); Core.jobs.setJobDuty(3, true)
@@ -108,7 +102,6 @@ h.test('a job change moves the player between type sets', function()
     equalSets(Core.jobs.getPlayersByJobType('leo', true), { 1 }, 'the leaver must be out of the leo set')
     equalSets(Core.jobs.getPlayersByJobType('ems', true), { 2, 3 }, 'and inside the ems set')
 
-    -- Put them back so the remaining tests have a stable roster.
     Core.jobs.setJob(2, 'police', 1)
     Core.jobs.setJobDuty(2, true)
 end)
@@ -131,8 +124,6 @@ h.test('getJobTypeCounts omits types with nobody in them', function()
     h.assertEqual(counts.leo + counts.ems + counts.recovery, 4, 'the emergency services total four')
     h.assertEqual(counts.nonexistent, nil, 'a type nobody holds must be absent, not zero')
 end)
-
--- --- the roster -------------------------------------------------------------
 
 h.test('getOnDutyRoster returns descriptive records, filtered by type', function()
     local roster = Core.jobs.getOnDutyRoster({ jobType = 'leo' })
@@ -175,8 +166,6 @@ h.test('getOnDutyRoster can include off-duty players when asked', function()
 
     Core.jobs.setJobDuty(2, true)
 end)
-
--- --- index integrity --------------------------------------------------------
 
 h.test('a direct setPath duty write is reconciled back into both indexes', function()
     -- This is what the legacy SetJobData('onduty', ...) used to do: flip duty
@@ -233,8 +222,6 @@ h.test('character logout clears every index before a new character loads', funct
 
     Core.player.logout(6)
 end)
-
--- --- gangs ------------------------------------------------------------------
 
 h.test('setGang sets a gang without touching the job indexes', function()
     local jobBefore = #Core.jobs.getPlayersByJob('police')

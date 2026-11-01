@@ -9,12 +9,8 @@
 local running = false
 local threadGeneration = 0
 
--- Underscore-prefixed so build/finalise.lua skips it (never exported) while
--- staying directly callable from a test -- same "internal but testable"
--- convention Core.persistence._insertNew/_load already use. Not just a
--- style choice here: this mock environment's Wait() never yields, so
--- resuming the CreateThread loop below even once would infinite-loop the
--- test process -- the tick logic MUST be reachable without going through it.
+-- Underscore-prefixed: not exported, but callable from tests -- the mock Wait() never
+-- yields, so the CreateThread loop below can't be run there.
 function Core.paycheck._tick()
     -- Group online players by job first so each job's roster is fetched via
     -- the index once, not once per player.

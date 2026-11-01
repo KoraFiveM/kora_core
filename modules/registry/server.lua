@@ -100,10 +100,7 @@ function Core.registry.registerShared(name, key, record)
     -- A replacement belongs to its latest owner, even if it reuses the table.
     clearOwnership(name, key)
     if owner then
-        -- subRegistry only needs one dispose call per resource (its callback
-        -- does its own manual sweep below, not per-id cleanup), so the
-        -- resource name doubles as its own tracking id -- Kora.resources.
-        -- serverRegistry's track(resource, id) requires both.
+        -- subRegistry needs one dispose per resource, so the resource name doubles as the tracking id.
         subRegistry.track(owner, owner)
         ownedRecords[owner] = ownedRecords[owner] or {}
         ownedRecords[owner][name] = ownedRecords[owner][name] or {}
@@ -131,7 +128,6 @@ function Core.registry.registerManyShared(name, records)
     return n
 end
 
--- Common removal path for explicit unregister and the owner-stop sweep.
 function Core.registry._unregisterInternal(name, key)
     clearOwnership(name, key)
     local removed = RI.remove(name, key)
@@ -171,9 +167,6 @@ function Core.registry.offSharedChange(name, subId)
     if r then r.subscribers[subId] = nil end
 end
 
--- Register the default data at runtime through the same public mutation funnel
--- used by every other resource. This keeps defaults and later additions on one
--- contract: validation, change notification, replication, and owner tracking.
 do
     QBCoreSeed = QBCoreSeed or {}
     local seeds = {
@@ -186,7 +179,6 @@ do
     end
 end
 
--- Serve a full snapshot to a client that connected / requested one.
 RegisterNetEvent('qbcore:registry:requestSnapshot', function()
     TriggerClientEvent('qbcore:registry:snapshotAll', source, RI.snapshotAll())
 end)

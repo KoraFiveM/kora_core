@@ -18,10 +18,8 @@ local COLUMN_SOURCE = {
     metadata = 'metadata', inventory = 'items',
 }
 
--- Players with at least one dirty column since the last flush.
 local dirty = {}   -- citizenid -> true
 
--- Position sampling state per citizenid: last persisted coords + timestamp.
 local posState = {}   -- citizenid -> { x, y, z, at }
 
 -- Encode one column's current value to the string that will hit the wire.
@@ -38,10 +36,6 @@ local function encodeColumn(player, column)
     local srcKey = COLUMN_SOURCE[column]
     return json.encode(player.PlayerData[srcKey] or (srcKey == 'inventory' and {} or {}))
 end
-
--- --- public-to-modules API (not exported: all _-prefixed or on Core.persistence
--- but only meaningful internally; finalise still exports the non-_ ones, which
--- is harmless -- saveNow/flushAll are legitimately useful externally) ---
 
 ---Mark a DB column dirty for this player.
 ---@param player table
@@ -100,8 +94,6 @@ local function samplePosition(player, logoutSample)
     end
 end
 
--- Build the rows to enqueue for every dirty player. Applies the two gates.
--- Returns an array of { pk = citizenid, cols = {column = encoded} }.
 local function collectRows()
     local rows, n = {}, 0
     for cid in pairs(dirty) do
@@ -142,15 +134,11 @@ end
 -- Flush all dirty players in one enqueueMany (one boundary crossing).
 ---@return integer players flushed
 function Core.persistence.flushAll()
-    -- Sample positions for everyone online before collecting.
     for _, player in pairs(PI.bySource) do samplePosition(player) end
     local rows = collectRows()
     if #rows > 0 then
-        -- Every Player in this cache came from _load() or _insertNew(), so its
-        -- row already exists. A partial INSERT ... ON DUPLICATE KEY UPDATE is
-        -- unsafe for players: MariaDB validates required immutable columns
-        -- (license/cid) before considering the duplicate branch. Update-only
-        -- batching keeps the compact dirty-column writes without that insert.
+        -- The row already exists (from _load/_insertNew). A partial INSERT ... ON DUPLICATE KEY
+        -- UPDATE is unsafe: MariaDB validates required immutable columns (license/cid) first.
         Kora.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign', writeMode = 'update' })
     end
     return #rows
@@ -210,7 +198,6 @@ function Core.persistence._saveForLogout(player, positionOverride)
     return false, tostring(err or saved or 'player save failed')
 end
 
--- Insert a brand-new character row with a plain INSERT (NOT an upsert), so a
 -- genuine (license,cid) or citizenid collision raises rather than silently
 -- overwriting a different row. Yields.
 ---@return boolean, string|nil
@@ -230,8 +217,6 @@ function Core.persistence._insertNew(citizenid, license, cid, data)
     return true
 end
 
--- Load a character's PlayerData from the DB by citizenid. Yields. Returns the
--- decoded blob or (nil, err).
 ---@param citizenid string
 ---@return table|nil, string|nil
 function Core.persistence._load(citizenid)
@@ -247,15 +232,9 @@ function Core.persistence._load(citizenid)
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
     local charinfo = dec(row.charinfo, {})
 
-    -- PlayerData.items is a NUMERIC slot-keyed map (see modules/inventory/
-    -- AGENTS.md); every write is setPath(src, {'items', slot}, record) with a
-    -- numeric slot. But a sparse slot map serialises to a JSON *object*, and
-    -- json.decode hands those keys back as STRINGS -- so a character restored
-    -- from the database came back with items['1'] where every reader looks up
-    -- items[1]. The inventory still rendered (the UI iterates pairs and reads
-    -- item.slot), but any lookup by slot missed, which surfaced as
-    -- "invalid item amount" on the first attempt to move an item after a
-    -- relog. Re-key on load, preferring the slot recorded inside the item.
+    -- PlayerData.items is a NUMERIC slot-keyed map, but a sparse map serialises to a JSON
+    -- object and json.decode returns the keys as STRINGS. Re-key on load, preferring the
+    -- slot recorded inside the item, or slot lookups miss after a relog.
     local function decodeItems(s)
         local raw = dec(s, {})
         if type(raw) ~= 'table' then return {} end
@@ -271,15 +250,8 @@ function Core.persistence._load(citizenid)
         end
         return out
     end
-    -- CoreInternal.player.buildJob puts `type` (leo/ems/civ/...) on the job
-    -- sub-table, but a character row written before that field existed has no
-    -- `type` key -- and the job blob is restored verbatim, never rebuilt. Every
-    -- `job.type == 'leo'` gate in a legacy resource, and Core.jobs' job-type
-    -- index, would therefore be wrong for existing characters until something
-    -- happened to reassign their job. Backfilled from the registry on load, in
-    -- the same "retain the old row, normalise on read" spirit as the phone
-    -- fallback below. A job no longer in the registry falls back to 'none'
-    -- rather than being dropped, so the character still loads.
+    -- Rows written before buildJob added `job.type` lack it and the job blob is restored
+    -- verbatim, so backfill from the registry. A job no longer registered falls back to 'none'.
     local function decodeJob(s)
         local job = dec(s, {})
         if type(job) ~= 'table' then return {} end
@@ -352,7 +324,6 @@ function Core.persistence.saveOfflinePlayer(data, fields)
     return true
 end
 
--- List a license's characters (multichar select). Yields.
 ---@param license string
 ---@return table[]
 function Core.persistence._listCharacters(license)
@@ -362,7 +333,6 @@ function Core.persistence._listCharacters(license)
     ) or {}
 end
 
--- Soft-delete a character. Yields.
 ---@param citizenid string
 ---@return boolean
 function Core.persistence._deleteCharacterRow(citizenid)
@@ -375,8 +345,6 @@ function Core.persistence._deleteCharacterRow(citizenid)
     if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(citizenid) end
     return called and r ~= nil
 end
-
--- --- the flush loop + shutdown hooks ---
 
 CreateThread(function()
     local base = Config.persistence.interval

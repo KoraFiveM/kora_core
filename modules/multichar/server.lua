@@ -41,7 +41,6 @@ end
 ---@param citizenid string
 ---@return boolean, string|nil
 function Core.multichar.selectCharacter(src, citizenid)
-    -- Verify ownership: the citizenid must belong to this source's identifier.
     local license = Core.identity.primary(src)
     local data, err = Core.persistence._load(citizenid)
     if not data then return false, err end
@@ -67,7 +66,6 @@ function Core.multichar.deleteCharacter(src, citizenid)
     if not data then return false, 'character not found' end
     if Core.identity.primary(src) ~= license then return false, 'player session changed' end
     if data and data.license ~= license then return false, 'not your character' end
-    -- If they're currently on this character, log them out first.
     local player = PI.byCitizenId[citizenid]
     if player then
         local loggedOut, err = Core.player.logout(player.source)

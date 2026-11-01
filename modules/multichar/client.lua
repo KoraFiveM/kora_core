@@ -14,10 +14,8 @@ local uiClaimed = false
 ---before ~500ms after THIS resource's own scripts start, or the default flow
 ---may already have fired -- see the kick-off thread at the bottom of this file.
 ---
----This is a real export rather than a `_G` flag on purpose: every resource
----gets its own isolated Lua VM (client and server alike), so a `_G` write in
----a UI resource's own script is never visible to kora_core's script -- only a
----genuine cross-resource call (an export, a net event) crosses that boundary.
+---An export rather than a `_G` flag: each resource has its own Lua VM, so only a
+---cross-resource call reaches this script.
 function Core.multichar.claimUI()
     uiClaimed = true
 end

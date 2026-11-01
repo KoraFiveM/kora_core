@@ -4,8 +4,6 @@
 
 local RI_PREFIX = Config.identity.citizenIdPrefix or ''
 
--- Extract all of a player's identifiers into a flat table. FiveM exposes them
--- as 'license:xxxx', 'discord:123', etc. via GetPlayerIdentifiers.
 ---@param src integer
 ---@return table<string,string>
 function Core.identity.getIdentifiers(src)
@@ -41,8 +39,6 @@ function Core.identity.generateCitizenId()
     return RI_PREFIX .. Core.util.randomAlnum(Config.identity.citizenIdLength)
 end
 
--- Record a character's identifiers into player_identifiers (fire-and-forget
--- upsert through the coalescing queue -- one row per (citizenid, kind)).
 ---@param citizenid string
 ---@param ids table<string,string>
 function Core.identity.recordIdentifiers(citizenid, ids)

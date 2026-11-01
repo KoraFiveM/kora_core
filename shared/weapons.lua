@@ -79,7 +79,6 @@ local function weapon(name, label, ammotype, weight, weapontype)
 end
 
 QBCoreSeed.weapons = {
-    -- Melee
     weapon('weapon_unarmed', 'Fists', nil, 0, 'Melee'),
     weapon('weapon_dagger', 'Antique Cavalry Dagger', nil, 400, 'Melee'),
     weapon('weapon_bat', 'Baseball Bat', nil, 1200, 'Melee'),
@@ -100,7 +99,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_stone_hatchet', 'Stone Hatchet', nil, 1300, 'Melee'),
     weapon('weapon_candycane', 'Candy Cane', nil, 250, 'Melee'),
 
-    -- Handguns
     weapon('weapon_pistol', 'Pistol', 'AMMO_PISTOL', 1100, 'Pistol'),
     weapon('weapon_pistol_mk2', 'Pistol Mk II', 'AMMO_PISTOL', 1200, 'Pistol'),
     weapon('weapon_combatpistol', 'Combat Pistol', 'AMMO_PISTOL', 1150, 'Pistol'),
@@ -123,7 +121,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_gadgetpistol', 'Perico Pistol', 'AMMO_PISTOL', 1000, 'Pistol'),
     weapon('weapon_pistolxm3', 'WM 29 Pistol', 'AMMO_PISTOL', 1100, 'Pistol'),
 
-    -- Submachine guns
     weapon('weapon_microsmg', 'Micro SMG', 'AMMO_SMG', 1800, 'SMG'),
     weapon('weapon_smg', 'SMG', 'AMMO_SMG', 2500, 'SMG'),
     weapon('weapon_smg_mk2', 'SMG Mk II', 'AMMO_SMG', 2700, 'SMG'),
@@ -134,7 +131,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_raycarbine', 'Unholy Hellbringer', 'AMMO_SMG', 3900, 'SMG'),
     weapon('weapon_tacticalsmg', 'Tactical SMG', 'AMMO_SMG', 1900, 'SMG'),
 
-    -- Shotguns
     weapon('weapon_pumpshotgun', 'Pump Shotgun', 'AMMO_SHOTGUN', 3600, 'Shotgun'),
     weapon('weapon_pumpshotgun_mk2', 'Pump Shotgun Mk II', 'AMMO_SHOTGUN', 3900, 'Shotgun'),
     weapon('weapon_sawnoffshotgun', 'Sawed-Off Shotgun', 'AMMO_SHOTGUN', 2700, 'Shotgun'),
@@ -146,7 +142,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_autoshotgun', 'Sweeper Shotgun', 'AMMO_SHOTGUN', 4100, 'Shotgun'),
     weapon('weapon_combatshotgun', 'Combat Shotgun', 'AMMO_SHOTGUN', 4600, 'Shotgun'),
 
-    -- Assault rifles
     weapon('weapon_assaultrifle', 'Assault Rifle', 'AMMO_RIFLE', 3800, 'Rifle'),
     weapon('weapon_assaultrifle_mk2', 'Assault Rifle Mk II', 'AMMO_RIFLE', 4100, 'Rifle'),
     weapon('weapon_carbinerifle', 'Carbine Rifle', 'AMMO_RIFLE', 3500, 'Rifle'),
@@ -162,13 +157,11 @@ QBCoreSeed.weapons = {
     weapon('weapon_tacticalrifle', 'Service Carbine', 'AMMO_RIFLE', 3900, 'Rifle'),
     weapon('weapon_battlerifle', 'Battle Rifle', 'AMMO_RIFLE', 4400, 'Rifle'),
 
-    -- Light machine guns
     weapon('weapon_mg', 'MG', 'AMMO_MG', 7000, 'LMG'),
     weapon('weapon_combatmg', 'Combat MG', 'AMMO_MG', 7800, 'LMG'),
     weapon('weapon_combatmg_mk2', 'Combat MG Mk II', 'AMMO_MG', 8200, 'LMG'),
     weapon('weapon_gusenberg', 'Gusenberg Sweeper', 'AMMO_MG', 6500, 'LMG'),
 
-    -- Sniper rifles
     weapon('weapon_sniperrifle', 'Sniper Rifle', 'AMMO_SNIPER', 5800, 'Sniper'),
     weapon('weapon_heavysniper', 'Heavy Sniper', 'AMMO_SNIPER', 7600, 'Sniper'),
     weapon('weapon_heavysniper_mk2', 'Heavy Sniper Mk II', 'AMMO_SNIPER', 8200, 'Sniper'),
@@ -176,7 +169,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_marksmanrifle_mk2', 'Marksman Rifle Mk II', 'AMMO_SNIPER', 5500, 'Sniper'),
     weapon('weapon_precisionrifle', 'Precision Rifle', 'AMMO_SNIPER', 6000, 'Sniper'),
 
-    -- Heavy weapons
     weapon('weapon_rpg', 'Rocket Launcher', 'AMMO_RPG', 8500, 'Heavy'),
     weapon('weapon_grenadelauncher', 'Grenade Launcher', 'AMMO_GRENADELAUNCHER', 7800, 'Heavy'),
     weapon('weapon_grenadelauncher_smoke', 'Smoke Grenade Launcher', 'AMMO_GRENADELAUNCHER_SMOKE', 7600, 'Heavy'),

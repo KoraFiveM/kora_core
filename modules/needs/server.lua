@@ -8,9 +8,7 @@
 local running = false
 local threadGeneration = 0
 
--- Underscore-prefixed so build/finalise.lua skips it (never exported) while
--- staying directly callable from a test -- see Core.paycheck._tick's doc
--- comment for why the tick logic can't be reached through the loop itself.
+-- Underscore-prefixed: not exported, but callable from tests (see Core.paycheck._tick).
 function Core.needs._tick()
     for _, src in ipairs(Core.player.getPlayers()) do
         if not Core.development.isDevMode(src) then

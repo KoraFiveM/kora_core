@@ -26,7 +26,6 @@ dofile('modules/replication/client.lua')
 dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core-events.lua')
 
--- Prime the mirror the way a real snapshot would: legit, server-pushed data.
 TriggerEvent('qbcore:rep:snapshot', 1, {
     citizenid = 'CID1',
     money = { cash = 500 },

@@ -35,7 +35,6 @@ local nextSubId = 1
 
 local isCallable = Kora.util.isCallable
 
--- Does `path` start with `prefix`? Both are key arrays.
 local function pathMatchesPrefix(path, prefix)
     if #prefix > #path then return false end
     for i = 1, #prefix do
@@ -43,8 +42,6 @@ local function pathMatchesPrefix(path, prefix)
     end
     return true
 end
-
--- --- the funnel ---
 
 ---THE single mutation entry point. Writes PlayerData at `path`, marks the
 ---owning DB column dirty, queues a client delta, and fires matching subscribers.
@@ -82,17 +79,10 @@ function Core.player.setPath(src, path, value, opts)
 
     Core.util.pathSet(player.PlayerData, path, value)
 
-    -- Optional compat hook: keeps a legacy-shaped PlayerData table (returned
-    -- to third-party resources across the export boundary, so it must be a
-    -- real table, never a live metatable proxy -- those don't survive
-    -- msgpack marshaling) incrementally in sync with every write this funnel
-    -- makes, without kora_core's own modules knowing compat exists. nil unless
-    -- compat/shared/coreobject.lua has registered it. See its own comment for
-    -- why this is the single correct hook point (every mutation, including
-    -- job/gang, routes through here).
-    -- Core is an auto-vivifying proxy (build/initiate.lua) -- merely
-    -- REFERENCING Core.compat materialises it as {}, so the presence check
-    -- must be on the specific function, not the module table.
+    -- Optional compat hook (registered by compat/shared/coreobject.lua) keeping the legacy-shaped
+    -- PlayerData table in sync with every write. That table crosses the export boundary, so it must
+    -- be a real table, not a metatable proxy. Core is an auto-vivifying proxy, so check the
+    -- specific function, not `Core.compat`.
     if Core.compat.onPlayerDataChanged then
         Core.compat.onPlayerDataChanged(src, path, value)
     end
@@ -106,7 +96,6 @@ function Core.player.setPath(src, path, value, opts)
         Core.replication._queueOp(player, path, value)
     end
 
-    -- Fire server-side subscribers whose prefix matches this path.
     for _, sub in pairs(subscribers) do
         if pathMatchesPrefix(path, sub.prefix) then
             local ok, err = pcall(sub.handler, src, path, value)
@@ -116,10 +105,7 @@ function Core.player.setPath(src, path, value, opts)
         end
     end
 
-    -- Inventory authorities may keep session revisions independently of
-    -- PlayerData persistence. This generic notification preserves kora_core's
-    -- ownership while allowing them to invalidate stale views after an item
-    -- write made directly through the funnel.
+    -- Lets inventory authorities invalidate stale views after an item write made through the funnel.
     if path[1] == 'items' then
         TriggerEvent('qbcore:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
     end
@@ -129,8 +115,6 @@ end
 function PI._setPhysicalCashLedger(src, account, value)
     return Core.player.setPath(src, { 'money', account }, value, { _physicalCashToken = physicalCashWriteToken })
 end
-
--- --- reads ---
 
 ---@param src integer
 ---@return table|nil  -- a deep-cloned PlayerData snapshot (safe to cross the export boundary)
@@ -326,7 +310,6 @@ end)
 
 -- --- lifecycle ---
 
--- Insert a fully-hydrated Player into the caches and fire loaded events.
 local function adopt(src, player)
     player.source = src
     player.PlayerData.source = src
@@ -375,12 +358,8 @@ local function adopt(src, player)
     -- signal. It intentionally follows the snapshot so state-bag consumers
     -- can show UI only after the local PlayerData mirror is usable.
     Player(src).state:set('qbcore:loggedIn', true, true)
-    -- Legacy mirror. Real qb-core sets a bare 'isLoggedIn' key, which legacy
-    -- consumers read directly as LocalPlayer.state['isLoggedIn'] (real
-    -- qb-doorlock's client.lua gates its whole main loop on it). The
-    -- namespaced key above stays the one kora_core's own resources use; this is
-    -- purely the legacy-facing alias, same "rebuilt legacy view alongside the
-    -- modern shape" pattern compat/shared/coreobject.lua uses for grades.
+    -- Legacy alias: stock qb-core sets a bare 'isLoggedIn' key that scripts read directly
+    -- (e.g. qb-doorlock); kora_core's own resources use the namespaced key above.
     Player(src).state:set('isLoggedIn', true, true)
     -- Preserve the legacy client event, but dispatch it only after the
     -- snapshot has reached the client.  Legacy consumers now observe usable
@@ -429,11 +408,8 @@ function Core.player.login(src, citizenid, data)
 end
 
 ---Create a brand-new character for a source. Returns (citizenid) or (nil, err).
----An explicit `cid` (e.g. from an admin tool) is honoured if it's in bounds
----and free; the common case (nil, from qb-multicharacter's self-serve
----create) gets the next free slot computed HERE, server-side -- a client's
----own slot guess is never trusted for this, since it gates the character
----count limit below.
+---An explicit `cid` (admin tool) is honoured if in bounds and free; otherwise the next free
+---slot is computed server-side -- a client's slot guess is never trusted (it gates the limit).
 ---@param src integer
 ---@param charinfo table
 ---@param cid integer|nil
@@ -523,10 +499,8 @@ local function createCharacterUnlocked(src, charinfo, cid)
         end
     end
 
-    -- Unreachable in practice: the elseif above already guarantees a free
-    -- slot exists in 1..maxCharacters whenever the loop runs. Asserted
-    -- rather than left implicit so a future change to the branch above fails
-    -- loudly instead of inserting a row with a nil cid.
+    -- Unreachable in practice (the branch above guarantees a free slot); asserted so a
+    -- future change fails loudly instead of inserting a nil cid.
     assert(cid ~= nil, 'createCharacter: failed to compute a free slot')
 
     local citizenid = Core.identity.generateCitizenId()
@@ -551,7 +525,6 @@ local function createCharacterUnlocked(src, charinfo, cid)
         source = src, citizenid = citizenid, license = license, cid = cid,
         PlayerData = data, _dirty = {}, _encoded = {}, _pendingOps = {}, _seq = 0,
     }
-    -- Seed _encoded from the freshly-inserted values so the first save is a no-op.
     Core.persistence._seedEncoded(player)
     local adopted, adoptErr = adopt(src, player)
     if not adopted then return nil, adoptErr end
@@ -659,9 +632,7 @@ function Core.player.dropPlayer(src, reason)
     Core.replication._forget(player)
     Core.persistence._forget(player)
     TriggerEvent('qbcore:server:playerDropped', src, player.citizenid, reason)
-    -- Legacy-named events on the SAME disconnect path (verified against real
-    -- qb-core v1.3.0 source). Both are server-LOCAL only -- upstream sends
-    -- nothing to the disconnecting client either, since it's already gone.
+    -- Legacy-named events on the same disconnect path; server-LOCAL only (the client is gone).
     TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
 end

@@ -18,7 +18,7 @@ dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core-events.lua')
 
 h.test('QBCore:Client:PvpHasToggled(true) calls SetCanAttackFriendly and NetworkSetFriendlyFireOption', function()
-    handle.pvpNativeCalls = handle.pvpNativeCalls -- (already exposed by mocks.lua)
+    handle.pvpNativeCalls = handle.pvpNativeCalls
     local before = #handle.pvpNativeCalls
     TriggerEvent('QBCore:Client:PvpHasToggled', true)
 

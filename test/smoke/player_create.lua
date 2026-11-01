@@ -158,14 +158,14 @@ h.test('assigns the next free slot when slot 1 is already taken', function()
 end)
 
 h.test('honours an explicit free cid from an admin-style caller', function()
-    withExistingCount(1) -- slot 1 taken
+    withExistingCount(1)
     local citizenid = Core.player.createCharacter(3, { firstname = 'A', lastname = 'B' }, 3)
     h.assertTrue(citizenid ~= nil)
     h.assertEqual(lastInsertParams()[3], 3)
 end)
 
 h.test('rejects an explicit cid that is already taken', function()
-    withExistingCount(1) -- slot 1 taken
+    withExistingCount(1)
     local citizenid, err = Core.player.createCharacter(10, { firstname = 'A', lastname = 'B' }, 1)
     h.assertTrue(citizenid == nil)
     h.assertEqual(err, 'requested character slot is unavailable')

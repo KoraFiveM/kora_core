@@ -13,22 +13,16 @@ local PI = CoreInternal.player
 local byJob = {}
 local byJobOnDuty = {}
 
--- jobType -> the same two shapes. A separate index rather than a scan over
--- byJob: a type spans several jobs (police + sheriff + statetrooper are all
--- 'leo'), so answering "every on-duty LEO" from byJob alone would mean walking
--- the whole jobs registry on every dispatch call to find which names carry that
--- type. The type is read off the player's own job sub-table (buildJob copies it
--- there), so no registry lookup happens on the index path at all.
+-- jobType -> the same two shapes. Separate from byJob because a type spans several jobs
+-- ('leo' = police + sheriff + ...); the type is read off the player's own job sub-table,
+-- so the index path never touches the registry.
 local byType = {}
 local byTypeOnDuty = {}
 
--- src -> the jobType it was last indexed under. The type is derived from the
--- job, and a setJob can change both -- without remembering what we indexed we
--- would have to search every type set to remove a stale entry, which is exactly
--- the O(n) sweep this index exists to avoid.
+-- src -> the jobType it was last indexed under, so a setJob can remove the stale entry
+-- without sweeping every type set.
 local typeOfSrc = {}
 
--- Live on-duty counters (the +1 / -1 bookkeeping).
 local jobCounts, typeCounts = {}, {}
 
 GlobalState.OnDuty = {}
@@ -91,9 +85,6 @@ local function indexRemove(src, jobName)
     end
 end
 
----Drops a source from every set without needing to know which job it was under.
----Used by the drop sweep and by the reconciler, both of which are recovering
----from a state where the recorded job name can't be trusted.
 ---@param src integer
 local function indexForget(src)
     for _, set in pairs(byJob) do set[src] = nil end
@@ -137,7 +128,6 @@ local function indexSetDuty(src, jobName, onDuty)
     end
 end
 
----Materialises a source set into a dense array.
 ---@param set table<integer, true>|nil
 ---@return integer[]
 local function toArray(set)
@@ -179,23 +169,10 @@ function Core.jobs.setJob(src, name, grade)
     indexRemove(src, previousJob)
     indexAdd(src, name, job.onduty, job.type)
 
-    -- QBCore:*:OnJobUpdate are NOT real qb-core's own event names (verified
-    -- against qbcore-fivem/qb-core's server/player.lua: it has no
-    -- OnJobUpdate/OnGangUpdate at all) -- they're this rebuild's own,
-    -- additional fan-out events. Real qb-core instead funnels every
-    -- job/gang/duty change through Player:UpdateClient(key, val), which fires
-    -- QBCore:Server:OnPlayerUpdated / QBCore:Client:OnPlayerUpdated -- the
-    -- event name legacy scripts actually listen for (confirmed:
-    -- legacy ambulance and police job resources both key off
-    -- OnPlayerUpdated directly, never OnJobUpdate). Both are fired below so
-    -- either listening style keeps working. Payload must be legacy-shaped
-    -- (zero-based grade.level), same translation as QBCore.Shared.Jobs/the
-    -- compat PlayerData view. Guarded on the specific FUNCTION rather than on
-    -- `Core.compat` itself: Core is an auto-vivifying proxy (build/
-    -- initiate.lua), so merely referencing `Core.compat` always returns a
-    -- table (real gameplay boot always loads compat/shared/coreobject.lua,
-    -- which fills it in; a test dofiling only this module would otherwise
-    -- error on a truthy-but-empty `Core.compat`).
+    -- OnJobUpdate/OnGangUpdate are not stock qb-core events; stock funnels every job/gang/duty
+    -- change through Player:UpdateClient -> OnPlayerUpdated, which legacy scripts listen for.
+    -- Both are fired. Payload must be legacy-shaped (zero-based grade.level). Guarded on the
+    -- specific FUNCTION because Core is an auto-vivifying proxy (`Core.compat` is always truthy).
     local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job, 'jobs') or job
     TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'job', legacyJob)
@@ -268,7 +245,6 @@ function Core.jobs.setOfflineGang(citizenid, name, grade)
     return Core.persistence.saveOfflinePlayer(data, { 'gang' })
 end
 
----Sources with a given job. onDutyOnly filters to on-duty. O(1) via the index.
 ---@param name string
 ---@param onDutyOnly boolean|nil
 ---@return integer[]
@@ -390,19 +366,10 @@ end)
 
 AddEventHandler('QBCore:Server:OnPlayerUnload', indexForget)
 
--- Reconciler for job writes that DIDN'T come through setJob/setJobDuty.
---
--- The legacy compat surface exposes SetJobData(key, value), which writes
--- Core.player.setPath(src, { 'job', key }, value) directly -- so a legacy
--- resource calling SetJobData('onduty', true) used to flip duty with the index
--- none the wiser, and that player then silently received no dispatch alerts and
--- counted as off duty everywhere. Subscribing to the whole 'job' prefix is the
--- only way to see those writes.
---
--- setJob/setJobDuty already maintain the index inline, so this must not
--- double-handle them: it compares the observed job/duty against what the index
--- currently believes and does nothing when they already agree, which is the
--- case for every write those two functions make.
+-- Reconciler for job writes that DIDN'T come through setJob/setJobDuty (legacy
+-- SetJobData writes setPath directly, which would leave the index stale). Subscribes to the
+-- whole 'job' prefix and does nothing when the index already agrees, so setJob/setJobDuty,
+-- which maintain the index inline, are not double-handled.
 Core.player.onChange({ 'job' }, function(src)
     local p = PI.handle(src)
     local job = p and p.PlayerData.job

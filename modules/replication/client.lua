@@ -47,17 +47,10 @@ local function dispatch(path, value)
     end
 end
 
--- Identifying our OWN compatibility re-fire needs a marker that survives the
--- trip, because neither obvious approach works:
---   * table identity (`data ~= mirror`) -- the name is registered with
---     RegisterNetEvent, so CFX msgpack-copies the payload even for a local
---     TriggerEvent; the handler never sees the same table back.
---   * a boolean set/reset around the TriggerEvent call -- TriggerEvent QUEUES,
---     it does not dispatch synchronously, so the flag is already back to false
---     by the time the handler runs a tick later.
--- A nonce passed as a second argument survives serialization and is immune to
--- dispatch timing. Legacy handlers take only `data`, so the extra argument is
--- invisible to them.
+-- Marker identifying our OWN compat re-fire. Table identity fails (RegisterNetEvent
+-- makes CFX msgpack-copy the payload) and a boolean flag fails (TriggerEvent queues,
+-- so the flag is reset before the handler runs). A nonce passed as a 2nd argument
+-- survives both; legacy handlers take only `data` and ignore it.
 local REFIRE_TOKEN = 'qbcore:rep:refire'
 local pendingLegacy = nil
 
@@ -85,27 +78,15 @@ local function announceLegacyPlayerData(data, inventoryOnly)
     if not ok then error(err, 0) end
 end
 
--- Fire the legacy full-blob events LOCALLY from the mirror. Every legacy
--- resource listening for QBCore:Player:SetPlayerData keeps working unchanged.
 --
--- QBCore:*-named events are the legacy-compat protocol (real qb-core's own
--- event names) -- their payload must be legacy-shaped, i.e. job/gang
--- grade.level translated to zero-based (see Core.compat.toLegacyPlayerData's
--- comment; kora_core's internal model stays one-based throughout, including
--- `mirror` here -- this builds a translated VIEW for the event payload only,
--- never mutates `mirror` itself). Guarded on the specific FUNCTION (not
--- `Core.compat` itself -- Core is an auto-vivifying proxy, see build/
--- initiate.lua, so merely referencing `Core.compat` always returns a table).
+-- QBCore:* payloads must be legacy-shaped (grade.level zero-based); this builds a
+-- translated VIEW and never mutates `mirror` (one-based). Guarded on the specific
+-- FUNCTION because Core is an auto-vivifying proxy, so `Core.compat` is always a table.
 local function fireLegacy(changedRoots, inventoryOnly)
     local legacyData = Core.compat.toLegacyPlayerData and Core.compat.toLegacyPlayerData(mirror) or mirror
 
-    -- Real qb-core keeps a plain global `QBCore.PlayerData` table, updated on
-    -- every player-data change -- plenty of legacy scripts read it directly
-    -- instead of calling GetPlayerData(). We don't maintain one anywhere
-    -- else, so this is the one place both the data AND the "something
-    -- changed" signal already exist. Guarded: this module (unlike compat/)
-    -- has no hard dependency on the QBCore global existing (e.g. a test that
-    -- dofiles only replication/client.lua in isolation).
+    -- Keep the global `QBCore.PlayerData` that legacy scripts read directly. Guarded:
+    -- this module has no hard dependency on the QBCore global (isolated tests).
     if QBCore then QBCore.PlayerData = legacyData end
 
     announceLegacyPlayerData(legacyData, inventoryOnly)
@@ -116,19 +97,10 @@ local function fireLegacy(changedRoots, inventoryOnly)
         TriggerEvent('QBCore:Client:OnGangUpdate', legacyData.gang)
     end
 
-    -- Real qb-core's Player:SetJob/SetJobDuty/SetGang all funnel through
-    -- Player:UpdateClient(key, val), which fires QBCore:Client:OnPlayerUpdated
-    -- (NOT OnJobUpdate/OnGangUpdate -- those don't exist in real qb-core at
-    -- all, see server/player.lua). Legacy scripts written against real qb-core
-    -- (confirmed: legacy job resources listen)
-    -- for OnPlayerUpdated directly, keying off `key`/reading `val` themselves
-    -- -- OnJobUpdate/OnGangUpdate above are this rebuild's own invented event
-    -- names, not real qb-core's, so they alone leave those listeners dead.
-    -- REFIRE_TOKEN as a 3rd arg (invisible to a legacy handler's `(key, val)`
-    -- signature) tells the handler in compat/client/qb-core-events.lua that
-    -- this specific delta already fired OnJobUpdate/OnGangUpdate directly
-    -- above -- without it, that handler's own translate-and-fire would fire
-    -- the same event a second time for the same change.
+    -- Stock qb-core fires QBCore:Client:OnPlayerUpdated (key, val) for job/gang changes;
+    -- OnJobUpdate/OnGangUpdate above are not stock, so legacy listeners need this one.
+    -- REFIRE_TOKEN as a 3rd arg tells compat/client/qb-core-events.lua this delta already
+    -- fired OnJobUpdate/OnGangUpdate, so it does not fire them a second time.
     if changedRoots.job and (Config.compat.jobUpdateEventSource ~= 'server') then
         TriggerEvent('QBCore:Client:OnPlayerUpdated', 'job', legacyData.job, REFIRE_TOKEN)
     end
@@ -137,18 +109,10 @@ local function fireLegacy(changedRoots, inventoryOnly)
     end
 end
 
----Re-fire the full-blob legacy event from the mirror's CURRENT data, without
----touching the mirror. Used by compat/client/qb-core-events.lua's
----QBCore:Client:OnPlayerUpdated handler (key == 'all'/nil case) so it never
----has to TriggerEvent('QBCore:Player:SetPlayerData', ...) itself -- doing so
----directly WITHOUT REFIRE_TOKEN would be caught by this module's own
----foreign-write acceptor below (the "an unknown resource wrote PlayerData
----directly" handler), which merges the payload INTO the live mirror -- and
----that payload is legacy-shaped (zero-based grade.level), so it would corrupt
----the internal one-based mirror. Going through this function instead reuses
----the exact same REFIRE_TOKEN'd path fireLegacy already uses on every delta,
----so the resulting local TriggerEvent is safely recognised as our own re-fire
----and ignored by the acceptor.
+---Re-fire the full-blob legacy event from the mirror's CURRENT data, without touching the
+---mirror. Callers must use this instead of a raw TriggerEvent('QBCore:Player:SetPlayerData'):
+---without REFIRE_TOKEN the foreign-write acceptor below would merge the legacy-shaped
+---(zero-based) payload into the one-based mirror.
 ---@return boolean  -- false if there is no mirror yet (nothing to announce)
 function Core.replication.reannounceFull()
     pendingLegacy = nil
@@ -159,7 +123,6 @@ function Core.replication.reannounceFull()
     return true
 end
 
--- Full snapshot: replace the mirror wholesale and reset the expected seq.
 RegisterNetEvent('qbcore:rep:snapshot', function(seq, data)
     mirror = data
     expectedSeq = seq
@@ -172,7 +135,6 @@ end)
 -- a resync (server rate-limits) rather than applying onto stale data.
 RegisterNetEvent('qbcore:rep:delta', function(seq, ops)
     if not mirror then
-        -- No snapshot yet; ask for one.
         TriggerServerEvent('qbcore:rep:resync')
         return
     end
@@ -205,9 +167,7 @@ end)
 -- Accept it (replace the mirror) but warn -- it bypassed the delta stream and
 -- will be overwritten by the next server snapshot.
 RegisterNetEvent('QBCore:Player:SetPlayerData', function(data, token)
-    -- Our own re-fire from fireLegacy above: nothing to do, the mirror already
-    -- holds exactly this. See REFIRE_TOKEN for why neither table identity nor a
-    -- boolean flag can detect it.
+    -- Our own re-fire from fireLegacy: the mirror already holds exactly this.
     if token == REFIRE_TOKEN then return end
     -- Belt-and-braces for a local trigger from inside this resource that
     -- somehow lost the token (a genuinely foreign local trigger reports that
@@ -221,12 +181,8 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(data, token)
         .. 'delta stream and will be overwritten on the next server snapshot.')
         :format(writer and ("resource '" .. writer .. "'") or 'an unknown resource'))
 
-    -- Accept the write, but copy INTO the existing table rather than replacing
-    -- it. getData() with no path returns the mirror as a LIVE reference
-    -- (documented in this module's AGENTS.md), so reassigning here would
-    -- orphan every reference callers are already holding -- the same
-    -- "clear in place, never reassign" discipline modules/registry/shared.lua
-    -- applies to its materialised tables.
+    -- Copy INTO the existing table: getData() returns the mirror as a LIVE reference,
+    -- so reassigning would orphan callers' references.
     if not mirror then
         mirror = data
     else
@@ -234,8 +190,6 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(data, token)
         for k, v in pairs(data) do mirror[k] = v end
     end
 end)
-
--- --- public API ---
 
 ---Read the local mirror (a live reference with no path, or a value by path).
 ---@param path (string|integer)[]|nil

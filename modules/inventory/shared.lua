@@ -23,7 +23,6 @@ function II.totalWeight(items)
     return total
 end
 
--- Is an item unique (never stacks)? weapons and items flagged unique don't stack.
 ---@param name string
 ---@return boolean
 function II.isUnique(name)
@@ -64,7 +63,6 @@ function II.infoEquals(a, b)
     return true
 end
 
--- Lowest free slot in [1, Config.inventory.slots], or nil if full.
 ---@param items table
 ---@return integer|nil
 function II.firstFreeSlot(items)

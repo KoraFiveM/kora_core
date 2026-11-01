@@ -2,19 +2,8 @@
 -- through the runtime registry; `grades` is a one-based array internally.
 -- `offDutyPay` is either `false` (no off-duty paycheck) or a flat number paid
 -- to an employed-but-off-duty player each paycheck tick -- see Core.paycheck.
---
--- `type` groups jobs into a SERVICE ('leo' covers police, sheriff and state
--- troopers; 'ems' covers ambulance and fire). It is copied onto PlayerData.job
--- by CoreInternal.player.buildJob and indexed by Core.jobs, so
--- `exports.kora_core:getPlayersByJobType('leo', true)` reaches every on-duty
--- member of every LEO job in one O(1) lookup -- which is what a dispatch system
--- targets rather than enumerating job names. Read it off `PlayerData.job.type`.
---
--- `blip` is NOT copied onto PlayerData.job. The registry carries it through
--- (Core.registry.registerShared stores a record as-is) but nothing reads it
--- from player data, so a consumer that wants it must read the REGISTRY record
--- via `exports.kora_core:getShared('jobs', jobName)`. Same for any other extra
--- field added here.
+-- `type` groups jobs into a service ('leo', 'ems', ...), copied onto PlayerData.job and indexed by Core.jobs.
+-- `blip` is NOT copied onto PlayerData.job; read it from the registry record via getShared('jobs', name).
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.jobs = {
@@ -68,11 +57,6 @@ QBCoreSeed.jobs = {
             { name = 'Owner', payment = 90, isboss = true },
         },
     },
-    -- 'recovery' is a deliberate third service type alongside leo/ems: it is
-    -- what proves the dispatch pipeline is genuinely job-agnostic rather than
-    -- emergency-services-shaped. A tow operator gets their own call channel,
-    -- own theme and own history without a line of dispatch code knowing what
-    -- towing is.
     {
         name = 'tow', label = 'Recovery', defaultDuty = false, offDutyPay = false, type = 'recovery',
         blip = { sprite = 68, color = 5, scale = 0.85 },

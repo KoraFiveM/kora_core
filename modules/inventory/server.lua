@@ -9,16 +9,13 @@ local PI = CoreInternal.player
 local II = CoreInternal.inventory
 
 -- Registered useable-item handlers: name -> { resource, handler(src, item) }.
--- OWNER-TRACKED via Kora.resources.serverRegistry, same as commands/registry, so a
--- resource that registered useables and then restarts doesn't leave dead
--- handlers behind (its handlers would otherwise fire against a stale closure).
+-- OWNER-TRACKED via Kora.resources.serverRegistry so a restarted resource leaves no stale handlers.
 local useables = {}
 
 local useableRegistry = Kora.resources.serverRegistry(function(name)
     useables[name] = nil
 end)
 
--- Build a full item record from a registry definition.
 local function buildItem(name, amount, slot, info)
     local def = Core.registry.getShared('items', name) or Core.registry.getShared('weapons', name)
     if not def then return nil end
@@ -182,7 +179,6 @@ function Core.inventory.removeItem(src, name, amount, slot, reason)
     return true
 end
 
--- Remove `amount` from one slot, clearing the slot if it empties.
 function Core.inventory._removeFromSlot(src, slot, amount)
     local p = PI.handle(src)
     if not p then return false, 'no such player' end
@@ -258,7 +254,6 @@ function Core.inventory.getFreeSlot(src)
     local it = items(src); return it and II.firstFreeSlot(it) or nil
 end
 
----Move/split an item between slots.
 ---@return boolean, string|nil
 function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local p = PI.handle(src)
@@ -277,14 +272,12 @@ function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     local dest = it[toSlot]
     if dest and dest.name ~= from.name then return false, 'destination occupied' end
 
-    -- Reduce source.
     if from.amount <= amount then
         Core.player.setPath(src, { 'items', fromSlot }, nil)
     else
         from.amount = from.amount - amount
         Core.player.setPath(src, { 'items', fromSlot }, from)
     end
-    -- Increase destination.
     if dest then
         dest.amount = dest.amount + amount
         Core.player.setPath(src, { 'items', toSlot }, dest)
@@ -294,7 +287,6 @@ function Core.inventory.moveItem(src, fromSlot, toSlot, amount)
     return true
 end
 
----Clear the inventory, optionally keeping items whose names are in `keep`.
 ---@param src integer
 ---@param keep string[]|nil
 ---@return boolean
@@ -312,7 +304,6 @@ function Core.inventory.clearInventory(src, keep)
     return true
 end
 
----Replace the whole items table (compat SetInventory).
 ---@param src integer
 ---@param newItems table
 ---@return boolean
@@ -322,16 +313,12 @@ function Core.inventory.setItems(src, newItems)
     return Core.player.setPath(src, { 'items' }, newItems or {})
 end
 
--- --- useable items ---
-
 ---@param name string
 ---@param handler fun(src:integer, item:table)
 function Core.inventory.createUseable(name, handler)
     local owner = GetInvokingResource() or GetCurrentResourceName()
     useables[name] = { resource = owner, handler = handler }
-    -- track(resource, id) -- the id is what gets untracked when the owning
-    -- resource stops. Calling it with one argument indexed the registry with a
-    -- nil key and raised "table index is nil". Matches kora_inventory's own call.
+    -- track(resource, id) needs both args (one arg raised "table index is nil").
     if owner then useableRegistry.track(owner, name) end
 end
 
@@ -367,9 +354,6 @@ function Core.inventory.useItem(src, slotOrName)
     return result ~= false
 end
 
--- --- stashes (persisted to the `inventories` table) ---
-
----Read a stash's items (yields on first read from DB).
 ---@param identifier string
 ---@return table
 function Core.inventory.stashGet(identifier)
@@ -379,7 +363,6 @@ function Core.inventory.stashGet(identifier)
     return ok and v or {}
 end
 
----Write a stash's items (fire-and-forget upsert through the queue).
 ---@param identifier string
 ---@param stashItems table
 ---@return boolean
@@ -402,8 +385,7 @@ function Core.inventory.stashOpen(src, identifier, opts)
         slots = opts and opts.slots or 50,
         maxweight = opts and opts.maxweight or 100000,
     })
-    -- TriggerEvent returns nothing meaningful; use an explicit ack pattern
-    -- instead. If no UI resource set the ack flag, warn.
+    -- TriggerEvent returns nothing, so use an ack flag; warn if no UI resource set it.
     if Config.inventory.warnOnUnhandledOpen and not _G.__qbcoreInventoryUIHandled then
         print(("^3[qbcore:inventory]^7 stashOpen('%s') emitted qbcore:inventory:open but no UI resource "
             .. "handled it. Ship or bridge an inventory UI, or set Config.inventory.warnOnUnhandledOpen=false.")
@@ -411,8 +393,6 @@ function Core.inventory.stashOpen(src, identifier, opts)
     end
     return true
 end
-
--- --- ground drops (in-memory; not persisted across restart by design) ---
 
 local drops = {}   -- dropId -> { coords, items, created }
 local nextDropId = 1

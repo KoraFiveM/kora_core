@@ -113,8 +113,6 @@ function RI.isCallable(x)
     return mt ~= nil and type(mt.__call) == 'function'
 end
 
--- --- curated PUBLIC reads (exported flat) ---
-
 ---@param name string
 ---@param key string
 ---@return table|nil

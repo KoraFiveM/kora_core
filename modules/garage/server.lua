@@ -4,15 +4,11 @@
 -- whether `citizenid` or `job` is set on a row (by convention, not enforced
 -- at the SQL level -- a row is expected to have exactly one of the two).
 --
--- spawnVehicle uses the raw CreateVehicle native, NEVER Kora.entities (kora_lib's
--- entity spawner is explicitly local/non-networked) -- a duty or owned
--- vehicle must be visible to every player, not just the one who spawned it.
+-- spawnVehicle uses the raw CreateVehicle native, NEVER Kora.entities (local/non-networked):
+-- a duty or owned vehicle must be visible to every player.
 --
--- Vehicle `mods` are stored/returned as opaque JSON and are NOT auto-applied
--- to a spawned vehicle by this module -- that's ~50 SetVehicleMod calls of
--- presentation-layer work belonging to whichever job/garage UI actually
--- wants a tuning system, not to a generic persistence primitive. fuel/engine/
--- body health ARE applied on spawn since that's cheap and universally wanted.
+-- Vehicle `mods` are stored/returned as opaque JSON and NOT auto-applied (that is
+-- presentation-layer work for the garage UI); fuel/engine/body health are applied on spawn.
 
 local function decodeJson(s, fallback)
     if not s then return fallback end
@@ -68,9 +64,8 @@ function Core.garage.createVehicle(citizenid, model, plate, job, extra)
         'INSERT INTO `player_vehicles` (`plate`,`model`,`vehicle`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
         .. 'VALUES (?,?,?,?,?,?,?,?)',
         {
-            -- Exactly one of citizenid/job is set; the other is a real SQL NULL.
-            -- Writing it as a bare nil would leave a hole in this array and the
-            -- driver would reject the whole statement.
+            -- Exactly one of citizenid/job is set; the other must be a real SQL NULL (a bare nil
+            -- would leave a hole in this array and the driver rejects the statement).
             plate, modelName, modelName, citizenid or Kora.sql.NULL, job or Kora.sql.NULL,
             extra.fuel or Config.garage.defaultFuel,
             extra.engineHealth or Config.garage.defaultEngineHealth,
@@ -245,10 +240,7 @@ function Core.garage.impound(plate, fee, impoundLot)
     return true
 end
 
----Clears an impound flag. Charging the impound fee (Core.money.removeMoney)
----is the caller's responsibility, done before calling this -- garage
----persistence stays payment-method-agnostic, same reasoning Core.jobs leaves
----payment amounts to Core.money rather than moving cash itself.
+---Clears an impound flag. Charging the impound fee is the caller's job, done before this call.
 ---@param src integer
 ---@param plate string
 ---@return boolean, string|nil
@@ -257,10 +249,7 @@ function Core.garage.retrieveImpound(src, plate)
     if not row then return false, 'unknown vehicle' end
     if row.state ~= 'impounded' then return false, 'vehicle is not impounded' end
 
-    -- A civilian-owned row can only be retrieved by its own owner; a
-    -- job-fleet row (citizenid unset) has no per-player ownership to check --
-    -- any on-duty member retrieving it is a job-resource-level policy
-    -- decision, not this module's.
+    -- Civilian rows are owner-only; job-fleet rows (citizenid unset) are a job-resource policy.
     if row.citizenid then
         local requesterCitizenid = Core.player.getPlayerData(src, { 'citizenid' })
         if requesterCitizenid ~= row.citizenid then
@@ -280,10 +269,8 @@ function Core.garage.retrieveImpound(src, plate)
     return true
 end
 
----Generic partial condition update, for periodic autosave of a vehicle
----that's currently `out` (not just on store). Unlike storeVehicle, does not
----change `state` or refuse an impounded vehicle -- this is a pure condition
----snapshot, callable regardless of where the vehicle currently is.
+---Partial condition update for periodic autosave of an `out` vehicle. Unlike storeVehicle,
+---does not change `state` or refuse an impounded vehicle.
 ---@param plate string
 ---@param patch table {fuel?, engineHealth?, bodyHealth?, mods?, position?}
 ---@return boolean
@@ -296,8 +283,7 @@ function Core.garage.updateState(plate, patch)
         .. '`body_health` = COALESCE(?, `body_health`), `mods` = COALESCE(?, `mods`), '
         .. '`last_position` = COALESCE(?, `last_position`) WHERE `plate` = ?',
         {
-            -- Every patch field is optional and COALESCE'd in SQL, so an absent
-            -- one must bind as NULL rather than leaving a hole in this array.
+            -- Patch fields are COALESCE'd in SQL: absent ones must bind as NULL, not leave a hole.
             patch.fuel or Kora.sql.NULL,
             patch.engineHealth or Kora.sql.NULL,
             patch.bodyHealth or Kora.sql.NULL,
@@ -310,12 +296,9 @@ function Core.garage.updateState(plate, patch)
     return ok ~= nil
 end
 
----Persists a complete QBCore-compatible vehicle-property snapshot without
----changing the vehicle's garage state. This is intentionally a server-only
----primitive: callers must authorize and charge for tuning before calling it.
----The plate and model remain authoritative database fields, while fuel and
----health are kept in their dedicated columns so a later garage spawn cannot
----be overridden by the JSON snapshot.
+---Persists a complete QBCore-compatible vehicle-property snapshot without changing garage
+---state. Server-only: callers must authorize and charge for tuning first. Plate/model and
+---fuel/health stay in their dedicated columns so the JSON snapshot cannot override them.
 ---@param plate string
 ---@param properties table Result of Kora.vehicle.getProperties.
 ---@return boolean, string|nil
@@ -324,9 +307,7 @@ function Core.garage.saveVehicleProperties(plate, properties)
 
     local storedProperties = {}
     for key, value in pairs(properties) do
-        -- `plate` identifies the row and `model` is its ownership record, not
-        -- mutable vehicle appearance. The condition values live in dedicated
-        -- columns and are applied by spawnVehicle before presentation props.
+        -- plate/model identify the row; condition values live in dedicated columns.
         if key ~= 'plate' and key ~= 'model'
             and key ~= 'fuelLevel' and key ~= 'engineHealth' and key ~= 'bodyHealth' then
             storedProperties[key] = value

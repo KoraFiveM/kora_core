@@ -127,8 +127,6 @@ h.test('QBCore:ToggleDuty can be disabled with Config.compat.toggleDutyEvent', f
 end)
 GetGameTimer = realTimer
 
--- --- Task 1: chatMessage '/'-suppression ------------------------------------
-
 h.test("chatMessage starting with '/' cancels the event", function()
     local before = handle.cancelEventCount()
     TriggerEvent('chatMessage', 1, 'Player', '/give item')
@@ -140,8 +138,6 @@ h.test("chatMessage NOT starting with '/' does not cancel the event", function()
     TriggerEvent('chatMessage', 1, 'Player', 'hello there')
     h.assertEqual(handle.cancelEventCount(), before, 'a normal chat line must not be cancelled')
 end)
-
--- --- Task 2: QBCore:DebugSomething rate limit --------------------------------
 
 h.test('QBCore:DebugSomething runs once, then a repeat within 1s is dropped', function()
     local calls = 0
@@ -162,7 +158,6 @@ h.test('QBCore:DebugSomething runs again once the cooldown has elapsed', functio
     local realDebug = QBCore.Debug
     QBCore.Debug = function(...) calls = calls + 1 end
 
-    -- Each GetGameTimer() call advances the mock clock by 16ms; push past 1000ms.
     for _ = 1, 70 do GetGameTimer() end
 
     handle.fireEvent('QBCore:DebugSomething', 1, {})
@@ -190,8 +185,6 @@ h.test('qbcore:server:playerDropped clears the debug cooldown entry too (no leak
 
     QBCore.Debug = realDebug
 end)
-
--- --- Task 3: QBCore:CallCommand ----------------------------------------------
 
 h.test('QBCore:CallCommand on an unknown command is a silent no-op', function()
     local before = #handle.clientEvents
@@ -243,7 +236,6 @@ h.test('QBCore:CallCommand without argsrequired runs even with zero args', funct
     h.assertTrue(ran, 'a command with no argsrequired must run regardless of arg count')
 end)
 
--- --- Task 5 (server half): fireSharedUpdateAtLogin opt-in --------------------
 -- The opt-in AddEventHandler('qbcore:server:playerLoaded', ...) is registered
 -- once at load time based on Config.compat.fireSharedUpdateAtLogin, so this
 -- exercises the DEFAULT (false) behaviour here; the opt-in-true behaviour is

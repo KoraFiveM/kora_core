@@ -1,5 +1,3 @@
--- Single flat Config table, per-module sub-tables, a trailing comment on every
--- value -- matching kora_lib's config.lua convention.
 
 Config = Config or {}
 
