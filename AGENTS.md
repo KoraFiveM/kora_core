@@ -66,6 +66,7 @@ under the mocks (see `test/`); it lists every exported name.
   `Kora.shared.get`/`all`; never index or capture those compatibility maps.
 - Client helper functions (`GetClosestPed`, `Draw3DText`, `Progressbar`, ...) are
   thin forwards to `Kora.*`, not reimplementations.
+- `compat/server/qbx.lua` is an OPT-IN (`kora:qbxFacade`) `qbx_core`/`qbx_vehicles` export+event facade for stock ox_inventory; it registers nothing while off, and it never publishes a resource/`provide` named qbx_core. See `docs/qbx-facade.md`.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,
   and hijacking the name would disable a real character-select UI.
 
