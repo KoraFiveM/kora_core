@@ -6,6 +6,19 @@
 
 local PI = CoreInternal.player
 
+-- Value rules for allow-listed client metadata keys. Stock qb-core's own
+-- QBCore:Server:SetMetaData only ever accepted hunger/thirst/stress (numeric,
+-- clamped to 0..100); those are the defaults in Config.compat.clientMetadataKeys.
+-- A key that is allow-listed but has no rule here (an operator addition) is
+-- accepted as-is, exactly as before -- adding rules for it is the operator's
+-- responsibility. Everything else stays server-authoritative (money, jail,
+-- isdead, inlaststand, licences, criminalrecord, callsign, ...).
+local CLIENT_METADATA_RULES = {
+    hunger = { type = 'number', min = 0, max = 100 },
+    thirst = { type = 'number', min = 0, max = 100 },
+    stress = { type = 'number', min = 0, max = 100 },
+}
+
 RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
     local src = source
     -- Starter eligibility is created and consumed exclusively by the server.
@@ -13,13 +26,46 @@ RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
         print(("^3[qbcore]^7 rejected client metadata write from %s for key '%s'"):format(src, tostring(key)))
         return
     end
+    local rule = CLIENT_METADATA_RULES[key]
+    if rule then
+        if type(value) ~= 'number' or value ~= value or value == math.huge or value == -math.huge then
+            print(("^3[qbcore]^7 rejected client metadata write from %s for key '%s': not a finite number"):format(src, key))
+            return
+        end
+        value = math.min(rule.max, math.max(rule.min, value))
+    end
     Core.metadata.setMetaData(src, key, value)
 end)
 
--- Deliberately do not register the stock client-inbound `QBCore:ToggleDuty`.
--- kora_core cannot know a job resource's approved duty locations, and exposing
--- the unrestricted mutation here bypasses those domain policies. Active job
--- resources own their validated duty commands/events instead.
+-- Stock client-inbound `QBCore:ToggleDuty` (qb-policejob / qb-ambulancejob /
+-- qb-mechanicjob duty points trigger it). It used to be left unregistered
+-- because kora_core cannot know a job resource's approved duty locations: any
+-- client can fire it from anywhere. Duty is a low-impact flag (it gates
+-- paychecks and dispatch for a job the player ALREADY holds, and flipping it
+-- grants no job, grade, item or money), so it is registered behind
+-- Config.compat.toggleDutyEvent (default true; set false to restore the strict
+-- "job resources own duty transitions" behaviour). Anti-abuse kept: the caller
+-- must be loaded, must hold a real job (not the default/unemployed one), and is
+-- rate-limited per source. The flip goes through Core.jobs.setJobDuty so the
+-- duty index and QBCore:Server:SetDuty / QBCore:Client:SetDuty still fire.
+local TOGGLE_DUTY_COOLDOWN_MS = 2000
+local dutyCooldowns = {}
+RegisterNetEvent('QBCore:ToggleDuty', function()
+    local src = source
+    if Config.compat.toggleDutyEvent ~= true then return end
+    local now = GetGameTimer()
+    if dutyCooldowns[src] and (now - dutyCooldowns[src]) < TOGGLE_DUTY_COOLDOWN_MS then return end
+    dutyCooldowns[src] = now
+
+    local handle = PI.handle(src)
+    if not handle then return end
+    local job = handle.PlayerData.job
+    if type(job) ~= 'table' or type(job.name) ~= 'string' or job.name == Config.jobs.defaultJob then
+        print(("^3[qbcore]^7 rejected QBCore:ToggleDuty from %s: no job"):format(tostring(src)))
+        return
+    end
+    Core.jobs.setJobDuty(src, not job.onduty)
+end)
 
 RegisterNetEvent('QBCore:Server:Logout', function()
     Core.player.logout(source)
@@ -101,6 +147,7 @@ end)
 AddEventHandler('qbcore:server:playerDropped', function(src)
     updateCooldowns[src] = nil
     debugCooldowns[src] = nil
+    dutyCooldowns[src] = nil
 end)
 
 -- Server open/close (admin menus). Guarded by the same 'admin' permission real

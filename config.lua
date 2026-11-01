@@ -21,6 +21,7 @@ Config.persistence = {
     positionMaxAge = 300000,         -- ms after which position persists even if the player is parked
     volatileMetadataKeys = {},       -- metadata keys routed to a separate column (OFF by default; see AGENTS.md)
     generatedColumns = false,        -- run sql/003 to add VIRTUAL cash/bank/job columns for SQL-side queries
+    legacyVehicleState = false,      -- convert a stock INT player_vehicles.state to kora's ENUM (opt-in; see docs/vehicles-compat.md)
     saveOnDrop = true,               -- immediate flush when a player disconnects
 }
 
@@ -108,7 +109,12 @@ Config.compat = {
     jobUpdateEventSource = 'client',      -- 'client' | 'server' | 'both' -- who emits QBCore:Client:OnJobUpdate
     coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
     warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
-    clientMetadataKeys = {},              -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes; empty is secure by default
+    clientMetadataKeys = {                -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes.
+        hunger = true,                    -- defaults = the keys stock qb-core accepts from clients: numeric only, clamped to 0..100 server-side
+        thirst = true,                    -- (rules live in compat/server/qb-core-events.lua). Every other key is rejected; do NOT add money,
+        stress = true,                    -- jail, isdead, inlaststand, licences, criminalrecord or callsign -- a client could forge them.
+    },
+    toggleDutyEvent = true,               -- register the stock client-inbound QBCore:ToggleDuty (flips the caller's own duty flag; needs a non-default job, 2s per-player cooldown). false = job resources must own duty transitions
     callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
     qbxFacade = false,                    -- publish the qbx_core/qbx_vehicles export+event surface for stock ox_inventory (`inventory:framework qbx`); also enabled by `setr kora:qbxFacade true`. See compat/server/qbx.lua
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
@@ -156,7 +162,7 @@ if Kora and Kora.config and Kora.config.adopt then
         Kora.config.boolean(false), {
             scope = 'server',
             label = 'Client-writable legacy metadata keys',
-            description = 'Allow-lists metadata keys accepted by the legacy QBCore:Server:SetMetaData compatibility event. Use the exact metadata key with true to permit it. The secure default is empty because every enabled key lets a client request changes to that metadata field.',
+            description = 'Allow-lists metadata keys accepted by the legacy QBCore:Server:SetMetaData compatibility event. Use the exact metadata key with true to permit it. The default enables only hunger, thirst and stress (numeric, clamped to 0-100 on the server) as stock qb-core does. Every enabled key lets a client request changes to that metadata field, so never enable money, jail, isdead, inlaststand, licences, criminalrecord or callsign.',
         })
     Config.dependencySupervisor.map = Kora.config.map(Config.dependencySupervisor.map,
         Kora.config.list({}, Kora.config.string('', { minLength = 1 })), {

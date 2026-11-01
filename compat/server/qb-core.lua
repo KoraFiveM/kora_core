@@ -52,26 +52,84 @@ end
 
 local immutableRoots = { source = true, citizenid = true, license = true, cid = true }
 
+local SETPLAYERDATA_REASON = 'qb-compat-setplayerdata'
+
+-- A legacy `money` root write. Non-cash accounts replace the ledger as before.
+-- A physical-cash account (kora_inventory owns it as an item stack, so its
+-- ledger value is a constant 0 and PlayerData.money.cash is NOT the real
+-- balance) is never written: the DELTA between the written value and the
+-- PlayerData view the script saw is applied through the money funnel, so item
+-- stacks stay the only authority. A write that leaves cash equal to the view
+-- (the common "write the table back" case) is a no-op for cash. A removal
+-- larger than the real balance refuses the WHOLE write (nothing is applied)
+-- and logs, so a script can neither overdraw nor get a partial update.
+local function writeLegacyMoney(src, handle, value)
+    if type(value) ~= 'table' then return false, 'money must be a table' end
+    local ledger = handle.PlayerData.money or {}
+    local nextMoney, deltas = {}, {}
+    for account, amount in pairs(value) do
+        if Core.money.isPhysicalCash(account) then
+            local number = tonumber(amount)
+            if not number or number ~= number or number == math.huge or number == -math.huge then
+                return false, 'physical cash amount must be a number'
+            end
+            local delta = number - (tonumber(ledger[account]) or 0)
+            delta = delta >= 0 and math.floor(delta) or -math.floor(-delta)
+            if delta ~= 0 then deltas[#deltas + 1] = { account = account, delta = delta } end
+            nextMoney[account] = ledger[account]
+        else
+            nextMoney[account] = amount
+        end
+    end
+    for account, amount in pairs(ledger) do
+        if nextMoney[account] == nil and Core.money.isPhysicalCash(account) then nextMoney[account] = amount end
+    end
+
+    for _, change in ipairs(deltas) do
+        local available = Core.money.getMoney(src, change.account)
+        if available == nil then return false, 'physical cash balance unavailable' end
+        if change.delta < 0 and -change.delta > available then
+            print(('^3[qbcore:qb-core-bridge]^7 refused SetPlayerData money write for %s: removes %d %s but only %d is available'):format(
+                tostring(src), -change.delta, change.account, available))
+            return false, 'insufficient funds'
+        end
+    end
+    local applied = {}
+    local function rollback()
+        for i = #applied, 1, -1 do
+            local change = applied[i]
+            if change.delta > 0 then
+                Core.money.removeMoney(src, change.account, change.delta, SETPLAYERDATA_REASON .. '-rollback', true)
+            else
+                Core.money.addMoney(src, change.account, -change.delta, SETPLAYERDATA_REASON .. '-rollback', true)
+            end
+        end
+    end
+    for _, change in ipairs(deltas) do
+        local ok, err
+        if change.delta > 0 then
+            ok, err = Core.money.addMoney(src, change.account, change.delta, SETPLAYERDATA_REASON, true)
+        else
+            ok, err = Core.money.removeMoney(src, change.account, -change.delta, SETPLAYERDATA_REASON, true)
+        end
+        if not ok then rollback(); return false, err end
+        applied[#applied + 1] = change
+    end
+
+    if sameValue(nextMoney, ledger) then return true end
+    local data = Core.compat.fromLegacyPlayerData({ money = nextMoney })
+    local ok, err = Core.player.setPath(src, { 'money' }, data.money)
+    if not ok then rollback() end
+    return ok, err
+end
+
 local function writeLegacyRoot(src, key, value)
     if type(key) ~= 'string' then return false, 'player data key must be a string' end
     if immutableRoots[key] then return false, 'player identity is immutable' end
     local handle = PI.handle(src)
     if not handle then return false, 'no such player' end
+    if key == 'money' then return writeLegacyMoney(src, handle, value) end
     local data = Core.compat.fromLegacyPlayerData({ [key] = value })
-    if key == 'money' then
-        local current = handle.PlayerData.money or {}
-        if type(value) ~= 'table' then return false, 'money must be a table' end
-        for account, amount in pairs(current) do
-            if Core.money.isPhysicalCash(account) and value[account] ~= amount then
-                return false, 'physical cash account is inventory-owned'
-            end
-        end
-        for account, amount in pairs(value) do
-            if Core.money.isPhysicalCash(account) and current[account] ~= amount then
-                return false, 'physical cash account is inventory-owned'
-            end
-        end
-    end
     return Core.player.setPath(src, { key }, data[key])
 end
 
@@ -131,7 +189,7 @@ local function buildQBPlayer(src)
     -- transaction. SetMoney has no such param: it is never taxed.
     function F.AddMoney(t, amount, reason, ignoreTax) return Core.money.addMoney(src, t, amount, reason, ignoreTax) end
     function F.RemoveMoney(t, amount, reason, ignoreTax) return Core.money.removeMoney(src, t, amount, reason, ignoreTax) end
-    function F.SetMoney(t, amount, reason) return Core.money.setMoney(src, t, amount, reason) end
+    function F.SetMoney(t, amount, reason) return Core.money.setMoney(src, t, amount, reason or 'qb-compat-setmoney') end
     function F.GetMoney(t) return Core.money.getMoney(src, t) end
 
     function F.AddItem(name, amount, slot, info) return Core.inventory.addItem(src, name, amount, slot, info) end
@@ -186,6 +244,13 @@ local function buildQBPlayer(src)
                 if not ok then
                     self.PlayerData[root] = Core.util.deepClone(current[root])
                     return false, err
+                end
+                -- A physical-cash edit was applied as an item delta; the ledger
+                -- view of that account did not move, so re-baseline the detached
+                -- copy or the next reconcile would apply the same delta again.
+                if root == 'money' then
+                    self.PlayerData.money = Core.util.deepClone(
+                        Core.compat.toLegacyPlayerData(handle.PlayerData).money)
                 end
             end
         end
