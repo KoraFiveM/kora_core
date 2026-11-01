@@ -36,6 +36,9 @@ function M.install(opts)
     end
 
     _G.source = nil
+    _G.GlobalState = {}
+    local players = {}
+    function _G.GetPlayers() return players end
 
     function _G.AddEventHandler(name, cb) eventHandlers[name] = eventHandlers[name] or {}; table.insert(eventHandlers[name], cb) end
     function _G.RegisterNetEvent(name, cb) if cb then netHandlers[name] = netHandlers[name] or {}; table.insert(netHandlers[name], cb) end end
@@ -357,6 +360,7 @@ function M.install(opts)
         sqlResponses = sqlResponses,
         Kora = Kora,
         resourceStates = resourceStates,
+        setPlayers = function(sources) players = sources end,
         executeCommandCalls = executeCommandCalls,
         cancelEventCount = function() return cancelEventCount end,
         setAce = function(src, permission, allowed)
