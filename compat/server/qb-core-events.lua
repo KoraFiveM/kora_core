@@ -60,7 +60,10 @@ RegisterNetEvent('QBCore:ToggleDuty', function()
         print(("^3[qbcore]^7 rejected QBCore:ToggleDuty from %s: no job"):format(tostring(src)))
         return
     end
-    Core.jobs.setJobDuty(src, not job.onduty)
+    local nextDuty = not job.onduty
+    if Core.jobs.setJobDuty(src, nextDuty) then
+        TriggerClientEvent('QBCore:Notify', src, nextDuty and 'You are now on duty!' or 'You are now off duty!')
+    end
 end)
 
 RegisterNetEvent('QBCore:Server:Logout', function()
@@ -78,15 +81,18 @@ AddEventHandler('chatMessage', function(_, _, message)
     end
 end)
 
--- Registered so the name is dispatchable at all -- FXServer silently drops a
--- client TriggerServerEvent for a net event name no resource has
--- RegisterNetEvent'd server-side, so real qb-spawn/qb-multicharacter's own
--- TriggerServerEvent('QBCore:Server:OnPlayerLoaded') (and any third-party
--- AddEventHandler for it) would otherwise be a complete no-op here. No Core.*
--- action needed: Core.player.login's adopt() already fires the equivalent
--- PlayerLoaded/OnPlayerLoaded signals, at character-select time rather than
--- a pre-existing timing difference.
-RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function() end)
+-- Stock qb-core answers this client event (sent by qb-spawn / qb-multicharacter
+-- after spawn) with QBCore:Client:OnPlayerLoaded. kora_core fires that at login
+-- by default, so this stays a no-op unless Config.compat.deferClientPlayerLoaded
+-- moves the client event to this point (once per login).
+RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
+    local src = source
+    if Config.compat.deferClientPlayerLoaded ~= true then return end
+    local handle = PI.handle(src)
+    if not handle or handle._clientLoadedSent then return end
+    handle._clientLoadedSent = true
+    TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+end)
 
 -- UpdateObject: legacy resources call this to grab a fresh core object handle
 -- server-side. It re-broadcasts the object to the caller via the client event.
@@ -208,7 +214,7 @@ end)
 --      behaviour).
 --   2. `command.<name>` ACE permission required of the INVOKING player. No
 --      blanket-ACE or Core.permissions fallback -- upstream has neither; a
---      caller either holds the specific per-command ACE or the call is denied.
+--      caller either holds the specific per-command ACE or is told 'No access'.
 --   3. If the definition declares argsrequired and the caller didn't supply
 --      enough (fewer than #params), notify and stop -- never runs the callback.
 --   4. Otherwise call List[name].callback(src, args) in-process.
@@ -220,13 +226,15 @@ RegisterNetEvent('QBCore:CallCommand', function(name, args)
     if not cmd then return end
 
     if not IsPlayerAceAllowed(src, 'command.' .. name) then
+        TriggerClientEvent('QBCore:Notify', src, 'No access to this command', 'error')
         return
     end
 
     -- args come straight from the client: only a short array is meaningful.
     if type(args) ~= 'table' or #args > 16 then args = {} end
-    if cmd.argsrequired and cmd.params and #args < #cmd.params then
-        TriggerClientEvent('QBCore:Notify', src, 'Missing arguments for this command!', 'error')
+    local declared = cmd.arguments or cmd.params
+    if cmd.argsrequired and type(declared) == 'table' and #declared ~= 0 and args[#declared] == nil then
+        TriggerClientEvent('QBCore:Notify', src, 'All arguments must be filled out!', 'error')
         return
     end
 
@@ -251,10 +259,4 @@ if Config.compat.fireSharedUpdateAtLogin then
     end)
 end
 
--- Deliberately do not register QBCore:Server:SpawnVehicle or
--- QBCore:Server:CreateVehicle. Their legacy wire shape gives every client an
--- arbitrary server-side entity creation capability: kora_core cannot infer which
--- job, garage, model, or location authorized the request. Trusted server
--- resources can still call QBCore.Functions.SpawnVehicle/CreateVehicle
--- directly; player-facing resources must expose their own guarded callback and
--- derive model/coordinates from server-owned configuration.
+-- QBCore:Server:SpawnVehicle / CreateVehicle live in compat/server/qb-vehicles.lua.

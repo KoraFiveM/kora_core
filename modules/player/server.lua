@@ -350,7 +350,8 @@ local function adopt(src, player)
     -- Legacy load events (both directions), plus the modern one.
     -- Stock qb-core sends the Player wrapper. Legacy resources (including
     -- qb-inventory) immediately dereference Player.PlayerData here.
-    TriggerEvent('QBCore:Server:PlayerLoaded', player)                     -- legacy server-side
+    -- Stock hands listeners its Player object (.PlayerData/.Functions); the compat layer builds it.
+    TriggerEvent('QBCore:Server:PlayerLoaded', Core.compat.buildLoadedPlayer and Core.compat.buildLoadedPlayer(src) or player)
     TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
     Core.replication._sendSnapshot(player)                                 -- prime the client mirror
     if Core.money and Core.money.syncState then Core.money.syncState(src) end
@@ -364,7 +365,12 @@ local function adopt(src, player)
     -- Preserve the legacy client event, but dispatch it only after the
     -- snapshot has reached the client.  Legacy consumers now observe usable
     -- PlayerData rather than having to race the replication channel.
-    TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    -- Config.compat.deferClientPlayerLoaded moves this to the stock point: the client's
+    -- QBCore:Server:OnPlayerLoaded after spawn (compat/server/qb-core-events.lua).
+    if Config.compat.deferClientPlayerLoaded ~= true then
+        player._clientLoadedSent = true
+        TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    end
     return true
 end
 

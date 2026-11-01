@@ -345,20 +345,65 @@ end
 -- filled into the legacy VIEW only: existing values are never overwritten and
 -- nothing here is persisted, so a native character gains `criminalrecord`,
 -- `phonedata`, `inside`, ... for resources that index them unguarded.
--- Function defaults are random per call (bloodtype, fingerprint, walletid) and
--- would differ on every read, so they are skipped (new characters are seeded
--- with them natively); phonedata.SerialNumber is derived from the citizenid so
--- it is stable instead.
-local function stableSerial(citizenid)
+-- Stock's random function defaults would differ on every read, so the ones a
+-- script treats as an identity (bloodtype, fingerprint, walletid, phone serial,
+-- bank account) are derived deterministically from the citizenid instead: stable
+-- per character, never written back.
+local function citizenHash(citizenid, salt)
     local hash = 7
-    for i = 1, #tostring(citizenid or '') do hash = (hash * 31 + tostring(citizenid):byte(i)) % 1000000007 end
-    return ('%09d'):format(hash)
+    local text = tostring(citizenid or '') .. ':' .. salt
+    for i = 1, #text do hash = (hash * 31 + text:byte(i)) % 2147483629 end
+    return hash
 end
+
+local function derivedStream(citizenid, salt)
+    local state = citizenHash(citizenid, salt)
+    return function(maximum)
+        state = (state * 48271) % 2147483647
+        return state % maximum
+    end
+end
+
+local LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+local function derivedDigits(next, length)
+    local out = {}
+    for i = 1, length do out[i] = tostring(next(10)) end
+    return table.concat(out)
+end
+
+local function derivedLetters(next, length)
+    local out = {}
+    for i = 1, length do local at = next(#LETTERS) + 1; out[i] = LETTERS:sub(at, at) end
+    return table.concat(out)
+end
+
+local DERIVED = {
+    SerialNumber = function(citizenid) return derivedDigits(derivedStream(citizenid, 'serial'), 9) end,
+    bloodtype = function(citizenid)
+        local types = QBCore.Config.Player and QBCore.Config.Player.Bloodtypes or { 'O+' }
+        return types[derivedStream(citizenid, 'blood')(#types) + 1]
+    end,
+    fingerprint = function(citizenid)
+        local next = derivedStream(citizenid, 'finger')
+        return derivedLetters(next, 2) .. derivedDigits(next, 3) .. derivedLetters(next, 1)
+            .. derivedDigits(next, 2) .. derivedLetters(next, 3) .. derivedDigits(next, 4)
+    end,
+    walletid = function(citizenid) return 'QB-' .. derivedDigits(derivedStream(citizenid, 'wallet'), 8) end,
+    account = function(citizenid)
+        local next = derivedStream(citizenid, 'account')
+        return 'US0' .. (next(9) + 1) .. 'QBCore' .. derivedDigits(next, 8) .. derivedDigits(next, 2)
+    end,
+    phone = function(citizenid)
+        local next = derivedStream(citizenid, 'phone')
+        return tostring(100 + next(900)) .. derivedDigits(next, 7)
+    end,
+}
 
 local function fillTable(target, defaults, citizenid)
     for key, default in pairs(defaults) do
         if type(default) == 'function' then
-            if key == 'SerialNumber' and target[key] == nil then target[key] = stableSerial(citizenid) end
+            if DERIVED[key] and target[key] == nil then target[key] = DERIVED[key](citizenid) end
         elseif target[key] == nil then
             target[key] = type(default) == 'table' and fillTable({}, default, citizenid) or default
         elseif type(default) == 'table' and type(target[key]) == 'table' then
@@ -377,7 +422,7 @@ local function needsFill(target, defaults)
     for key, default in pairs(defaults) do
         local current = target[key]
         if type(default) == 'function' then
-            if key == 'SerialNumber' and current == nil then return true end
+            if DERIVED[key] and current == nil then return true end
         elseif current == nil then
             return true
         elseif type(default) == 'table' and type(current) == 'table' and needsFill(current, default) then
@@ -387,14 +432,27 @@ local function needsFill(target, defaults)
     return false
 end
 
-local function fillMetadataDefaults(metadata, citizenid)
+local function fillFromDefaults(value, key, citizenid)
     local defaults = QBCore and QBCore.Config and QBCore.Config.Player
-        and QBCore.Config.Player.PlayerDefaults and QBCore.Config.Player.PlayerDefaults.metadata
-    if type(metadata) ~= 'table' or type(defaults) ~= 'table' then return metadata end
+        and QBCore.Config.Player.PlayerDefaults and QBCore.Config.Player.PlayerDefaults[key]
+    if type(value) ~= 'table' or type(defaults) ~= 'table' then return value end
     local copy = {}
-    for k, v in pairs(metadata) do copy[k] = v end
+    for k, v in pairs(value) do copy[k] = v end
     if not needsFill(copy, defaults) then return copy end
     return fillTable(copy, defaults, citizenid)
+end
+
+local function fillMetadataDefaults(metadata, citizenid) return fillFromDefaults(metadata, 'metadata', citizenid) end
+local function fillCharinfoDefaults(charinfo, citizenid) return fillFromDefaults(charinfo, 'charinfo', citizenid) end
+
+-- Kora stores the heading as `h`; stock's vector4 JSON uses `w`. Both are exposed.
+local function legacyPosition(position)
+    if type(position) ~= 'table' then return position end
+    local view = {}
+    for k, v in pairs(position) do view[k] = v end
+    if view.w == nil then view.w = view.h end
+    if view.h == nil then view.h = view.w end
+    return view
 end
 
 -- A legacy-shaped PlayerData table: every root key copied by reference
@@ -413,12 +471,19 @@ local function toLegacyPlayerData(playerData)
     view.job = toLegacyJobOrGang(playerData.job, 'jobs')
     view.gang = toLegacyJobOrGang(playerData.gang, 'gangs')
     view.metadata = fillMetadataDefaults(playerData.metadata, playerData.citizenid)
+    view.charinfo = fillCharinfoDefaults(playerData.charinfo, playerData.citizenid)
+    view.position = legacyPosition(playerData.position)
+    if view.optin == nil then view.optin = true end
     return view
 end
 
 local function fromLegacyPlayerData(playerData)
     if type(playerData) ~= 'table' then return playerData end
     local internal = Core.util.deepClone(playerData)
+    if type(internal.position) == 'table' then
+        if internal.position.h == nil then internal.position.h = internal.position.w end
+        internal.position.w = nil
+    end
     for _, key in ipairs({ 'job', 'gang' }) do
         local value = internal[key]
         if type(value) == 'table' and type(value.grade) == 'table' then
@@ -446,6 +511,8 @@ Core.compat.fromLegacyGradeLevel = fromLegacyGradeLevel
 Core.compat.toLegacyJobOrGang = toLegacyJobOrGang
 Core.compat.toLegacyPlayerData = toLegacyPlayerData
 Core.compat.fillMetadataDefaults = fillMetadataDefaults
+Core.compat.fillCharinfoDefaults = fillCharinfoDefaults
+Core.compat.legacyPosition = legacyPosition
 Core.compat.fromLegacyPlayerData = fromLegacyPlayerData
 Core.compat.canonicalSharedNamespace = canonicalSharedNamespace
 

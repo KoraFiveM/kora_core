@@ -371,3 +371,17 @@ Part of the [qbcore2](https://github.com/qbcore2) resource set:
 - [qbclothing](https://qbcore2.github.io/kora_clothing/) — clothing/wardrobe
 - [qbadmin](https://qbcore2.github.io/kora_admin/) — admin menu
 - [full resource list ↗](https://github.com/orgs/qbcore2/repositories)
+
+## qb-core parity behaviour
+
+- `QBCore:Server:PlayerLoaded` carries the stock Player wrapper (`.PlayerData`, `.Functions`), the same object as `QBCore.Players[src]`.
+- `QBCore:Client:OnPlayerLoaded` fires at login by default. `Config.compat.deferClientPlayerLoaded = true` moves it to the stock
+  point (the client's `QBCore:Server:OnPlayerLoaded` after spawn, once per login; kora_multichar and stock qb-spawn send it).
+  Do not enable it if any login path skips that event: kora_loading and other consumers wait for the client event.
+- `GetPlayerByLicense` falls back to the offline lookup (`GetOfflinePlayerByLicense`, read-only via kora_sql) like stock.
+- Compat PlayerData view only (nothing extra persisted): root `optin` (default true; `ToggleOptin`/`IsOptin` use it, admin only),
+  `position.w` beside `h`, `items` always a table, `charinfo.account` and `metadata.bloodtype/fingerprint/walletid/phonedata.SerialNumber`
+  derived deterministically from the citizenid when absent.
+- `QBCore.PlayerData` on the client is updated in place. `QBCore:Client:OnPlayerUpdated` still ignores the pushed value and
+  `QBCore:Client:SharedUpdate` stays a no-op by design (server-authoritative mirror). `QBCore:ToggleDuty` notifies on/off duty.
+- Vehicle spawn callbacks: see `vehicle-spawn.md`.

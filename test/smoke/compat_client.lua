@@ -199,4 +199,56 @@ h.test('client SpawnVehicle stops cleanly when its model cannot load', function(
     h.assertEqual(created, 0, 'CreateVehicle must not run with an unloaded model')
 end)
 
+h.test('client SpawnVehicle returns the server-spawned networked vehicle (stock isnetworked semantics)', function()
+    local asked, warps, cbVeh = nil, {}, nil
+    _G.IsModelInCdimage = function() return true end
+    _G.vec3 = function(x, y, z) return { x = x, y = y, z = z } end
+    _G.NetworkDoesNetworkIdExist = function() return true end
+    _G.NetworkGetEntityFromNetworkId = function(netId) return netId + 1 end
+    _G.DoesEntityExist = function() return true end
+    _G.TaskWarpPedIntoVehicle = function(_, veh) warps[#warps + 1] = veh end
+    _G.SetVehicleHasBeenOwnedByPlayer = function() end
+    _G.SetVehicleNeedsToBeHotwired = function() end
+    _G.SetVehRadioStation = function() end
+    _G.SetVehicleFuelLevel = function() end
+    _G.CreateVehicle = function() error('a networked request must not create a client entity') end
+    Kora.loops.controlled = function(fn) return fn() end
+    QBCore.Functions.TriggerCallback = function(name, ...) asked = { name = name, args = { ... } }; return 4000 end
+
+    local result
+    coroutine.wrap(function()
+        result = QBCore.Functions.SpawnVehicle(123, function(veh) cbVeh = veh end, { x = 1, y = 2, z = 3, w = 90 }, nil, true)
+    end)()
+    h.assertEqual(asked.name, 'QBCore:Server:SpawnVehicle')
+    h.assertEqual(asked.args[1], 123)
+    h.assertEqual(asked.args[2].w, 90)
+    h.assertEqual(asked.args[3], true)
+    h.assertEqual(result, 4001)
+    h.assertEqual(cbVeh, 4001)
+    h.assertEqual(warps[1], 4001)
+end)
+
+h.test('client SpawnVehicle falls back to a local vehicle when the server refuses', function()
+    local created = {}
+    _G.HasModelLoaded = function() return true end
+    _G.SetModelAsNoLongerNeeded = function() end
+    _G.CreateVehicle = function(_, _, _, _, _, networked) created[#created + 1] = networked; return 600 end
+    QBCore.Functions.TriggerCallback = function() return nil end
+    Kora.loops.controlled = function(fn) return fn() end
+    local result
+    coroutine.wrap(function() result = QBCore.Functions.SpawnVehicle(123, nil, { x = 1, y = 2, z = 3, w = 0 }, true, false) end)()
+    h.assertEqual(result, 600)
+    h.assertEqual(created[1], false)
+end)
+
+h.test('isnetworked == false and callbacks off never ask the server', function()
+    local asked = 0
+    QBCore.Functions.TriggerCallback = function() asked = asked + 1 end
+    coroutine.wrap(function() QBCore.Functions.SpawnVehicle(123, nil, { x = 1, y = 2, z = 3, w = 0 }, false, false) end)()
+    Config.compat.vehicleSpawnCallbacks = 'off'
+    coroutine.wrap(function() QBCore.Functions.SpawnVehicle(123, nil, { x = 1, y = 2, z = 3, w = 0 }, true, false) end)()
+    Config.compat.vehicleSpawnCallbacks = 'limited'
+    h.assertEqual(asked, 0)
+end)
+
 h.report('compat_client')

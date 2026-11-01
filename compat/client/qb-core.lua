@@ -26,6 +26,8 @@ local NOTIFY_TYPE_MAP = {
     success = 'success',
     warning = 'warning',
     error   = 'error',
+    police  = 'info',
+    ambulance = 'info',
 }
 
 local function resolveLocalizedText(value)
@@ -517,30 +519,63 @@ function F.LoadModel(model, timeout)
     return awaitStreamingAsset(modelName, timeout, RequestModel, HasModelLoaded, SetModelAsNoLongerNeeded)
 end
 
-function F.SpawnVehicle(model, cb, coords, isnetworked, teleportInto)
-    local ped = PlayerPedId()
-    model = type(model) == 'string' and joaat(model) or model
-    if not IsModelInCdimage(model) then return end
-    if coords then
-        coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
-    else
-        coords = GetEntityCoords(ped)
-    end
-    if isnetworked ~= false and not warnedClientNetworkVehicle then
-        warnedClientNetworkVehicle = true
-        print('[qbcore] client SpawnVehicle now creates a local vehicle under strict entity lockdown; use a server-owned gameplay spawn for shared vehicles.')
-    end
-    local loaded = F.LoadModel(model)
-    if not loaded then return false end
-    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, coords.w, false, false)
-    if not veh or veh == 0 or not DoesEntityExist(veh) then
-        SetModelAsNoLongerNeeded(model)
-        return false
-    end
+local function applyOwnedVehicleDefaults(veh)
     SetVehicleHasBeenOwnedByPlayer(veh, true)
     SetVehicleNeedsToBeHotwired(veh, false)
     SetVehRadioStation(veh, 'OFF')
     SetVehicleFuelLevel(veh, 100.0)
+end
+
+-- Strict entity lockdown deletes client-created networked entities, so a networked
+-- request is relayed to the server's validated QBCore:Server:SpawnVehicle (see
+-- compat/server/qb-vehicles.lua). Any refusal returns nil and the caller falls
+-- back to a local vehicle.
+local function spawnNetworkedVehicle(model, coords, heading, teleportInto)
+    if Config.compat.vehicleSpawnCallbacks == 'off' or not coroutine.isyieldable() then return nil end
+    local netId = F.TriggerCallback('QBCore:Server:SpawnVehicle', model,
+        { x = coords.x, y = coords.y, z = coords.z, w = heading or 0.0 }, teleportInto == true)
+    if type(netId) ~= 'number' then return nil end
+    local veh = Kora.loops.controlled(function()
+        if NetworkDoesNetworkIdExist(netId) then
+            local entity = NetworkGetEntityFromNetworkId(netId)
+            if entity ~= 0 and DoesEntityExist(entity) then return entity end
+        end
+    end, false, 5000, 25)
+    return veh or nil
+end
+
+function F.SpawnVehicle(model, cb, coords, isnetworked, teleportInto)
+    local ped = PlayerPedId()
+    model = type(model) == 'string' and joaat(model) or model
+    if not IsModelInCdimage(model) then return end
+    local heading
+    if coords then
+        heading = coords.w
+        coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
+    else
+        coords = GetEntityCoords(ped)
+    end
+    if isnetworked ~= false then
+        local veh = spawnNetworkedVehicle(model, coords, heading, teleportInto)
+        if veh then
+            applyOwnedVehicleDefaults(veh)
+            if teleportInto then TaskWarpPedIntoVehicle(PlayerPedId(), veh, -1) end
+            if cb then cb(veh) end
+            return veh
+        end
+        if not warnedClientNetworkVehicle then
+            warnedClientNetworkVehicle = true
+            print('[qbcore] client SpawnVehicle could not get a server-validated networked vehicle (see Config.compat.vehicleSpawnCallbacks); creating a local vehicle instead.')
+        end
+    end
+    local loaded = F.LoadModel(model)
+    if not loaded then return false end
+    local veh = CreateVehicle(model, coords.x, coords.y, coords.z, heading or coords.w, false, false)
+    if not veh or veh == 0 or not DoesEntityExist(veh) then
+        SetModelAsNoLongerNeeded(model)
+        return false
+    end
+    applyOwnedVehicleDefaults(veh)
     SetModelAsNoLongerNeeded(model)
     if teleportInto then TaskWarpPedIntoVehicle(PlayerPedId(), veh, -1) end
     if cb then cb(veh) end

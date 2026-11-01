@@ -50,3 +50,13 @@ There is no `/id` in qb-core's `commands.lua`, so none is registered.
   be configured accounts and amounts finite, model names `[%w_]{1,32}`,
   coordinates finite, `/setjob` and `/setgang` grades whole numbers >= 0 (a missing or invalid grade is rejected, not defaulted to 0). Console (`source 0`) can run the commands that do not need
   a player ped.
+
+## Parity notes (`car`, `togglepvp`, `openserver`, `closeserver`, `addpermission`, `removepermission`)
+
+Messages, permission levels and flows match stock. Deliberate differences: `/car` spawns server-side (no fuel/dirt reset);
+`/togglepvp` also replies to the caller; `/closeserver` joins all words as the reason (stock uses the first);
+`/addpermission` and `/removepermission` accept only `QBCore.Config.Server.Permissions`.
+
+`QBCore.Commands.Add(name, help, args, argsRequired, cb, permission, ...)` accepts extra permission levels like stock
+(`List[name].permission` is then an array); `List` keys are lower-cased and entries carry `arguments` (and `params`).
+`QBCore:CallCommand` notifies `No access to this command` / `All arguments must be filled out!` like stock.
