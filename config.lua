@@ -117,6 +117,7 @@ Config.compat = {
     toggleDutyEvent = true,               -- register the stock client-inbound QBCore:ToggleDuty (flips the caller's own duty flag; needs a non-default job, 2s per-player cooldown). false = job resources must own duty transitions
     callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
     qbxFacade = false,                    -- publish the qbx_core/qbx_vehicles export+event surface for stock ox_inventory (`inventory:framework qbx`); also enabled by `setr kora:qbxFacade true`. See compat/server/qbx.lua
+    defaultCommands = true,               -- register the 20 stock qb-core commands (tp, tpm, togglepvp, addpermission, removepermission, openserver, closeserver, car, dv, dvall, dvp, dvo, givemoney, setmoney, job, setjob, gang, setgang, ooc, me); a name another resource already registered is kept. See docs/default-commands.md
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 

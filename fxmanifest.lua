@@ -127,6 +127,7 @@ server_scripts {
     'modules/dependencySupervisor/server.lua',
     'compat/server/qb-core.lua',
     'compat/server/qb-core-events.lua',
+    'compat/server/qb-commands.lua', -- stock default commands; Config.compat.defaultCommands
     'compat/server/qb-multicharacter.lua',
     'compat/server/qb-spawn.lua',
     'compat/server/qbx.lua', -- opt-in (kora:qbxFacade); registers nothing while off

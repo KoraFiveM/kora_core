@@ -309,11 +309,11 @@ RegisterNetEvent('QBCore:Client:OnPlayerUpdated', function(key, _, token)
         Core.replication.reannounceFull()
     elseif key == 'job' then
         if token == 'qbcore:rep:refire' then return end
-        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.job) or data.job
+        local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.job, 'jobs') or data.job
         TriggerEvent('QBCore:Client:OnJobUpdate', legacyJob)
     elseif key == 'gang' then
         if token == 'qbcore:rep:refire' then return end
-        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.gang) or data.gang
+        local legacyGang = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(data.gang, 'gangs') or data.gang
         TriggerEvent('QBCore:Client:OnGangUpdate', legacyGang)
     end
     -- Any other key: no-op. Divergence from upstream, which would apply an

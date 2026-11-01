@@ -44,6 +44,7 @@ local function scheduleFlush()
                 local ops = {}
                 for _, op in pairs(player._pendingOps) do ops[#ops + 1] = op end
                 player._pendingOps = {}
+                if PI.mirrorOps then PI.mirrorOps(player, ops) end   -- physical-cash mirror (money module)
                 if #ops > 0 then
                     player._seq = player._seq + 1
                     TriggerClientEvent('qbcore:rep:delta', player.source, player._seq, ops)
@@ -88,7 +89,14 @@ end
 -- expected seq to the current server seq.
 ---@param player table
 function Core.replication._sendSnapshot(player)
-    TriggerClientEvent('qbcore:rep:snapshot', player.source, player._seq, player.PlayerData)
+    local data = PI.mirrorSnapshot and PI.mirrorSnapshot(player) or player.PlayerData
+    TriggerClientEvent('qbcore:rep:snapshot', player.source, player._seq, data)
+end
+
+---Schedule a flush for a player with no queued op (the cash mirror adds its own).
+function Core.replication._touch(player)
+    pendingPlayers[player.citizenid] = true
+    scheduleFlush()
 end
 
 function Core.replication._adopt(player)

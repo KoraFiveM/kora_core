@@ -50,15 +50,24 @@ local function sameValue(a, b)
     return true
 end
 
+-- Legacy-shaped copy of a handle's PlayerData whose physical-cash accounts carry
+-- the REAL item balance (the ledger value is a constant 0). See the cash mirror
+-- in modules/money/server.lua.
+local function legacyView(src, playerData)
+    local view = Core.compat.toLegacyPlayerData(Core.util.deepClone(playerData))
+    if type(view.money) == 'table' and Core.money._mirrorOverlay then Core.money._mirrorOverlay(src, view.money) end
+    return view
+end
+
 local immutableRoots = { source = true, citizenid = true, license = true, cid = true }
 
 local SETPLAYERDATA_REASON = 'qb-compat-setplayerdata'
 
 -- A legacy `money` root write. Non-cash accounts replace the ledger as before.
 -- A physical-cash account (kora_inventory owns it as an item stack, so its
--- ledger value is a constant 0 and PlayerData.money.cash is NOT the real
--- balance) is never written: the DELTA between the written value and the
--- PlayerData view the script saw is applied through the money funnel, so item
+-- ledger value is a constant 0; the compat PlayerData.money.cash mirrors the
+-- real balance) is never written: the DELTA between the written value and the
+-- mirrored balance (what the script saw) is applied through the money funnel, so item
 -- stacks stay the only authority. A write that leaves cash equal to the view
 -- (the common "write the table back" case) is a no-op for cash. A removal
 -- larger than the real balance refuses the WHOLE write (nothing is applied)
@@ -73,7 +82,14 @@ local function writeLegacyMoney(src, handle, value)
             if not number or number ~= number or number == math.huge or number == -math.huge then
                 return false, 'physical cash amount must be a number'
             end
-            local delta = number - (tonumber(ledger[account]) or 0)
+            -- Baseline is the MIRRORED balance the script saw (the compat
+            -- view), not a live item query: if the stack moved after the read,
+            -- the script's intended change still lands on top of the live
+            -- balance. The live balance only gates insufficient funds below.
+            local seen = Core.money._mirroredBalance(src, account)
+            if seen == nil then seen = Core.money.getMoney(src, account) end
+            if seen == nil then return false, 'physical cash balance unavailable' end
+            local delta = number - seen
             delta = delta >= 0 and math.floor(delta) or -math.floor(-delta)
             if delta ~= 0 then deltas[#deltas + 1] = { account = account, delta = delta } end
             nextMoney[account] = ledger[account]
@@ -148,7 +164,7 @@ local function buildQBPlayer(src)
     -- Core.compat.onPlayerDataChanged (registered below), which
     -- Core.player.setPath calls on every write, so this never goes stale --
     -- including root-level replacements like SetJob/SetGang/SetInventory.
-    local self = { PlayerData = Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData)), Offline = false }
+    local self = { PlayerData = legacyView(src, handle.PlayerData), Offline = false }
     local F = {}
     self.Functions = F
 
@@ -158,10 +174,12 @@ local function buildQBPlayer(src)
     end
 
     function F.GetName() return handle.PlayerData.name end
-    function F.GetPlayerData() return Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData)) end
+    function F.GetPlayerData() return legacyView(src, handle.PlayerData) end
 
-    function F.SetJob(name, grade) return Core.jobs.setJob(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
-    function F.SetGang(name, grade) return Core.jobs.setGang(src, name, Core.compat.fromLegacyGradeLevel(grade)) end
+    -- Stock lower-cases the name (`job = job:lower()`).
+    local function lowered(name) return type(name) == 'string' and name:lower() or name end
+    function F.SetJob(name, grade) return Core.jobs.setJob(src, lowered(name), Core.compat.fromLegacyGradeLevel(grade)) end
+    function F.SetGang(name, grade) return Core.jobs.setGang(src, lowered(name), Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetJobDuty(onDuty) return Core.jobs.setJobDuty(src, onDuty) end
     -- 'onduty' is routed through Core.jobs.setJobDuty rather than written
     -- straight to the path: duty is indexed (byJobOnDuty / byTypeOnDuty), and a
@@ -173,7 +191,7 @@ local function buildQBPlayer(src)
     -- reconciler cannot retrofit.
     local function setRoleData(kind, key, value)
         if type(key) ~= 'string' then return false end
-        local role = Core.compat.toLegacyJobOrGang(Core.util.deepClone(handle.PlayerData[kind]))
+        local role = Core.compat.toLegacyJobOrGang(Core.util.deepClone(handle.PlayerData[kind]), kind == 'job' and 'jobs' or 'gangs')
         role[key] = value
         local ok, err = writeLegacyRoot(src, kind, role)
         return publishWrite(ok, err, kind)
@@ -232,7 +250,7 @@ local function buildQBPlayer(src)
         if key == 'all' then key = nil end
         if key ~= nil and type(key) ~= 'string' then return false, 'player data key must be a string' end
         if key and select('#', ...) > 0 then self.PlayerData[key] = Core.util.deepClone((...)) end
-        local current = Core.compat.toLegacyPlayerData(handle.PlayerData)
+        local current = legacyView(src, handle.PlayerData)
         local roots = {}
         if key then roots[key] = true else
             for root in pairs(current) do roots[root] = true end
@@ -249,8 +267,7 @@ local function buildQBPlayer(src)
                 -- view of that account did not move, so re-baseline the detached
                 -- copy or the next reconcile would apply the same delta again.
                 if root == 'money' then
-                    self.PlayerData.money = Core.util.deepClone(
-                        Core.compat.toLegacyPlayerData(handle.PlayerData).money)
+                    self.PlayerData.money = legacyView(src, handle.PlayerData).money
                 end
             end
         end
@@ -261,7 +278,7 @@ local function buildQBPlayer(src)
         if key == 'all' then key = nil end
         local ok, err = reconcilePlayerData(key, ...)
         if not ok then return false, err end
-        local data = Core.compat.toLegacyPlayerData(Core.util.deepClone(handle.PlayerData))
+        local data = legacyView(src, handle.PlayerData)
         local eventKey, value = key or 'all', data
         if key then value = data[key] end
         if not key then TriggerEvent('QBCore:Player:SetPlayerData', data) end
@@ -563,9 +580,12 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
 
     local root = path[1]
     value = Core.util.deepClone(value)
+    if root == 'metadata' and #path == 1 then
+        value = Core.compat.fillMetadataDefaults(value, player.PlayerData.citizenid)
+    end
     if root == 'job' or root == 'gang' then
         if #path == 1 then
-            value = Core.compat.toLegacyJobOrGang(value)
+            value = Core.compat.toLegacyJobOrGang(value, root == 'job' and 'jobs' or 'gangs')
         elseif path[2] == 'grade' and value ~= nil then
             if #path == 2 and type(value) == 'table' then
                 value.level = Core.compat.toLegacyGradeLevel(value.level)
@@ -575,6 +595,10 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
         end
     end
     Core.util.pathSet(player.PlayerData, path, value)
+    -- A ledger write must not clobber the mirrored real cash balance.
+    if root == 'money' and type(player.PlayerData.money) == 'table' and Core.money._mirrorOverlay then
+        Core.money._mirrorOverlay(src, player.PlayerData.money)
+    end
 end
 
 -- --- QBCore.Functions.* ------------------------------------------------------
@@ -1473,6 +1497,10 @@ local function rebuildCommandList()
         }
     end
 end
+-- Permission levels that need no per-command ACE: god is allowed every command
+-- and user is builtin.everyone (same as stock qb-core).
+QBCore.Commands.IgnoreList = QBCore.Commands.IgnoreList or { god = true, user = true }
+
 QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
     -- Stock resources also use { { 'id', 'description' } } suggestions. Adapt
     -- that legacy shape here, leaving the native command contract strict and
@@ -1487,7 +1515,22 @@ QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission)
             end
         end
     end
-    Core.commands.addCommand(name, help, nativeArgs, argsRequired, cb, permission)
+    -- Stock fires QBCore:Server:PreCommandExecution (cancellable) before the
+    -- callback of every command run from chat/console. QBCore:CallCommand
+    -- invokes the stored raw callback directly, as stock does.
+    local function guarded(source, commandArgs, rawCommand)
+        TriggerEvent('QBCore:Server:PreCommandExecution', source, name, commandArgs, rawCommand)
+        if WasEventCanceled and WasEventCanceled() then return end
+        return cb(source, commandArgs, rawCommand)
+    end
+    Core.commands.addCommand(name, help, nativeArgs, argsRequired, guarded, permission)
+    -- Stock grants the permission group the `command.<name>` ACE, which is
+    -- what QBCore:CallCommand and Commands.Refresh check.
+    local level = type(permission) == 'string' and permission:lower() or 'user'
+    if level:match('^[%w_]+$') and type(name) == 'string' and name:match('^[%w_:%.%-]+$')
+        and not QBCore.Commands.IgnoreList[level] then
+        ExecuteCommand(('add_ace qbcore.%s command.%s allow'):format(level, name))
+    end
     commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb }
     rebuildCommandList()
 end
