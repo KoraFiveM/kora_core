@@ -144,6 +144,7 @@ client_scripts {
     'modules/development/client.lua',
     'modules/needs/client.lua',
     'modules/jail/client.lua',
+    'modules/vehicleAirControl/client.lua',
     'modules/jobs/client.lua',
     'modules/inventory/client.lua',
     'modules/multichar/client.lua',

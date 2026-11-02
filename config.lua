@@ -134,6 +134,16 @@ Config.compat = {
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 
+Config.vehicleAirControl = {
+    disable = true,                  -- true = the driver cannot steer, pitch or roll a vehicle while it is airborne (no "perfect landings"). false = stock GTA air control
+    -- Vehicle classes (GetVehicleClass) that KEEP their air control. Default: cycles (13),
+    -- boats (14), helicopters (15), planes (16) and trains (21). Motorcycles (8) are NOT
+    -- exempt, so they lose air control too; add 8 to let bikes keep it. Other classes:
+    -- 0 compacts, 1 sedans, 2 SUVs, 3 coupes, 4 muscle, 5 sports classics, 6 sports, 7 super,
+    -- 9 off-road, 10 industrial, 11 utility, 12 vans, 17 service, 18 emergency, 19 military, 20 commercial.
+    exemptClasses = { 13, 14, 15, 16, 21 },
+}
+
 Config.replication = {
     resyncRateLimit = 5000,          -- ms; a client may request at most one resync per this window
 }
@@ -183,6 +193,19 @@ if Kora and Kora.config and Kora.config.adopt then
             scope = 'server',
             label = 'Dependency restart map',
             description = 'Maps a provider resource name to the ordered list of dependent resources restarted after that provider starts. Empty lists are valid. This supervisor remains inactive unless Dependency supervisor enabled is also turned on; review restart ordering and player impact before enabling it.',
+        })
+    Config.vehicleAirControl.disable = Kora.config.boolean(Config.vehicleAirControl.disable, {
+        scope = 'client',
+        live = true,
+        label = 'Disable vehicle air control',
+        description = 'When on, the driver of a non-exempt vehicle cannot steer, pitch or roll it while it is airborne, which stops perfect landings. It never blocks controls while the vehicle is on the ground, even upside down. Read each time the driver enters a vehicle, so a change applies from the next entry.',
+    })
+    Config.vehicleAirControl.exemptClasses = Kora.config.list(Config.vehicleAirControl.exemptClasses,
+        Kora.config.integer(0, { min = 0, max = 22 }), {
+            scope = 'client',
+            live = true,
+            label = 'Air-control exempt vehicle classes',
+            description = 'GTA vehicle class numbers that keep normal air control. The default 13, 14, 15, 16, 21 covers cycles, boats, helicopters, planes and trains. Add 8 to let motorcycles keep air control; remove a number to disable air control for that class. Read each time the driver enters a vehicle.',
         })
     Config = Kora.config.adopt(Config)
 end
