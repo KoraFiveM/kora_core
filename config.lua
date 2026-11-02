@@ -136,12 +136,12 @@ Config.compat = {
 
 Config.vehicleAirControl = {
     disable = true,                  -- true = the driver cannot steer, pitch or roll a vehicle while it is airborne (no "perfect landings"). false = stock GTA air control
-    -- Vehicle classes (GetVehicleClass) that KEEP their air control. Default: cycles (13),
-    -- boats (14), helicopters (15), planes (16) and trains (21). Motorcycles (8) are NOT
-    -- exempt, so they lose air control too; add 8 to let bikes keep it. Other classes:
+    -- Vehicle classes (GetVehicleClass) that KEEP their air control. Default: motorcycles (8),
+    -- cycles (13), boats (14), helicopters (15), planes (16) and trains (21). Remove 8 to make
+    -- bikes lose air control too. Other classes:
     -- 0 compacts, 1 sedans, 2 SUVs, 3 coupes, 4 muscle, 5 sports classics, 6 sports, 7 super,
     -- 9 off-road, 10 industrial, 11 utility, 12 vans, 17 service, 18 emergency, 19 military, 20 commercial.
-    exemptClasses = { 13, 14, 15, 16, 21 },
+    exemptClasses = { 8, 13, 14, 15, 16, 21 },
 }
 
 Config.replication = {

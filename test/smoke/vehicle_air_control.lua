@@ -34,12 +34,12 @@ end
 
 dofile('modules/vehicleAirControl/client.lua')
 
-H.test('defaults: enabled, aircraft/boats/cycles/trains exempt, motorcycles not', function()
+H.test('defaults: enabled, aircraft/boats/bikes/cycles/trains exempt, cars not', function()
     H.assertTrue(Config.vehicleAirControl.disable)
     local exempt = {}
     for _, c in ipairs(Config.vehicleAirControl.exemptClasses) do exempt[c] = true end
-    H.assertTrue(exempt[13] and exempt[14] and exempt[15] and exempt[16])
-    H.assertFalse(exempt[8] or false)
+    H.assertTrue(exempt[8] and exempt[21] and exempt[13] and exempt[14] and exempt[15] and exempt[16])
+    H.assertFalse(exempt[1] or false)
 end)
 
 H.test('no worker for a passenger or on foot', function()
@@ -69,7 +69,8 @@ end)
 
 H.test('exempt class and disable=false start no worker', function()
     class = 15; setCache('vehicle', 8); H.assertEqual(#threads, 0)
-    class = 8; Config.vehicleAirControl.disable = false
+    class = 8; setCache('vehicle', false); setCache('vehicle', 10); H.assertEqual(#threads, 0)
+    class = 1; Config.vehicleAirControl.disable = false
     setCache('vehicle', false); setCache('vehicle', 9); H.assertEqual(#threads, 0)
     Config.vehicleAirControl.disable = true
     setCache('vehicle', false); setCache('vehicle', 9); H.assertEqual(#threads, 1)

@@ -361,10 +361,10 @@ default), `Config.inventory.maxWeight/slots`,
 virtual columns).
 
 `Config.vehicleAirControl` (client; `disable` default true, `exemptClasses`
-default `{ 13, 14, 15, 16, 21 }`) removes steering/pitch/roll control from the
-driver of a land vehicle while it is airborne. Aircraft, boats, cycles and trains
-are exempt by default; motorcycles (class 8) lose air control unless you add 8 to
-`exemptClasses`. Set `disable = false` to restore stock GTA air control. Grounded
+default `{ 8, 13, 14, 15, 16, 21 }`) removes steering/pitch/roll control from the
+driver of a land vehicle while it is airborne. Aircraft, boats, motorcycles,
+cycles and trains are exempt by default; remove 8 from `exemptClasses` to make
+motorcycles lose air control too. Set `disable = false` to restore stock GTA air control. Grounded
 vehicles (including upside down) are never affected. The setting is read each
 time the driver enters a vehicle.
 
