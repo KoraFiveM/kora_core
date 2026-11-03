@@ -20,10 +20,11 @@ local function validAccount(account)
 end
 
 -- tonumber() alone lets NaN and +/-inf through ('1e999' parses to inf), and both
--- slip past every `<= 0` / floor comparison below (F#171).
+-- slip past every `<= 0` / floor comparison below (F#171). Inline rather than
+-- Kora.util.isFiniteNumber so this file keeps loading under consumers' minimal mocks.
 local function finiteAmount(value)
     value = tonumber(value)
-    if Kora.util.isFiniteNumber(value) then return value end
+    if value and value == value and value > -math.huge and value < math.huge then return value end
     return nil
 end
 
