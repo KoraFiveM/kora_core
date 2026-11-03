@@ -19,6 +19,14 @@ local function validAccount(account)
     return false
 end
 
+-- tonumber() alone lets NaN and +/-inf through ('1e999' parses to inf), and both
+-- slip past every `<= 0` / floor comparison below (F#171).
+local function finiteAmount(value)
+    value = tonumber(value)
+    if Kora.util.isFiniteNumber(value) then return value end
+    return nil
+end
+
 local function floorFor(account)
     if Config.money.allowNegative and Config.money.allowNegative[account] then
         return Config.money.minusLimit or -math.huge
@@ -150,7 +158,7 @@ end
 function Core.money.collectTax(amount, reason)
     local cfg = taxConfig()
     if not cfg then return false, 'transaction tax is disabled' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local resource, unavailable = taxProvider(cfg)
     if not resource then return false, unavailable end
@@ -485,7 +493,7 @@ end
 ---@return boolean, string|nil
 function Core.money.addMoney(src, account, amount, reason, ignoreTax)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
@@ -530,7 +538,7 @@ end
 ---@return boolean, string|nil
 function Core.money.removeMoney(src, account, amount, reason, ignoreTax)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
@@ -571,8 +579,8 @@ end
 ---@return boolean, string|nil
 function Core.money.setMoney(src, account, amount, reason)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
-    if not amount then return false, 'amount must be a number' end
+    amount = finiteAmount(amount)
+    if not amount then return false, 'amount must be a finite number' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
     if provider then
@@ -606,7 +614,7 @@ end
 ---@param ignoreTax boolean|nil -- true exempts this call from the transaction tax
 ---@return boolean, string|nil
 local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not validAccount(account) or not amount or amount <= 0 then return false, 'invalid transfer' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end

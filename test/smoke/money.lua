@@ -82,4 +82,38 @@ h.test('qb-phone:client:RemoveBankMoney fires only on a bank removal', function(
     h.assertEqual(evt.target, 1)
     h.assertEqual(evt.args[1], 25)
 end)
+-- F#171: NaN and +/-inf fail or pass every `<= 0` / floor comparison, so they
+-- must be rejected explicitly before they can become a balance.
+local NON_FINITE = { { 'NaN', 0 / 0 }, { '+inf', math.huge }, { '-inf', -math.huge }, { "'1e999' string", '1e999' } }
+
+h.test('addMoney/removeMoney/setMoney reject NaN and infinity without touching the balance', function()
+    for _, case in ipairs(NON_FINITE) do
+        for _, account in ipairs({ 'cash', 'bank' }) do
+            Core.money.setMoney(1, account, 100)
+            local ok, err = Core.money.addMoney(1, account, case[2])
+            h.assertFalse(ok, 'addMoney accepted ' .. case[1]); h.assertTrue(err ~= nil)
+            ok = Core.money.removeMoney(1, account, case[2])
+            h.assertFalse(ok, 'removeMoney accepted ' .. case[1])
+            ok = Core.money.setMoney(1, account, case[2])
+            h.assertFalse(ok, 'setMoney accepted ' .. case[1])
+            h.assertEqual(Core.money.getMoney(1, account), 100, account .. ' balance changed by ' .. case[1])
+        end
+    end
+end)
+
+h.test('transferMoney rejects NaN and infinity without moving money', function()
+    local other = CoreInternal.player.freshData('CID2', 'license:def', 2, { firstname = 'C', lastname = 'D' })
+    Core.player.login(2, 'CID2', other)
+    Core.money.setMoney(1, 'bank', 100)
+    Core.money.setMoney(2, 'bank', 100)
+    for _, case in ipairs(NON_FINITE) do
+        local ok = Core.money.transferMoney(1, 2, 'bank', case[2])
+        h.assertFalse(ok, 'transferMoney accepted ' .. case[1])
+        h.assertEqual(Core.money.getMoney(1, 'bank'), 100, 'sender changed by ' .. case[1])
+        h.assertEqual(Core.money.getMoney(2, 'bank'), 100, 'recipient changed by ' .. case[1])
+    end
+    h.assertTrue(Core.money.transferMoney(1, 2, 'bank', 40), 'a finite transfer still works')
+    h.assertEqual(Core.money.getMoney(2, 'bank'), 140)
+end)
+
 h.report('money')

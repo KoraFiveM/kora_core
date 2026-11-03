@@ -72,7 +72,7 @@ Sets an account to an exact amount, refusing a value below the account floor. **
 
 #### Returns
 - `boolean`
-- `string | nil` — Failure reason (`'invalid account'`, `'amount must be a number'`, `'below account floor'`, `'no such player'`).
+- `string | nil` — Failure reason (`'invalid account'`, `'amount must be a finite number'`, `'below account floor'`, `'no such player'`).
 
 ### `Core.money.transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)`
 Moves money between two online players: removes from the sender, then adds to the recipient. If the add fails, the sender is **refunded** and the whole transfer reports failure. With the [transaction tax](#transaction-tax) on, the sender pays `amount` and the recipient receives `amount - tax`.
@@ -211,7 +211,7 @@ each successful deposit.
 ## Notes
 - **The funnel does the persistence/replication.** These functions only compute the new balance and call `setPath`; they never touch the DB or the wire directly.
 - **Account floors.** By default an account cannot go negative (floor `0`). Accounts listed in `Config.money.allowNegative` may go down to `Config.money.minusLimit`.
-- **`addMoney`/`removeMoney` take positive amounts only** — pass the magnitude; direction is chosen by which function you call. `setMoney` takes the absolute target.
+- **`addMoney`/`removeMoney`/`transferMoney` take positive, finite amounts only** — pass the magnitude; direction is chosen by which function you call. `setMoney` takes the absolute target, which must also be finite. NaN, `math.huge` and `-math.huge` (or a string such as `'1e999'` that parses to one) are refused before any balance is read.
 - **`transferMoney` is atomic-ish, not transactional.** The remove is committed before the add; a failed add triggers a compensating refund rather than a rollback.
 - **Tax is settled once per transaction.** `transferMoney` computes it up front and runs both legs exempt, so a transfer is never taxed twice.
 
