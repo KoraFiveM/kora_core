@@ -13,7 +13,7 @@ ensure kora_sql
 ensure kora_lib
 ensure kora_core
 ```
-kora_core creates its own tables on first boot via kora_sql's migration runner.
+kora_core creates its own tables on first boot from the declarative schema in `modules/persistence/schema.lua` (kora_sql `ensureTables`, additive only).
 
 ## Modern API (`exports.kora_core:*`)
 

@@ -1,0 +1,184 @@
+-- Declarative schema for kora_core's tables, applied by migrate.lua through
+-- Kora.sql.ensureTables. Replaces the former sql/001-011 migration files.
+-- `players` and `player_vehicles` also carry the columns that used to be
+-- ALTERed onto legacy qb-core tables, so an imported table gains them too.
+-- player_vehicles.model is nullable: migrate.lua relaxes it on every install
+-- (the `vehicle` <-> `model` triggers fill it), so the spec matches the live state.
+
+local NULL = Kora.sql.NULL
+local NOW = { raw = 'CURRENT_TIMESTAMP' }
+local UNICODE = 'utf8mb4_unicode_ci'
+
+KoraCoreSchema = {
+    {
+        name = 'players',
+        collate = UNICODE,
+        columns = {
+            { name = 'id', type = 'int', unsigned = true, auto_increment = true },
+            { name = 'citizenid', type = 'varchar(50)' },
+            { name = 'license', type = 'varchar(60)' },
+            { name = 'cid', type = 'tinyint', unsigned = true, default = 1 },
+            { name = 'name', type = 'varchar(255)', default = 'unknown' },
+            { name = 'money', type = 'longtext' },
+            { name = 'charinfo', type = 'longtext' },
+            { name = 'job', type = 'longtext' },
+            { name = 'gang', type = 'longtext' },
+            { name = 'position', type = 'longtext' },
+            { name = 'metadata', type = 'longtext' },
+            { name = 'inventory', type = 'longtext', null = true, default = NULL },
+            { name = 'phone_number', type = 'varchar(20)', null = true, default = NULL },
+            { name = 'created_at', type = 'timestamp', default = NOW },
+            { name = 'last_updated', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
+            { name = 'deleted_at', type = 'timestamp', null = true, default = NULL },
+            {
+                name = 'active_cid', type = 'tinyint', unsigned = true,
+                generated = { expr = 'IF(`deleted_at` IS NULL, `cid`, NULL)' },
+            },
+        },
+        primary = { 'id' },
+        indexes = {
+            { name = 'uk_players_citizenid', columns = { 'citizenid' }, unique = true },
+            { name = 'uk_players_phone', columns = { 'phone_number' }, unique = true },
+            { name = 'idx_players_license_deleted', columns = { 'license', 'deleted_at' } },
+            { name = 'idx_players_last_updated', columns = { 'last_updated' } },
+            { name = 'uk_players_license_active_cid', columns = { 'license', 'active_cid' }, unique = true },
+        },
+    },
+    {
+        name = 'player_identifiers',
+        collate = UNICODE,
+        columns = {
+            { name = 'citizenid', type = 'varchar(50)' },
+            { name = 'kind', type = 'varchar(20)' },
+            { name = 'value', type = 'varchar(128)' },
+            { name = 'first_seen', type = 'timestamp', default = NOW },
+            { name = 'last_seen', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
+        },
+        primary = { 'citizenid', 'kind' },
+        indexes = { { name = 'idx_ident_lookup', columns = { 'kind', 'value' } } },
+    },
+    {
+        name = 'inventories',
+        collate = UNICODE,
+        columns = {
+            { name = 'identifier', type = 'varchar(64)' },
+            { name = 'kind', type = 'varchar(20)', default = 'stash' },
+            { name = 'items', type = 'longtext' },
+            { name = 'slots', type = 'smallint', unsigned = true, default = 50 },
+            { name = 'maxweight', type = 'int', unsigned = true, default = 100000 },
+            { name = 'updated_at', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
+        },
+        primary = { 'identifier' },
+        indexes = { { name = 'idx_inventories_kind_updated', columns = { 'kind', 'updated_at' } } },
+    },
+    {
+        name = 'bans',
+        collate = UNICODE,
+        columns = {
+            { name = 'id', type = 'int', unsigned = true, auto_increment = true },
+            { name = 'name', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'license', type = 'varchar(60)', null = true, default = NULL },
+            { name = 'discord', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'ip', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'reason', type = 'text', null = true, default = NULL },
+            { name = 'expire', type = 'int', unsigned = true, null = true, default = NULL },
+            { name = 'bannedby', type = 'varchar(255)', default = 'LeBanhammer' },
+        },
+        primary = { 'id' },
+        indexes = {
+            { name = 'idx_bans_license', columns = { 'license' } },
+            { name = 'idx_bans_discord', columns = { 'discord' } },
+            { name = 'idx_bans_ip', columns = { 'ip' } },
+            { name = 'idx_bans_expire', columns = { 'expire' } },
+        },
+    },
+    {
+        name = 'users',
+        collate = UNICODE,
+        columns = {
+            { name = 'license', type = 'varchar(60)' },
+            { name = 'max_characters', type = 'tinyint', unsigned = true, null = true, default = NULL },
+            { name = 'created_at', type = 'timestamp', default = NOW },
+            { name = 'last_seen', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
+        },
+        primary = { 'license' },
+    },
+    {
+        name = 'player_vehicles',
+        collate = UNICODE,
+        columns = {
+            { name = 'id', type = 'int', unsigned = true, auto_increment = true },
+            { name = 'plate', type = 'varchar(15)' },
+            { name = 'model', type = 'varchar(60)', null = true, after = 'plate' },
+            { name = 'vehicle', type = 'varchar(60)', null = true, after = 'model' },
+            { name = 'citizenid', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'job', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'state', type = 'enum', values = { 'out', 'garaged', 'impounded' }, default = 'garaged' },
+            { name = 'garage_id', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'fuel', type = 'tinyint', unsigned = true, default = 100 },
+            { name = 'engine_health', type = 'smallint', unsigned = true, default = 1000 },
+            { name = 'body_health', type = 'smallint', unsigned = true, default = 1000 },
+            { name = 'mods', type = 'longtext', null = true, default = NULL },
+            { name = 'last_position', type = 'longtext', null = true, default = NULL },
+            { name = 'impound_fee', type = 'int', unsigned = true, null = true, default = NULL },
+            { name = 'impound_lot', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'impounded_at', type = 'timestamp', null = true, default = NULL },
+            { name = 'created_at', type = 'timestamp', default = NOW },
+            { name = 'last_updated', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
+            { name = 'deleted_at', type = 'timestamp', null = true, default = NULL },
+            -- qb-vehicleshop financing
+            { name = 'balance', type = 'int', default = 0 },
+            { name = 'paymentamount', type = 'int', default = 0 },
+            { name = 'paymentsleft', type = 'int', default = 0 },
+            { name = 'financetime', type = 'int', default = 0 },
+            -- stock qb-garages / qb-vehicleshop pass-through (see docs/vehicles-compat.md)
+            { name = 'license', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'hash', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'fakeplate', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'garage', type = 'varchar(50)', null = true, default = NULL },
+            { name = 'engine', type = 'float', null = true, default = NULL },
+            { name = 'body', type = 'float', null = true, default = NULL },
+            { name = 'depotprice', type = 'int', default = 0 },
+            { name = 'drivingdistance', type = 'int', null = true, default = NULL },
+            { name = 'status', type = 'text', null = true, default = NULL },
+        },
+        primary = { 'id' },
+        indexes = {
+            { name = 'uk_vehicles_plate', columns = { 'plate' }, unique = true },
+            { name = 'idx_vehicles_citizenid', columns = { 'citizenid' } },
+            { name = 'idx_vehicles_job', columns = { 'job' } },
+            { name = 'idx_vehicles_state', columns = { 'state' } },
+        },
+    },
+    {
+        name = 'qbcore_player_column_operations',
+        columns = {
+            { name = 'citizenid', type = 'varchar(50)' },
+            { name = 'column_name', type = 'varchar(16)' },
+            { name = 'resource', type = 'varchar(64)' },
+            { name = 'operation_key', type = 'varchar(240)' },
+            { name = 'fingerprint', type = 'longtext' },
+            { name = 'created_at', type = 'timestamp', default = NOW },
+        },
+        primary = { 'citizenid', 'column_name' },
+        indexes = { { name = 'idx_player_operation_owner', columns = { 'resource', 'operation_key' } } },
+    },
+}
+
+-- Opt-in (Config.persistence.generatedColumns): VIRTUAL columns are free on
+-- write, their indexes are not, so they are added together or not at all.
+KoraCoreGeneratedSchema = {
+    {
+        name = 'players',
+        extend = true,
+        columns = {
+            { name = 'cash', type = 'int', generated = { expr = "CAST(JSON_EXTRACT(`money`, '$.cash') AS SIGNED)", stored = false } },
+            { name = 'bank', type = 'int', generated = { expr = "CAST(JSON_EXTRACT(`money`, '$.bank') AS SIGNED)", stored = false } },
+            { name = 'job_name', type = 'varchar(50)', generated = { expr = "JSON_UNQUOTE(JSON_EXTRACT(`job`, '$.name'))", stored = false } },
+        },
+        indexes = {
+            { name = 'idx_players_bank', columns = { 'bank' } },
+            { name = 'idx_players_job_name', columns = { 'job_name' } },
+        },
+    },
+}

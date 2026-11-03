@@ -1,6 +1,6 @@
 -- Core.garage (server realm) -- SQL-persisted vehicle ownership: civilian
 -- garage (store/retrieve) and job duty-fleet vehicles share one
--- `player_vehicles` table (see sql/005_vehicles.sql), distinguished by
+-- `player_vehicles` table (see modules/persistence/schema.lua), distinguished by
 -- whether `citizenid` or `job` is set on a row (by convention, not enforced
 -- at the SQL level -- a row is expected to have exactly one of the two).
 --

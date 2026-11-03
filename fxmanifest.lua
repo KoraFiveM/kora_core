@@ -77,7 +77,7 @@ shared_scripts {
 --   users        per-license account rows (character-slot cap override);
 --                player.createCharacter calls Core.users.getMaxCharacters
 --   replication  player.adopt registers into it
---   persistence  player.login/create call adopt()/insertNew(); migrate.lua runs here
+--   persistence  player.login/create call adopt()/insertNew(); schema.lua + migrate.lua run here
 --   player       the funnel + lifecycle (depends on replication + persistence)
 --   money/jobs/metadata/inventory  wrappers over the funnel
 --   inventory/gateway              delegates inventory operations to kora_inventory
@@ -104,6 +104,7 @@ server_scripts {
     'modules/replication/server.lua',
     'modules/persistence/server.lua',
     'modules/persistence/operations.lua',
+    'modules/persistence/schema.lua',
     'modules/persistence/migrate.lua',
     'modules/player/server.lua',
     'modules/money/server.lua',

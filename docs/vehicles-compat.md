@@ -1,6 +1,6 @@
 # Stock `player_vehicles` compatibility
 
-kora's `player_vehicles` (sql/005_vehicles.sql) stays authoritative. Migration
+kora's `player_vehicles` (`modules/persistence/schema.lua`) stays authoritative. Migration
 `011_legacy_vehicle_compat.sql` adds the stock qb-garages / qb-vehicleshop
 columns, plus kora's own columns when the table was imported from stock qb-core
 first (005 is `CREATE TABLE IF NOT EXISTS` and cannot evolve such a table). Two
@@ -22,9 +22,10 @@ Conflict rule: when one statement changes both sides, kora's column wins. An
 update that touches neither side leaves values (and float precision) alone.
 
 ## How it is applied
-kora_sql's runner only accepts `CREATE TABLE IF NOT EXISTS` and
-`ALTER TABLE ... ADD COLUMN/INDEX IF NOT EXISTS`, so 011 contains only those.
-Everything else runs from `migrate.lua` after the migrations, driven by
+The columns are declared in `modules/persistence/schema.lua` (`player_vehicles`
+spec, applied by `Kora.sql.ensureTables`; the retired `sql/011_*.sql` lives on as a
+fixture under `test/sql/scratch/legacy`). Everything else runs from `migrate.lua`
+after the schema, driven by
 `information_schema` (idempotent, every boot):
 - relax `model`/`vehicle` to nullable and `engine`/`body` to `NULL DEFAULT NULL`
   (stock has `vehicle NOT NULL` in some dumps and `engine/body DEFAULT 1000`; a
@@ -62,8 +63,8 @@ continues on the next boot); a custom `state` ENUM is left alone. The ENUM
 reorder only changes sort order of `ORDER BY state`; no kora code relies on it.
 
 ## Database support
-The whole migration chain (006/007/009/011 and the runner's own retry-safety
-gate in kora_sql) relies on `ADD COLUMN IF NOT EXISTS`, which is MariaDB-only;
+The schema handler and the v111 residual migration (kora_sql's runner retry-safety
+gate) rely on `ADD COLUMN IF NOT EXISTS`, which is MariaDB-only;
 MySQL 8 rejects it. kora_sql's docs say only "MySQL/MariaDB" with no version
 statement, but in practice **MariaDB (10.2+; tested on 11.8) is required**. The boot-time
 steps added here do not add any further MariaDB-only dependency (they check
@@ -71,8 +72,8 @@ steps added here do not add any further MariaDB-only dependency (they check
 need a kora_sql runner change (not made here).
 
 ## Testing
-`bash test/run.sh` runs `test/smoke/vehicle_compat_sql.lua` (migration/trigger
-text, runner retry-safety gate)
+`bash test/run.sh` runs `test/smoke/vehicle_compat_sql.lua` (schema declaration,
+trigger text, runner retry-safety gate)
 and `test/smoke/vehicle_compat_boot.lua` (boot-step statement sequence).
 `bash test/sql/scratch/run.sh` runs the real thing on scratch MariaDB databases
 `compat_scratch_*` (created and dropped by the script; needs `node`, `lua`, a

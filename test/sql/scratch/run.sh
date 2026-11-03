@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Applies kora_core's migration chain exactly as kora_sql's runner does (its
+# Applies kora_core's RETIRED migration chain (test/sql/scratch/legacy, standing in for an existing install) exactly as kora_sql's runner does (its
 # splitStatements + retry-safety check are reused from the sibling kora_sql repo)
 # and runs the REAL modules/persistence/migrate.lua boot steps against scratch
 # MariaDB databases, then the assertion files. Creates and drops only databases
@@ -21,7 +21,7 @@ trap cleanup EXIT
 
 echo "== (a) fresh install, default config"
 newdb a
-MAX_VERSION=10 node "$S/apply.js" "$(db a)" sql >/dev/null
+MAX_VERSION=10 node "$S/apply.js" "$(db a)" test/sql/scratch/legacy >/dev/null
 sql a -e "INSERT INTO player_vehicles (plate, model, vehicle, citizenid, garage_id, engine_health, body_health, state)
   VALUES ('OLD1', 'adder', 'adder', 'ABC', 'legion', 800, 700, 'out')"
 boot a
@@ -30,7 +30,7 @@ run a $T/player_vehicles_compat.sql $T/player_vehicles_seed_kora.sql $T/player_v
 
 echo "== (a2) fresh install, legacyVehicleState = true"
 newdb a2
-MAX_VERSION=10 node "$S/apply.js" "$(db a2)" sql >/dev/null
+MAX_VERSION=10 node "$S/apply.js" "$(db a2)" test/sql/scratch/legacy >/dev/null
 sql a2 -e "INSERT INTO player_vehicles (plate, model, vehicle, citizenid, garage_id, engine_health, body_health, state)
   VALUES ('OLD1', 'adder', 'adder', 'ABC', 'legion', 800, 700, 'out')"
 boot a2 legacyState

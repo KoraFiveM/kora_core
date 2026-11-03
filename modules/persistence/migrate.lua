@@ -1,31 +1,10 @@
--- Runs kora_core's own SQL migrations at boot via kora_sql's migration runner. Loaded
--- as part of the persistence module (server realm). Migrations are read from
--- sql/*.sql with LoadResourceFile and checksummed Lua-side; kora_sql aborts on a
--- checksum mismatch for an already-applied version.
---
--- CHECKSUM: FiveM Lua has no built-in SHA, and we only need change-DETECTION for
--- a given version (the runner keys by (resource, version)), so a deterministic
--- 64-bit FNV-1a rendered as hex, padded to CHAR(64), is sufficient and stable.
+-- Applies kora_core's schema at boot: tables are declared in schema.lua and
+-- created/extended through kora_sql's Kora.sql.ensureTables (additive only);
+-- the one non-declarative DDL step is a residual migration below. The remaining
+-- steps (nullability relaxation, backfills, triggers, opt-in state conversion)
+-- inspect information_schema first, so they are idempotent.
 
-local function fnv1a(str)
-    local hash = 0xCBF29CE484222325
-    local prime = 0x100000001B3
-    for i = 1, #str do
-        hash = hash ~ string.byte(str, i)
-        hash = (hash * prime) & 0xFFFFFFFFFFFFFFFF
-    end
-    return hash
-end
-
-local function checksum(str)
-    -- Combine two FNV passes (forward + reversed) into a 32-hex-char digest,
-    -- padded to 64 so it fits the runner's CHAR(64) column deterministically.
-    local a = fnv1a(str)
-    local b = fnv1a(str:reverse())
-    return (('%016x%016x'):format(a, b) .. string.rep('0', 32))
-end
-
--- Legacy vehicle-column sync (see sql/011_legacy_vehicle_compat.sql and
+-- Legacy vehicle-column sync (see schema.lua and
 -- docs/vehicles-compat.md). kora's columns win when both sides change in one
 -- statement. Each trigger is ONE SET statement (no BEGIN/END, so it survives
 -- kora_sql's multi-statement guard); MariaDB/MySQL evaluate the assignments
@@ -287,37 +266,44 @@ local function ensureVehicleState(cols)
     return true
 end
 
-local MIGRATIONS = {
-    { version = 1, name = 'core',        file = 'sql/001_core.sql' },
-    { version = 2, name = 'identifiers', file = 'sql/002_identifiers.sql' },
+-- Residual DDL that ensureTables cannot express. v111 = old v11 + 100 so it never
+-- collides with the versions the retired sql/*.sql files recorded. It swaps the
+-- pre-active_cid slot index for the one ensureTables already created; the ADD keeps
+-- the statement inside kora_sql's retry-safe gate and both parts are idempotent.
+local RESIDUAL_MIGRATIONS = {
+    {
+        version = 111,
+        name = 'players_drop_legacy_slot_index',
+        sql = 'ALTER TABLE `players` DROP INDEX IF EXISTS `uk_players_license_cid`, '
+            .. 'ADD UNIQUE INDEX IF NOT EXISTS `uk_players_license_active_cid` (`license`, `active_cid`)',
+    },
 }
 
--- Generated columns are opt-in.
-if Config.persistence.generatedColumns then
-    MIGRATIONS[#MIGRATIONS + 1] = {
-        version = 3,
-        name = 'generated_columns',
-        file = 'sql/003_generated_columns.sql',
-        -- v3 originally shipped without IF NOT EXISTS. Its replacement is
-        -- retry-safe, and this exact old digest is the only historic form the
-        -- runner may accept rather than treating as unexplained schema drift.
-        acceptedChecksums = {
-            'c55391eb33cd16ea6e66f4d337786e5800000000000000000000000000000000',
-        },
-    }
+local function logSchemaWarnings(reports)
+    for _, report in ipairs(reports or {}) do
+        for _, warning in ipairs(report.warnings or {}) do
+            print(('^3[qbcore:migrate]^7 %s'):format(tostring(warning)))
+        end
+    end
 end
 
--- Unconditional, fixed version number 4 regardless of whether the opt-in
--- migration above ran -- the runner keys applied migrations by this literal
--- number, so it must stay stable independent of Config.persistence.generatedColumns.
-MIGRATIONS[#MIGRATIONS + 1] = { version = 4, name = 'users', file = 'sql/004_users.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 5, name = 'vehicles', file = 'sql/005_vehicles.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 6, name = 'legacy_players', file = 'sql/006_legacy_players.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 7, name = 'legacy_vehicle_finance', file = 'sql/007_legacy_vehicle_finance.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 8, name = 'active_character_slots', file = 'sql/008_active_character_slots.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 9, name = 'legacy_vehicle_model', file = 'sql/009_legacy_vehicle_model.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 10, name = 'player_column_operations', file = 'sql/010_player_column_operations.sql' }
-MIGRATIONS[#MIGRATIONS + 1] = { version = 11, name = 'legacy_vehicle_compat', file = 'sql/011_legacy_vehicle_compat.sql' }
+local function applySchema()
+    local reports, err = Kora.sql.ensureTables(KoraCoreSchema)
+    if err then return false, err end
+    logSchemaWarnings(reports)
+    -- Generated columns are opt-in.
+    if Config.persistence.generatedColumns then
+        local generated, generatedErr = Kora.sql.ensureTables(KoraCoreGeneratedSchema)
+        if generatedErr then return false, generatedErr end
+        logSchemaWarnings(generated)
+    end
+    for _, migration in ipairs(RESIDUAL_MIGRATIONS) do
+        migration.checksum = migration.checksum or Kora.util.fnv1a(migration.sql)
+    end
+    local _, migrateErr = Kora.sql.migrate(GetCurrentResourceName(), RESIDUAL_MIGRATIONS)
+    if migrateErr then return false, migrateErr end
+    return true
+end
 
 CreateThread(function()
     -- MySQL may still be starting alongside FXServer. Keep the migration
@@ -327,10 +313,9 @@ CreateThread(function()
         print('^3[qbcore:migrate]^7 still waiting for qbsql; migrations will resume automatically.')
     end
 
-    local resource = GetCurrentResourceName()
     local legacyHealth = detectLegacyHealth()
-    local applied, err = Kora.sql.migrateFiles(resource, MIGRATIONS, checksum)
-    if err then
+    local applied, err = applySchema()
+    if not applied then
         print(('^1[qbcore:migrate]^7 migration failed: %s'):format(tostring(err)))
     else
         local reconciled, reconcileErr = reconcileLegacyVehicleTable(legacyHealth)

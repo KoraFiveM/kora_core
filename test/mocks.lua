@@ -178,6 +178,7 @@ function M.install(opts)
 
     local Kora = {}
     Kora.util = {
+        fnv1a = function(value) return ('%08x'):format(#value) end,
         isFiniteNumber = function(value)
             return type(value) == 'number' and value == value and value > -math.huge and value < math.huge
         end,
@@ -321,7 +322,7 @@ function M.install(opts)
     -- SQL string (sqlResponses.query[sql] / .single[sql]) -- unset means the
     -- same nil/{} default every test relied on before this existed, so this
     -- is purely additive for a test that needs a specific row back.
-    local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {} }
+    local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {}, ensureTables = {}, migrate = {} }
     local sqlResponses = { query = {}, single = {} }
     Kora.sql = {
         NULL = '\0qbsql:null\0',
@@ -338,6 +339,8 @@ function M.install(opts)
         end,
         execute = function(sql, params) table.insert(sqlCalls.execute, { sql = sql, params = params }); return { affectedRows = 1 } end,
         flush = function() return true end,
+        ensureTables = function(specs) table.insert(sqlCalls.ensureTables, specs); return {} end,
+        migrate = function(resource, list) table.insert(sqlCalls.migrate, { resource = resource, list = list }); return true end,
     }
 
     _G.Kora = Kora

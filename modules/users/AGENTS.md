@@ -12,7 +12,7 @@ Server:
 `Core.player.createCharacter` (`modules/player/server.lua`) is the sole enforcement point: it reads `getMaxCharacters(license)`, lists the license's existing characters, and either validates an explicit `cid` against that cap or computes the next free slot itself. A client-supplied `cid` from `qb-multicharacter:server:createCharacter` (`compat/server/qb-multicharacter.lua`) is deliberately NOT forwarded to `createCharacter` -- trusting it would let a client bypass the limit outright by always sending an "available" slot number regardless of how many characters they actually have.
 
 ## Implementation notes
-- `sql/004_users.sql` -- `users(license PK, max_characters NULL, created_at, last_seen)`. Registered as migration version 4 in `modules/persistence/migrate.lua`, unconditionally (a fixed literal version number, independent of whether the opt-in `generated_columns` migration at version 3 ran).
+- `users(license PK, max_characters NULL, created_at, last_seen)` -- declared in `modules/persistence/schema.lua` and created by `Kora.sql.ensureTables`.
 - `getMaxCharacters` ensures the row exists via `INSERT IGNORE` rather than `INSERT ... ON DUPLICATE KEY UPDATE`, since a read shouldn't bump `last_seen`; nothing currently reads `last_seen` at all, it exists for future use (e.g. inactivity reporting).
 - No module-local state, no `CoreInternal.users` table -- both functions are pure DB round-trips.
 

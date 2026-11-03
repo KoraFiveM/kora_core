@@ -1,7 +1,7 @@
 # garage module guide
 
 ## Purpose
-SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-fleet vehicles share one `player_vehicles` table (see `sql/005_vehicles.sql`), distinguished by whether `citizenid` or `job` is set on a row (by convention, not enforced at the SQL level — a row is expected to have exactly one of the two). Server only.
+SQL-persisted vehicle ownership: civilian garage (store/retrieve) and job duty-fleet vehicles share one `player_vehicles` table (see `modules/persistence/schema.lua`), distinguished by whether `citizenid` or `job` is set on a row (by convention, not enforced at the SQL level — a row is expected to have exactly one of the two). Server only.
 
 ## Public API
 - `Core.garage.createVehicle(citizenid, model, plate, job, extra)` — inserts a row. Exactly one of `citizenid`/`job`. `extra = {fuel?, engineHealth?, bodyHealth?}`.

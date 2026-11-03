@@ -21,12 +21,18 @@ local function bind(sql, params)
     return (sql:gsub('%?', function() i = i + 1; return "'" .. tostring(params[i]):gsub("'", "''") .. "'" end))
 end
 Kora.sql.NULL = Kora.sql.NULL or {}
-Kora.sql.migrateFiles = function()
-    local p = io.popen('node test/sql/scratch/apply.js ' .. db .. ' sql 2>&1; echo "EXIT:$?"'); local out = p:read('a'); p:close()
+-- The scratch databases model installs that already ran the retired sql/*.sql
+-- chain (kept under test/sql/scratch/legacy), so ensureTables/migrate are no-op stubs.
+Kora.sql.ensureTables = function()
+    local p = io.popen('node test/sql/scratch/apply.js ' .. db .. ' test/sql/scratch/legacy 2>&1; echo "EXIT:$?"'); local out = p:read('a'); p:close()
     io.write(out:gsub('EXIT:%d+%s*$', ''))
-    if out:match('EXIT:0') then return true end
+    if out:match('EXIT:0') then return {} end
     return nil, 'migration failed'
 end
+Kora.sql.migrate = function() return true end
+Kora.util = Kora.util or {}
+Kora.util.fnv1a = Kora.util.fnv1a or function() return '00000000' end
+dofile('modules/persistence/schema.lua')
 Kora.sql.query = function(sql, params)
     local ok, out = sh(bind(sql, params or {}))
     if not ok then return nil, out end

@@ -9,7 +9,6 @@ local function boot(columns, optIn)
     dofile('config.lua')
     dofile('build/initiate.lua')
     Config.persistence.legacyVehicleState = optIn or false
-    Kora.sql.migrateFiles = function() return true end
     Kora.sql.query = function(sql)
         if sql:find('information_schema', 1, true) and sql:find('`COLUMNS`', 1, true) then return columns end
         return {}
@@ -17,6 +16,7 @@ local function boot(columns, optIn)
     local printed = {}
     local realPrint = print
     print = function(...) printed[#printed + 1] = table.concat({ ... }, ' ') end
+    dofile('modules/persistence/schema.lua')
     dofile('modules/persistence/migrate.lua')
     handle.step()
     print = realPrint
