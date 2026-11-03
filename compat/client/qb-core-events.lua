@@ -192,37 +192,50 @@ local function emitVehicleInfo(event, vehicle, seat)
     })
 end
 
-Kora.cache.onChange('seat', function(seat)
-    -- On exit the cache intentionally updates seat before vehicle, so retain
-    -- the last occupied seat for the forthcoming LeftVehicle payload.
-    if seat ~= false then lastVehicleSeat = seat end
-end)
+-- kora_lib drops every onChange registration when it restarts, so the bridge
+-- is registered at load and again on its restart. The restarted cache's first
+-- refresh already ran, so no edge is replayed; only the retained seat is re-seeded.
+local function watchVehicleCache()
+    Kora.cache.onChange('seat', function(seat)
+        -- On exit the cache intentionally updates seat before vehicle, so retain
+        -- the last occupied seat for the forthcoming LeftVehicle payload.
+        if seat ~= false then lastVehicleSeat = seat end
+    end)
 
-Kora.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
-    if vehicle then
-        emitVehicleInfo('Entering', vehicle, Kora.cache.enteringSeat())
-        return
-    end
+    Kora.cache.onChange('enteringVehicle', function(vehicle, previousVehicle)
+        if vehicle then
+            emitVehicleInfo('Entering', vehicle, Kora.cache.enteringSeat())
+            return
+        end
 
-    if previousVehicle then
-        -- enteringVehicle clears in the same cache refresh that may set the
-        -- actual vehicle. Deferring one scheduler turn distinguishes a
-        -- completed entry from an aborted animation without a second poll.
-        SetTimeout(0, function()
-            if not Kora.cache.vehicle() then
-                TriggerEvent('QBCore:Client:AbortVehicleEntering')
-            end
-        end)
-    end
-end)
+        if previousVehicle then
+            -- enteringVehicle clears in the same cache refresh that may set the
+            -- actual vehicle. Deferring one scheduler turn distinguishes a
+            -- completed entry from an aborted animation without a second poll.
+            SetTimeout(0, function()
+                if not Kora.cache.vehicle() then
+                    TriggerEvent('QBCore:Client:AbortVehicleEntering')
+                end
+            end)
+        end
+    end)
 
-Kora.cache.onChange('vehicle', function(vehicle, previousVehicle)
-    if vehicle then
-        emitVehicleInfo('Entered', vehicle, Kora.cache.seat())
-    elseif previousVehicle then
-        emitVehicleInfo('Left', previousVehicle, lastVehicleSeat)
-        lastVehicleSeat = false
-    end
+    Kora.cache.onChange('vehicle', function(vehicle, previousVehicle)
+        if vehicle then
+            emitVehicleInfo('Entered', vehicle, Kora.cache.seat())
+        elseif previousVehicle then
+            emitVehicleInfo('Left', previousVehicle, lastVehicleSeat)
+            lastVehicleSeat = false
+        end
+    end)
+end
+
+watchVehicleCache()
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= 'kora_lib' then return end
+    local seat = Kora.cache.seat()
+    if seat then lastVehicleSeat = seat end
+    watchVehicleCache()
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()

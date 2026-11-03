@@ -73,4 +73,18 @@ h.test('a cleared entry attempt emits AbortVehicleEntering only when not entered
     h.assertEqual(aborted, 1, 'a completed entry must not also emit an abort')
 end)
 
+h.test('a kora_lib restart re-registers the vehicle bridge listeners', function()
+    local onChange, registered = Kora.cache.onChange, {}
+    Kora.cache.onChange = function(key, handler)
+        registered[#registered + 1] = key
+        return onChange(key, handler)
+    end
+    TriggerEvent('onClientResourceStart', 'kora_target')
+    h.assertEqual(#registered, 0, 'other resources starting do not re-register')
+    TriggerEvent('onClientResourceStart', 'kora_lib')
+    Kora.cache.onChange = onChange
+    table.sort(registered)
+    h.assertEqual(table.concat(registered, ','), 'enteringVehicle,seat,vehicle')
+end)
+
 h.report('vehicle_cache_events')
