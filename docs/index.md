@@ -264,6 +264,31 @@ as shown above. A registration in ANY resource fires every subscriber's
 record and call `all` when each UI/admin list is built; never cache or index the
 legacy `QBCore.Shared.Jobs`/`Items` maps in new code.
 
+### Local player copy on the client: `Kora.player`
+The `@kora_core/init.lua` include (after `@kora_lib/init.lua`) also installs
+`Kora.player` on the **client**. It keeps a local copy of the player's `job`,
+`gang`, `metadata` and `charinfo`, so per-tick code such as target
+`canInteract` checks, HUDs and draw loops reads a plain table instead of calling
+an export and copying data every frame.
+```lua
+Kora.player.get(path)          -- 'job' or { 'metadata', 'hunger' }; nil = whole local copy
+Kora.player.job()  Kora.player.gang()  Kora.player.metadata(key)  Kora.player.isLoaded()
+Kora.player.checkJob(rule)     -- same rule and reasons as the server checkJob; UI only
+Kora.player.onChange(prefix, fn) -> id   -- fn(path, value)
+Kora.player.offChange(id)
+```
+Each watched root costs one `getPlayerData` call when the copy is seeded and one
+`onPlayerDataChange` subscription. Reading any other root (`money`, `items`, ...)
+starts watching it on the first read. The copy is refreshed from kora_core's
+login snapshot, cleared on logout, and re-attached when kora_core or kora_lib
+restarts. `onChange` handlers also fire with the current value after each of
+those. Values are live: read them, don't modify them. The server must still
+re-check anything this copy is used to show (`exports.kora_core:checkJob`).
+```lua
+-- client, inside a target option
+canInteract = function() return Kora.player.checkJob({ type = 'leo' }) end
+```
+
 ### Identity / permissions / commands / logging
 ```lua
 exports.kora_core:getIdentifiers(src)   exports.kora_core:generateCitizenId()

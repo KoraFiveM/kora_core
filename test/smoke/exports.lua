@@ -21,6 +21,7 @@ dofile('shared/gangs.lua'); dofile('shared/weapons.lua'); dofile('shared/locatio
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
 dofile('modules/player/shared.lua')
+dofile('modules/jobs/shared.lua')
 dofile('modules/inventory/shared.lua')
 dofile('compat/shared/coreobject.lua')
 
@@ -67,6 +68,10 @@ h.test('finalise flattens the complete server surface without collisions', funct
     h.assertTrue(type(flattened.setDevMode) == 'function', 'setDevMode is exported')
     h.assertTrue(type(flattened.saveVehicleProperties) == 'function', 'saveVehicleProperties is exported')
     h.assertTrue(type(flattened.transaction) == 'function', 'transaction is exported')
+    h.assertTrue(type(flattened.checkJob) == 'function', 'checkJob is exported')
+    h.assertTrue(type(flattened.sellItem) == 'function', 'sellItem is exported')
+    h.assertTrue(type(flattened.buyItem) == 'function', 'buyItem is exported')
+    h.assertTrue(type(flattened.getDutyCountByType) == 'function', 'getDutyCountByType is exported')
     h.assertTrue(type(flattened.beginPlayerColumnOperation) == 'function', 'durable column fence is exported')
     h.assertTrue(type(flattened.finishPlayerColumnOperation) == 'function', 'durable column publication is exported')
 end)

@@ -88,6 +88,15 @@ resource is seen, with handlers firing, in every resource that uses the list.
 Each registry carries an epoch so a kora_core restart re-seeds mirrors rather than
 drifting.
 
+On the CLIENT the same include also installs `Kora.player`: a local copy of the
+player's job/gang/metadata/charinfo (other roots on first read). It makes one
+`onPlayerDataChange` subscription per root, reseeds from the local
+`qbcore:client:playerLoaded` snapshot event and clears on `QBCore:Client:OnPlayerUnload`.
+It re-attaches through `Kora.resources.onStart('kora_core')` wrapped in
+`Kora.onReady`, and re-attaching is idempotent. `Kora.player.checkJob` and the
+server's `Core.jobs.checkJob` share `modules/jobs/shared.lua`, which init.lua
+`load()`s from this resource, so keep that file pure and listed in `files`.
+
 ## Durability caveat (be honest in docs)
 The coalescing save bounds worst-case data loss to `Config.persistence.interval`
 (60s) on a hard crash. Clean paths — player drop, logout, txAdmin shutdown,

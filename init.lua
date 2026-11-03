@@ -208,3 +208,218 @@ CreateThread(function()
         TriggerServerEvent('qbcore:registry:requestSnapshot')
     end
 end)
+
+-- ===========================================================================
+-- Kora.player (CLIENT only) -- a local copy of the local player's data.
+--
+-- Target `canInteract` checks and HUD/UI code used to call
+-- exports.kora_core:getPlayerData() every tick: a cross-resource call that
+-- msgpack-copies the requested data each time. This keeps one LOCAL copy of
+-- the roots a consumer reads (job, gang, metadata, charinfo by default; any
+-- other root is added on first read), seeded once per root with getPlayerData
+-- and patched by ONE onPlayerDataChange subscription per root. Reads are plain
+-- table lookups. It is a read model for UI only: the server re-checks.
+--
+-- Re-attached when kora_core restarts (Kora.resources.onStart) and when
+-- kora_lib restarts (Kora.onReady), so the subscriptions never silently die.
+-- ===========================================================================
+if not isServerRealm then
+    -- The same matcher kora_core's server checkJob uses. Loaded into a private
+    -- environment so the file's kora_core-only branch cannot touch our globals.
+    local matchJobRule = (function()
+        local path = 'modules/jobs/shared.lua'
+        local source = assert(LoadResourceFile('kora_core', path), 'Unable to load @kora_core/' .. path)
+        local chunk = assert(load(source, '@@kora_core/' .. path, 't', setmetatable({}, { __index = _G })))
+        return chunk()
+    end)()
+
+    local player = {}
+    local data = {}                 -- root -> local copy (nil until seeded)
+    local watched = {}              -- root -> true
+    local subIds = {}               -- root -> kora_core onPlayerDataChange id
+    local handlers = {}             -- id -> { prefix = string[], fn = function }
+    local nextHandlerId = 0
+    local DEFAULT_ROOTS = { 'job', 'gang', 'metadata', 'charinfo' }
+
+    local function pathGet(t, path)
+        local node = t
+        for i = 1, #path do
+            if type(node) ~= 'table' then return nil end
+            node = node[path[i]]
+        end
+        return node
+    end
+
+    local function pathSet(t, path, value)
+        local node = t
+        for i = 1, #path - 1 do
+            local k = path[i]
+            if type(node[k]) ~= 'table' then node[k] = {} end
+            node = node[k]
+        end
+        node[path[#path]] = value
+    end
+
+    -- true when path `a` is path `b` or lies under it
+    local function isUnder(a, b)
+        if #b > #a then return false end
+        for i = 1, #b do if a[i] ~= b[i] then return false end end
+        return true
+    end
+
+    local function call(handler, path, value)
+        local ok, err = pcall(handler.fn, path, value)
+        if not ok then print(('^3[kora_core:player]^7 onChange handler errored: %s'):format(tostring(err))) end
+    end
+
+    -- A delta from kora_core. Handlers at or above the changed path get the
+    -- delta; a handler deeper than it (an { 'job', 'onduty' } handler when
+    -- setJob replaces the whole job) gets its own path's new value.
+    local function onDelta(path, value)
+        if type(path) ~= 'table' or path[1] == nil then return end
+        pathSet(data, path, value)
+        for _, handler in pairs(handlers) do
+            if isUnder(path, handler.prefix) then
+                call(handler, path, value)
+            elseif isUnder(handler.prefix, path) then
+                call(handler, handler.prefix, pathGet(data, handler.prefix))
+            end
+        end
+    end
+
+    -- After a login, logout or restart every handler sees its current value.
+    local function announceAll()
+        for _, handler in pairs(handlers) do call(handler, handler.prefix, pathGet(data, handler.prefix)) end
+    end
+
+    local function subscribe(root)
+        local old = subIds[root]
+        if old then
+            subIds[root] = nil
+            pcall(function() exports.kora_core:offPlayerDataChange(old) end)
+        end
+        local ok, id = pcall(function() return exports.kora_core:onPlayerDataChange({ root }, onDelta) end)
+        if ok and id then subIds[root] = id end
+    end
+
+    local function seedRoot(root)
+        local ok, value = pcall(function() return exports.kora_core:getPlayerData({ root }) end)
+        if ok then data[root] = value end
+    end
+
+    local function watch(root)
+        if watched[root] then return end
+        watched[root] = true
+        if GetResourceState('kora_core') == 'started' then
+            subscribe(root)
+            seedRoot(root)
+        end
+    end
+
+    -- (Re)attach to a running kora_core. Idempotent: an old subscription is
+    -- dropped before a new one is made, so running it twice never doubles events.
+    local function attach()
+        for root in pairs(watched) do subscribe(root) end
+        seedRoot('citizenid')
+        for root in pairs(watched) do seedRoot(root) end
+        announceAll()
+    end
+
+    for i = 1, #DEFAULT_ROOTS do watched[DEFAULT_ROOTS[i]] = true end
+
+    -- kora_core's snapshot (login, character switch, resync) arrives as this
+    -- local event with the full data, so reseeding costs no export calls.
+    AddEventHandler('qbcore:client:playerLoaded', function(snapshot)
+        if type(snapshot) ~= 'table' then return end
+        data.citizenid = snapshot.citizenid
+        for root in pairs(watched) do data[root] = snapshot[root] end
+        announceAll()
+    end)
+
+    RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+        for key in pairs(data) do data[key] = nil end
+        announceAll()
+    end)
+
+    local function register()
+        Kora.resources.onStart('kora_core', attach)
+        Kora.resources.onStop('kora_core', function()
+            -- kora_core's subscriber table died with it; the ids are meaningless now.
+            for root in pairs(subIds) do subIds[root] = nil end
+        end)
+    end
+    if rawget(Kora, 'onReady') then Kora.onReady(register) else register() end
+
+    ---Reads the local copy: no export call, no copy. `path` is a root key
+    ---('job') or a key array ({ 'metadata', 'hunger' }); nil returns the whole
+    ---local table. A root outside the defaults is watched from its first read.
+    ---The result is live: read it, never modify it.
+    ---@param path string|(string|integer)[]|nil
+    ---@return any
+    function player.get(path)
+        if path == nil then return data end
+        if type(path) == 'table' then
+            local root = path[1]
+            if root == nil then return data end
+            if not watched[root] and root ~= 'citizenid' then watch(root) end
+            return pathGet(data, path)
+        end
+        if not watched[path] and path ~= 'citizenid' then watch(path) end
+        return data[path]
+    end
+
+    ---@return boolean
+    function player.isLoaded() return data.citizenid ~= nil end
+
+    ---@return table|nil
+    function player.job() return data.job end
+
+    ---@return table|nil
+    function player.gang() return data.gang end
+
+    ---@param key string|nil nil returns the whole metadata table
+    ---@return any
+    function player.metadata(key)
+        local metadata = data.metadata
+        if key == nil then return metadata end
+        if type(metadata) ~= 'table' then return nil end
+        return metadata[key]
+    end
+
+    ---Same rule shape and reasons as the server's exports.kora_core:checkJob.
+    ---For UI only (showing or hiding an option); the server must re-check.
+    ---@param rule KoraJobRule|nil
+    ---@return boolean ok
+    ---@return string|nil reason
+    function player.checkJob(rule)
+        return matchJobRule(data.job, rule)
+    end
+
+    ---Runs `fn(path, value)` when the local copy changes at or under `prefix`
+    ---(a root key or a key array), and once with the current value after every
+    ---login, logout and kora_core restart. Handlers run in this resource.
+    ---@param prefix string|(string|integer)[]
+    ---@param fn fun(path: (string|integer)[], value: any)
+    ---@return integer id
+    function player.onChange(prefix, fn)
+        if type(prefix) == 'string' then prefix = { prefix } end
+        assert(type(prefix) == 'table' and prefix[1] ~= nil, 'Kora.player.onChange requires a root key or a key array')
+        assert(type(fn) == 'function' or Kora.util.isCallable(fn), 'Kora.player.onChange requires a function')
+        local copy = {}
+        for i = 1, #prefix do copy[i] = prefix[i] end
+        if not watched[copy[1]] and copy[1] ~= 'citizenid' then watch(copy[1]) end
+        nextHandlerId = nextHandlerId + 1
+        handlers[nextHandlerId] = { prefix = copy, fn = fn }
+        return nextHandlerId
+    end
+
+    ---@param id integer
+    ---@return boolean removed
+    function player.offChange(id)
+        if handlers[id] == nil then return false end
+        handlers[id] = nil
+        return true
+    end
+
+    Kora.player = player
+end

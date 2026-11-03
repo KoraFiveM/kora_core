@@ -56,7 +56,13 @@ exports.kora_core:setJobDuty(src, onDuty)
 exports.kora_core:getJob(src)  exports.kora_core:getGang(src)
 exports.kora_core:getPlayersByJob(name, onDutyOnly)   -- O(1), maintained index
 exports.kora_core:getDutyCount(name)
+exports.kora_core:getPlayersByJobType(jobType, onDutyOnly)  -- every job of a type ('leo', 'ems', ...)
+exports.kora_core:getDutyCountByType(jobType)         -- on-duty count across every job of a type
+exports.kora_core:checkJob(src, rule)                 -- true | false, reason; reads the live job, no copy
 ```
+`rule = { name?, type?, minGrade?, onDuty? (default true), boss? }`; reasons are
+`no_player`, `wrong_job`, `off_duty`, `grade_too_low`, `not_boss`. See
+[modules/jobs/docs.md](modules/jobs/docs.md).
 
 ### Metadata
 ```lua
@@ -118,6 +124,13 @@ without a chance split 100% equally among themselves. Winning bonuses share
 the existing validation and rollback path; missing or empty lists do nothing.
 See [random reward examples](modules/transaction/docs.md).
 
+`exports.kora_core:sellItem(src, spec)` / `buyItem(src, spec)` handle the usual
+vendor case in one transaction:
+`spec = { item, amount, unitPrice, account?, reason, maxAmount?, metadata?, at?, maxDistance? }`.
+The untrusted `amount` is checked with `Kora.util.toAmount`, and they return
+`true, { amount, total }` or `false, reason`. See
+[modules/transaction/docs.md](modules/transaction/docs.md#buying-and-selling-sellitem--buyitem).
+
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
 ```lua
 exports.kora_core:getShared(name, key)          -- one record
@@ -141,6 +154,31 @@ resource that uses the list — the `/ideas` requirement. Always use `get` for a
 individual record, and call `all` again whenever a UI/admin list is built. Do
 not cache or index `QBCore.Shared.Jobs` (or its sibling compatibility maps) in
 new code.
+
+### Local player copy on the client: `Kora.player`
+The `@kora_core/init.lua` include (after `@kora_lib/init.lua`) also installs
+`Kora.player` on the **client**. It keeps a local copy of the player's `job`,
+`gang`, `metadata` and `charinfo`, so per-tick code such as target
+`canInteract` checks, HUDs and draw loops reads a plain table instead of calling
+an export and copying data every frame.
+```lua
+Kora.player.get(path)          -- 'job' or { 'metadata', 'hunger' }; nil = whole local copy
+Kora.player.job()  Kora.player.gang()  Kora.player.metadata(key)  Kora.player.isLoaded()
+Kora.player.checkJob(rule)     -- same rule and reasons as the server checkJob; UI only
+Kora.player.onChange(prefix, fn) -> id   -- fn(path, value)
+Kora.player.offChange(id)
+```
+Each watched root costs one `getPlayerData` call when the copy is seeded and one
+`onPlayerDataChange` subscription. Reading any other root (`money`, `items`, ...)
+starts watching it on the first read. The copy is refreshed from kora_core's
+login snapshot, cleared on logout, and re-attached when kora_core or kora_lib
+restarts. `onChange` handlers also fire with the current value after each of
+those. Values are live: read them, don't modify them. The server must still
+re-check anything this copy is used to show (`exports.kora_core:checkJob`).
+```lua
+-- client, inside a target option
+canInteract = function() return Kora.player.checkJob({ type = 'leo' }) end
+```
 
 ### Identity / permissions / commands / logging
 ```lua
