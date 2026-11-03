@@ -79,7 +79,7 @@ if not ok then print(('transaction rejected: %s'):format(err)) end
 The transaction checks all balances, item quantities, and carry capacity before
 mutating. It then removes money/items and adds items/money. If a later operation
 fails, it attempts to compensate completed operations. Amounts must be positive
-whole numbers. Callers must perform authorization, price, ownership, permission,
+whole numbers (NaN and infinity are refused). Callers must perform authorization, price, ownership, permission,
 and distance checks; never pass an untrusted client-defined transaction. This is
 compensating rollback, not crash-proof atomicity, and concurrent calls can race.
 
@@ -191,6 +191,16 @@ An optional `random` list rolls bonus items independently by their percentage
 amounts default to `1` and support positive integer `{ min, max }` ranges.
 An all-miss roll still permits the normal payout; winning bonuses participate
 in the existing capacity checks and rollback. Missing or empty lists do nothing.
+
+```lua
+exports.kora_core:sellItem(src, spec) -- true, { amount, total } | false, reason
+exports.kora_core:buyItem(src, spec)
+```
+`spec = { item, amount, unitPrice, account? ('cash'|'bank'), reason, maxAmount? (1000), metadata?, at?, maxDistance? (5.0) }`.
+`amount` may come straight from the client (it is checked with `Kora.util.toAmount`);
+`unitPrice` must come from server config. The items and money move in one
+transaction and each call is logged in the `commerce` category. See
+[modules/transaction/docs.md](../modules/transaction/docs.md).
 
 ### Jobs / gangs
 ```lua

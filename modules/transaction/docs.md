@@ -44,3 +44,53 @@ This is not crash-proof atomicity. The caller must validate authorization,
 prices, ownership, permissions, and distance, and must never pass an untrusted
 client-defined transaction. Concurrent calls can race and rollback can fail if
 a provider or the process is unavailable.
+
+## Buying and selling: `sellItem` / `buyItem`
+
+```lua
+exports.kora_core:sellItem(source, spec) -- true, { amount = n, total = t } | false, reason
+exports.kora_core:buyItem(source, spec)
+```
+
+These are the common vendor case built on `transaction`. Each call is one
+transaction, so the item leg and the money leg succeed or fail together.
+
+| `spec` field | |
+|---|---|
+| `item` | item name (required) |
+| `amount` | the **untrusted** client value. Checked with `Kora.util.toAmount`: a whole number from 1 to `maxAmount`, with no NaN, infinity, fractions or strings |
+| `unitPrice` | price per unit from **your server-side config**, never from the client. A finite number >= 0 |
+| `account` | `'cash'` (default) or `'bank'` |
+| `reason` | required. Used for the money events and the log |
+| `maxAmount` | largest amount allowed in one call; default `1000` |
+| `metadata` | item `info` for a buy. It is copied, so you can reuse one table |
+| `at`, `maxDistance` | optional server-side check that the player is within `maxDistance` (default `5.0`) of `at` |
+
+`total = math.floor(unitPrice * amount)`. A sale worth 0 still removes the items
+and pays nothing; a free buy just grants them. On success the call logs to the
+`commerce` category: `{ action = 'buy'|'sell', item, amount, total, account, reason }`.
+
+Failure reasons: `no_player`, `invalid_account`, `too_far`; the `toAmount`
+reasons `not_number`, `not_finite`, `not_integer`, `below_min`, `above_max`;
+or a transaction error such as `'insufficient funds'`, `'over weight'` or
+`'not enough of item: <name>'`. A malformed `spec` (no `reason`, a non-finite
+`unitPrice`, …) raises an error, because that is a bug in the calling resource.
+
+```lua
+-- server: a fish market. The client sends only the item and the amount.
+local PRICES = { fish = 12, salmon = 30 }
+
+RegisterNetEvent('fishing:server:sell', function(item, amount)
+    local src = source
+    local price = PRICES[item]
+    if not price then return end
+    local ok, result = exports.kora_core:sellItem(src, {
+        item = item, amount = amount, unitPrice = price, reason = 'fish market',
+        at = vector3(-1847.9, -1191.2, 14.3), maxDistance = 5.0,
+    })
+    if ok then notify(src, ('Sold %d for $%d'):format(result.amount, result.total)) end
+end)
+```
+
+You still need to check anything that is specific to your resource, such as
+opening hours, jobs or stock limits.

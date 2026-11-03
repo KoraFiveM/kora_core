@@ -182,6 +182,22 @@ function M.install(opts)
             return type(value) == 'number' and value == value and value > -math.huge and value < math.huge
         end,
         isInteger = function(value) return Kora.util.isFiniteNumber(value) and value % 1 == 0 end,
+        -- Same contract as kora_lib's modules/util/shared.lua toAmount (L1, H1).
+        toAmount = function(value, opts)
+            opts = opts or {}
+            local min, max = opts.min or 1, opts.max or 1000000
+            local integer = opts.integer ~= false
+            if opts.allowString and type(value) == 'string' then value = tonumber(value) end
+            if type(value) ~= 'number' then return nil, 'not_number' end
+            if not Kora.util.isFiniteNumber(value) then return nil, 'not_finite' end
+            if integer then
+                if value % 1 ~= 0 then return nil, 'not_integer' end
+                value = math.tointeger(value) or value
+            end
+            if value < min then return nil, 'below_min' end
+            if value > max then return nil, 'above_max' end
+            return value
+        end,
         isCallable = function(value)
             if type(value) == 'function' then return true end
             if type(value) ~= 'table' then return false end
