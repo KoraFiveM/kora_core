@@ -20,6 +20,39 @@ Server: the gang sub-table for a source (or `nil`). Client: the local player's g
 #### Returns
 - `table | nil` — `{ name, label, isboss, grade = { name, level } }`.
 
+### `Core.jobs.checkJob(src, rule)` — server
+Checks a player's job against a rule and says why it failed. It reads the live
+`PlayerData.job` directly, with no deep copy, so it is the cheap replacement for
+`getPlayer(src).PlayerData.job` checks and the many hand-written `isOnDutyEMS`
+style helpers. The client equivalent is `Kora.player.checkJob(rule)` from
+`@kora_core/init.lua`, which uses the same matcher (`modules/jobs/shared.lua`)
+against the local copy. That one is for UI only; the server must re-check.
+
+#### Parameters
+- `src: integer` — a numeric string is accepted.
+- `rule: table | nil` — every field is optional; all given fields must match. `nil` means "any job, on duty".
+  - `name: string | string[]` — the job name, or any of a list.
+  - `type: string | string[]` — the job type (`'leo'`, `'ems'`, …), or any of a list.
+  - `minGrade: integer` — lowest accepted grade, in kora_core's **one-based** levels (legacy qb grade 0 = 1).
+  - `onDuty: boolean` — defaults to **`true`** (must be on duty). `false` skips the duty check; it does not require being off duty.
+  - `boss: boolean` — `true` requires a boss grade (`job.isboss`).
+
+#### Returns
+- `boolean` — whether the rule matched.
+- `string | nil` — the first failing check, in this order: `'no_player'`, `'wrong_job'`, `'off_duty'`, `'grade_too_low'`, `'not_boss'`.
+
+A malformed rule (a non-table, a numeric `name`, a string `minGrade`, …) raises an
+error: it is a programmer error in the caller, not a runtime condition.
+
+#### Example
+```lua
+local ok, reason = exports.kora_core:checkJob(source, { type = 'ems' })
+if not ok then return notify(source, reason == 'off_duty' and 'Go on duty first' or 'EMS only') end
+
+-- a boss of police or sheriff, on or off duty
+exports.kora_core:checkJob(source, { name = { 'police', 'sheriff' }, boss = true, onDuty = false })
+```
+
 ### `Core.jobs.setJob(src, name, grade)` — server
 Sets a player's job to a registered job at `grade`, replacing the whole `job` root in one funnel write, and updates the job index. Fires `QBCore:Server:OnJobUpdate` (and the client event unless `Config.compat.jobUpdateEventSource == 'client'`).
 
@@ -104,7 +137,15 @@ local onDutyLeo = exports.kora_core:getPlayersByJobType('leo', true)
 ```
 
 ### `Core.jobs.getDutyCountByType(jobType)` — server
-Number of on-duty players whose job carries that type.
+Number of on-duty players whose job carries that type. A counter read, so it is
+the right call for "are enough police on" checks (robberies, scoreboards)
+instead of looping `getPlayers` or reading `GlobalState.OnDuty`, whose keys a
+same-named job can shadow.
+
+#### Example
+```lua
+if exports.kora_core:getDutyCountByType('leo') < 2 then return false, 'not enough police' end
+```
 
 #### Returns
 - `integer`

@@ -150,6 +150,18 @@ function Core.jobs.getGang(src)
     return p and p.PlayerData.gang or nil
 end
 
+---Checks a player's job against a rule without copying PlayerData: it reads
+---the live sub-table that getPlayer/getPlayerData would deep-copy across the
+---export boundary. `onDuty` defaults to true; grades are one-based.
+---@param src integer
+---@param rule KoraJobRule|nil
+---@return boolean ok
+---@return string|nil reason 'no_player'|'wrong_job'|'off_duty'|'grade_too_low'|'not_boss'
+function Core.jobs.checkJob(src, rule)
+    local p = PI.handle(tonumber(src))
+    return CoreInternal.jobs.matchRule(p and p.PlayerData.job, rule)
+end
+
 ---@param src integer
 ---@param name string
 ---@param grade integer|nil

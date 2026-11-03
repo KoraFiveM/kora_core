@@ -36,6 +36,7 @@ shared_script '@kora_sql/init.lua'
 files {
     'init.lua' -- '@kora_core/init.lua' -- shared registry mirror for consumers
     , 'shared/locale.lua' -- '@qb-core/shared/locale.lua' -- real qb-core's Locale class, for compat consumers
+    , 'modules/jobs/shared.lua' -- job-rule matcher; '@kora_core/init.lua' load()s it for Kora.player.checkJob
 }
 
 -- Explicit, never globbed. A `modules/**/shared.lua` glob expands in
@@ -67,6 +68,7 @@ shared_scripts {
     'modules/util/shared.lua',
     'modules/registry/shared.lua',
     'modules/player/shared.lua',
+    'modules/jobs/shared.lua',
     'modules/inventory/shared.lua',
     'compat/shared/coreobject.lua'
 }

@@ -11,6 +11,8 @@ Server:
 - `Core.jobs.setJobDuty(src, onDuty)` — toggle duty.
 - `Core.jobs.getPlayersByJob(name, onDutyOnly)` — source ids via the index (O(1)).
 - `Core.jobs.getDutyCount(name)` — on-duty count.
+- `Core.jobs.getPlayersByJobType(jobType, onDutyOnly)` / `getDutyCountByType(jobType)` — the same by job type.
+- `Core.jobs.checkJob(src, rule)` — `(true)` / `(false, reason)` against the live job, no copy. The matcher is `CoreInternal.jobs.matchRule` in `shared.lua`, which `@kora_core/init.lua` also loads for `Kora.player.checkJob`; keep it pure (no natives, no Core reads) and allocation-free, because both realms run it per check.
 
 Client:
 - `Core.jobs.getJob()` / `getGang()` — read `{ 'job' }` / `{ 'gang' }` from the mirror.

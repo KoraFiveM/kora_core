@@ -97,6 +97,9 @@ end)
 exports.kora_core:setJob(source, 'police', 2)
 local onDuty = exports.kora_core:getPlayersByJob('police', true)
 print(#onDuty, 'police officers on duty')
+
+local ok, reason = exports.kora_core:checkJob(source, { type = 'leo', minGrade = 2 })
+if not ok then print('refused:', reason) end -- 'wrong_job', 'off_duty', 'grade_too_low', ...
 ```
 
 ### Custom useable item
@@ -197,7 +200,17 @@ exports.kora_core:setJobDuty(src, onDuty)
 exports.kora_core:getJob(src)  exports.kora_core:getGang(src)
 exports.kora_core:getPlayersByJob(name, onDutyOnly)   -- O(1), maintained index
 exports.kora_core:getDutyCount(name)
+exports.kora_core:getPlayersByJobType(jobType, onDutyOnly)  -- every job of a type ('leo', 'ems', ...)
+exports.kora_core:getDutyCountByType(jobType)         -- on-duty count across every job of a type
+exports.kora_core:getJobTypeCounts(onDutyOnly)        -- { [jobType] = n } for types held right now
+exports.kora_core:getOnDutyRoster(filter)             -- descriptive records for unit lists
+exports.kora_core:checkJob(src, rule)                 -- true | false, reason; reads the live job, no copy
 ```
+`checkJob` rules: `{ name?, type?, minGrade?, onDuty? (default true), boss? }`;
+`name`/`type` take a string or a list, `minGrade` is the one-based grade, and the
+reason is one of `no_player`, `wrong_job`, `off_duty`, `grade_too_low`,
+`not_boss`. Use `getDutyCountByType('leo')` for "enough police online" checks.
+See [modules/jobs/docs.md](../modules/jobs/docs.md).
 
 ### Metadata
 ```lua
