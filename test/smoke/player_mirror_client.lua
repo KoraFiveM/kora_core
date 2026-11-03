@@ -96,6 +96,13 @@ end
 
 dofile('init.lua')
 local P = Kora.player
+local callsAtLoad = exportCalls
+local startHandlersAtLoad = #lifecycle.start
+
+h.test('including init.lua costs nothing until Kora.player is first used', function()
+    h.assertEqual(callsAtLoad, 0, 'no export calls at load')
+    h.assertEqual(startHandlersAtLoad, 0, 'no lifecycle handlers at load')
+end)
 
 h.test('installs Kora.player on the client and seeds it from kora_core once', function()
     h.assertEqual(type(P), 'table')

@@ -277,7 +277,8 @@ Kora.player.checkJob(rule)     -- same rule and reasons as the server checkJob; 
 Kora.player.onChange(prefix, fn) -> id   -- fn(path, value)
 Kora.player.offChange(id)
 ```
-Each watched root costs one `getPlayerData` call when the copy is seeded and one
+Nothing is attached until the first `Kora.player` call. After that, each watched
+root costs one `getPlayerData` call when the copy is seeded and one
 `onPlayerDataChange` subscription. Reading any other root (`money`, `items`, ...)
 starts watching it on the first read. The copy is refreshed from kora_core's
 login snapshot, cleared on logout, and re-attached when kora_core or kora_lib

@@ -220,18 +220,28 @@ end)
 -- and patched by ONE onPlayerDataChange subscription per root. Reads are plain
 -- table lookups. It is a read model for UI only: the server re-checks.
 --
--- Re-attached when kora_core restarts (Kora.resources.onStart) and when
+-- Nothing is subscribed until the first Kora.player call, so a resource that
+-- includes this file only for Kora.shared pays nothing. Once active it is
+-- re-attached when kora_core restarts (Kora.resources.onStart) and when
 -- kora_lib restarts (Kora.onReady), so the subscriptions never silently die.
 -- ===========================================================================
 if not isServerRealm then
-    -- The same matcher kora_core's server checkJob uses. Loaded into a private
-    -- environment so the file's kora_core-only branch cannot touch our globals.
-    local matchJobRule = (function()
+    -- The same matcher kora_core's server checkJob uses, loaded on the first
+    -- checkJob into a private environment so the file's kora_core-only branch
+    -- cannot touch our globals. A load failure is reported once, never raised:
+    -- it must not take down a consumer that only wanted Kora.shared.
+    local matchJobRule
+    local function loadMatcher()
         local path = 'modules/jobs/shared.lua'
-        local source = assert(LoadResourceFile('kora_core', path), 'Unable to load @kora_core/' .. path)
-        local chunk = assert(load(source, '@@kora_core/' .. path, 't', setmetatable({}, { __index = _G })))
-        return chunk()
-    end)()
+        local ok, result = pcall(function()
+            local source = assert(LoadResourceFile('kora_core', path), 'unable to read @kora_core/' .. path)
+            local chunk = assert(load(source, '@@kora_core/' .. path, 't', setmetatable({}, { __index = _G })))
+            return chunk()
+        end)
+        if ok and type(result) == 'function' then return result end
+        print(('^1[kora_core:player]^7 Kora.player.checkJob is unavailable: %s'):format(tostring(result)))
+        return function() return false, 'unavailable' end
+    end
 
     local player = {}
     local data = {}                 -- root -> local copy (nil until seeded)
@@ -239,6 +249,7 @@ if not isServerRealm then
     local subIds = {}               -- root -> kora_core onPlayerDataChange id
     local handlers = {}             -- id -> { prefix = string[], fn = function }
     local nextHandlerId = 0
+    local active = false
     local DEFAULT_ROOTS = { 'job', 'gang', 'metadata', 'charinfo' }
 
     local function pathGet(t, path)
@@ -330,13 +341,14 @@ if not isServerRealm then
     -- kora_core's snapshot (login, character switch, resync) arrives as this
     -- local event with the full data, so reseeding costs no export calls.
     AddEventHandler('qbcore:client:playerLoaded', function(snapshot)
-        if type(snapshot) ~= 'table' then return end
+        if not active or type(snapshot) ~= 'table' then return end
         data.citizenid = snapshot.citizenid
         for root in pairs(watched) do data[root] = snapshot[root] end
         announceAll()
     end)
 
     RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+        if not active then return end
         for key in pairs(data) do data[key] = nil end
         announceAll()
     end)
@@ -348,7 +360,12 @@ if not isServerRealm then
             for root in pairs(subIds) do subIds[root] = nil end
         end)
     end
-    if rawget(Kora, 'onReady') then Kora.onReady(register) else register() end
+
+    -- First use: attach now (and after every kora_core / kora_lib restart).
+    local function activate()
+        active = true
+        if rawget(Kora, 'onReady') then Kora.onReady(register) else register() end
+    end
 
     ---Reads the local copy: no export call, no copy. `path` is a root key
     ---('job') or a key array ({ 'metadata', 'hunger' }); nil returns the whole
@@ -357,6 +374,7 @@ if not isServerRealm then
     ---@param path string|(string|integer)[]|nil
     ---@return any
     function player.get(path)
+        if not active then activate() end
         if path == nil then return data end
         if type(path) == 'table' then
             local root = path[1]
@@ -369,17 +387,27 @@ if not isServerRealm then
     end
 
     ---@return boolean
-    function player.isLoaded() return data.citizenid ~= nil end
+    function player.isLoaded()
+        if not active then activate() end
+        return data.citizenid ~= nil
+    end
 
     ---@return table|nil
-    function player.job() return data.job end
+    function player.job()
+        if not active then activate() end
+        return data.job
+    end
 
     ---@return table|nil
-    function player.gang() return data.gang end
+    function player.gang()
+        if not active then activate() end
+        return data.gang
+    end
 
     ---@param key string|nil nil returns the whole metadata table
     ---@return any
     function player.metadata(key)
+        if not active then activate() end
         local metadata = data.metadata
         if key == nil then return metadata end
         if type(metadata) ~= 'table' then return nil end
@@ -392,6 +420,8 @@ if not isServerRealm then
     ---@return boolean ok
     ---@return string|nil reason
     function player.checkJob(rule)
+        if not active then activate() end
+        if not matchJobRule then matchJobRule = loadMatcher() end
         return matchJobRule(data.job, rule)
     end
 
@@ -407,6 +437,7 @@ if not isServerRealm then
         assert(type(fn) == 'function' or Kora.util.isCallable(fn), 'Kora.player.onChange requires a function')
         local copy = {}
         for i = 1, #prefix do copy[i] = prefix[i] end
+        if not active then activate() end
         if not watched[copy[1]] and copy[1] ~= 'citizenid' then watch(copy[1]) end
         nextHandlerId = nextHandlerId + 1
         handlers[nextHandlerId] = { prefix = copy, fn = fn }
