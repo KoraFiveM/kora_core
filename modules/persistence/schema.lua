@@ -1,9 +1,8 @@
--- Declarative schema for kora_core's tables, applied by migrate.lua through
--- Kora.sql.ensureTables. Replaces the former sql/001-011 migration files.
+-- Declarative schema for kora_core's tables, applied by boot.lua through
+-- Kora.sql.ensureTables.
 -- `players` and `player_vehicles` also carry the columns that used to be
 -- ALTERed onto legacy qb-core tables, so an imported table gains them too.
--- player_vehicles.model is nullable: migrate.lua relaxes it on every install
--- (the `vehicle` <-> `model` triggers fill it), so the spec matches the live state.
+-- player_vehicles.model is nullable (the `vehicle` <-> `model` triggers fill it).
 
 local NULL = Kora.sql.NULL
 local NOW = { raw = 'CURRENT_TIMESTAMP' }

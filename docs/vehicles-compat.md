@@ -1,12 +1,9 @@
 # Stock `player_vehicles` compatibility
 
-kora's `player_vehicles` (`modules/persistence/schema.lua`) stays authoritative. Migration
-`011_legacy_vehicle_compat.sql` adds the stock qb-garages / qb-vehicleshop
-columns, plus kora's own columns when the table was imported from stock qb-core
-first (005 is `CREATE TABLE IF NOT EXISTS` and cannot evolve such a table). Two
-`BEFORE INSERT/UPDATE` triggers (installed at boot by
-`modules/persistence/migrate.lua`, `qbcore_player_vehicles_compat_insert` and
-`_update`, replacing the older `..._model_sync_*` pair) keep the pairs in sync.
+kora's `player_vehicles` (`modules/persistence/schema.lua`) stays authoritative and
+declares the stock qb-garages / qb-vehicleshop columns too. Two `BEFORE INSERT/UPDATE`
+triggers (installed at boot by `modules/persistence/boot.lua`,
+`qbcore_player_vehicles_compat_insert` and `_update`) keep the pairs in sync.
 
 | kora column | stock column | notes |
 |---|---|---|
@@ -16,70 +13,32 @@ first (005 is `CREATE TABLE IF NOT EXISTS` and cannot evolve such a table). Two
 | `body_health` | `body` | same |
 | `fuel`, `mods`, `plate`, `citizenid` | same | shared as-is |
 | - | `license`, `hash`, `fakeplate`, `depotprice`, `drivingdistance`, `status` | plain pass-through columns (not synced; `license` is not auto-filled) |
-| `balance`, `paymentamount`, `paymentsleft`, `financetime` | same | migration 007 |
+| `balance`, `paymentamount`, `paymentsleft`, `financetime` | same | shared as-is |
 
 Conflict rule: when one statement changes both sides, kora's column wins. An
 update that touches neither side leaves values (and float precision) alone.
 
 ## How it is applied
-The columns are declared in `modules/persistence/schema.lua` (`player_vehicles`
-spec, applied by `Kora.sql.ensureTables`; the retired `sql/011_*.sql` lives on as a
-fixture under `test/sql/scratch/legacy`). Everything else runs from `migrate.lua`
-after the schema, driven by
-`information_schema` (idempotent, every boot):
-- relax `model`/`vehicle` to nullable and `engine`/`body` to `NULL DEFAULT NULL`
-  (stock has `vehicle NOT NULL` in some dumps and `engine/body DEFAULT 1000`; a
-  kora-style insert naming only `engine_health` would otherwise be rejected or
-  have its health overwritten by 1000). Charset/collation is preserved;
-- backfill stock <-> kora values (a stock-imported row gets `garage_id`,
-  `engine_health`, `body_health` from `garage`/`engine`/`body`), pinning
-  `last_updated`. The health copy runs only on the boot that creates
-  `engine_health`/`body_health`; a crash between migration 011 and that
-  backfill leaves those rows at the 1000 default;
-- install the triggers, then the optional `state` step below.
+The columns are declared in `modules/persistence/schema.lua` and created by
+`Kora.sql.ensureTables`. `boot.lua` then installs the two triggers (checked against
+`information_schema` first, so every boot is a no-op once they exist). Nothing is
+converted or backfilled: a `player_vehicles` table imported from stock qb-core is not
+reshaped (no nullability changes, no value copies, no `state` conversion).
 
 ## `state`
-kora uses `state ENUM('out','garaged','impounded')` and every kora writer and
-reader (kora_garages, kora_dealership, `Core.garage`) uses the strings. Stock
-uses an integer (0 out, 1 garaged, 2 impounded). One column cannot be both:
-an integer written to an ENUM is its 1-based *index*. It is therefore not
-translated by a trigger (a trigger sees the value after coercion and cannot tell
-`1` from `'out'`). `Config.persistence.legacyVehicleState` (default `false`)
-selects what happens; results below were run on MariaDB 11.8 (strict mode).
-
-| scenario | what works | what does not |
-|---|---|---|
-| **(a)** fresh kora install, option off (default) | every kora statement (strings); stock column/health/garage/model sync | stock `state = 1` **write lands on `'out'`** (silently inverted); stock `state = 0` write is rejected (error 1265); stock `WHERE state = 1` returns kora's `out` rows |
-| **(b)** stock table imported first, `state` still INT, option off | stock scripts as before (integer writes/reads); column/health/garage/model sync; kora's missing columns are added | kora_garages, kora_dealership and `Core.garage` writes of `'out'/'garaged'` are rejected (strings into INT) and `state = 'garaged'` reads match nothing. Boot prints a warning naming the option |
-| **(c)** option on (either scenario) | the column becomes `ENUM('garaged','impounded','out') NOT NULL DEFAULT 'garaged'`: all kora statements; existing data kept (INT 0/1/2 mapped explicitly to out/garaged/impounded, never via the enum index; kora's existing strings kept); stock integer `state = 1` / `2` writes and `WHERE state = 1` reads mean garaged / impounded | stock `state = 0` ("out") writes are rejected (error 1265) and `WHERE state = 0` never matches; stock `WHERE state = 2` after a kora write of `'impounded'` works, but anything that compares against `0` or expects an integer back does not |
-
-Choosing: the option is **opt-in** because converting a stock INT column
-breaks stock integer-state scripts for 0/"out" and is one-way; keeping the INT
-column breaks kora's garage resources. On a stock-imported server that runs
-kora_garages, set it to `true`. If stock garage scripts must keep working fully,
-keep the INT column and don't run kora's garage/dealership resources against
-that table. The conversion is resumable (a boot that dies between its ALTERs
-continues on the next boot); a custom `state` ENUM is left alone. The ENUM
-reorder only changes sort order of `ORDER BY state`; no kora code relies on it.
+kora uses `state ENUM('out','garaged','impounded')` and every kora writer and reader
+(kora_garages, kora_dealership, `Core.garage`) uses the strings. Stock uses an integer
+(0 out, 1 garaged, 2 impounded). One column cannot be both: an integer written to an
+ENUM is its 1-based *index*, so it is not translated by a trigger. On a fresh kora
+install stock integer-state scripts are therefore not supported.
 
 ## Database support
-The schema handler and the v111 residual migration (kora_sql's runner retry-safety
-gate) rely on `ADD COLUMN IF NOT EXISTS`, which is MariaDB-only;
-MySQL 8 rejects it. kora_sql's docs say only "MySQL/MariaDB" with no version
-statement, but in practice **MariaDB (10.2+; tested on 11.8) is required**. The boot-time
-steps added here do not add any further MariaDB-only dependency (they check
-`information_schema` first). Making the file migrations MySQL-portable would
-need a kora_sql runner change (not made here).
+`ADD COLUMN IF NOT EXISTS` is not used by the schema handler, but the triggers and
+generated columns assume **MariaDB (10.2+; tested on 11.8)**.
 
 ## Testing
-`bash test/run.sh` runs `test/smoke/vehicle_compat_sql.lua` (schema declaration,
-trigger text, runner retry-safety gate)
-and `test/smoke/vehicle_compat_boot.lua` (boot-step statement sequence).
-`bash test/sql/scratch/run.sh` runs the real thing on scratch MariaDB databases
-`compat_scratch_*` (created and dropped by the script; needs `node`, `lua`, a
-`../kora_sql` checkout and `sudo mariadb` or `MARIADB=...`): (a) fresh,
-(a2) fresh + option, (b) stock table, (b2) stock table with NOT NULL columns,
-(c) stock table + option, each followed by `test/sql/player_vehicles_*.sql`.
+`bash test/run.sh` runs `test/smoke/vehicle_compat_sql.lua` (schema declaration, trigger
+text, no migration at boot).
 
 # Legacy money / duty / metadata writes (compat)
 - `Functions.SetPlayerData('money', t)` and `UpdateClient('money')` while

@@ -19,7 +19,6 @@ Config.persistence = {
     positionMaxAge = 300000,         -- ms after which position persists even if the player is parked
     volatileMetadataKeys = {},       -- metadata keys routed to a separate column (OFF by default; see AGENTS.md)
     generatedColumns = false,        -- run sql/003 to add VIRTUAL cash/bank/job columns for SQL-side queries
-    legacyVehicleState = false,      -- convert a stock INT player_vehicles.state to kora's ENUM (opt-in; see docs/vehicles-compat.md)
     saveOnDrop = true,               -- immediate flush when a player disconnects
 }
 
