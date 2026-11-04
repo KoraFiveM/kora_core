@@ -133,6 +133,10 @@ Config.compat = {
     fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
 }
 
+Config.locales = {
+    defaultKey = 'F10',              -- default key for the "Open language selector" keybind; players can rebind it in Settings > Key Bindings > FiveM. Empty string = no default key (the /language command still works). Read when the resource starts
+}
+
 Config.vehicleAirControl = {
     disable = true,                  -- true = the driver cannot steer, pitch or roll a vehicle while it is airborne (no "perfect landings"). false = stock GTA air control
     -- Vehicle classes (GetVehicleClass) that KEEP their air control. Default: motorcycles (8),
@@ -206,5 +210,10 @@ if Kora and Kora.config and Kora.config.adopt then
             label = 'Air-control exempt vehicle classes',
             description = 'GTA vehicle class numbers that keep normal air control. The default 13, 14, 15, 16, 21 covers cycles, boats, helicopters, planes and trains. Add 8 to let motorcycles keep air control; remove a number to disable air control for that class. Read each time the driver enters a vehicle.',
         })
+    Config.locales.defaultKey = Kora.config.string(Config.locales.defaultKey, {
+        scope = 'client',
+        label = 'Language selector default key',
+        description = 'Default keyboard key (for example F10 or L) for the Open language selector keybind. Players can change it themselves in Settings > Key Bindings > FiveM. Leave empty for no default key; the /language command still works. Applies when the resource starts.',
+    })
     Config = Kora.config.adopt(Config)
 end

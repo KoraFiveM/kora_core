@@ -12,7 +12,11 @@ end
 
 ---Opens the per-player language selector. The chosen language belongs to the
 ---FiveM client and is saved by kora_lib in KVP storage, not PlayerData.
+local selectorOpen = false
+
 function Core.locales.openSelector()
+    if selectorOpen then return end
+    selectorOpen = true
     local current = Kora.locale.getLanguage()
     local items = {}
     for _, code in ipairs(Kora.locale.getLanguages()) do
@@ -26,11 +30,13 @@ function Core.locales.openSelector()
 
     -- kora_lib resolves NUI requests before returning them across a resource
     -- export boundary; kora_core therefore receives the result directly here.
-    local result = Kora.nui.openMenu(items, 'Language')
+    local ok, result = pcall(Kora.nui.openMenu, items, 'Language')
+    selectorOpen = false
+    if not ok then return end
     if not result or result.cancelled or not result.selectedId then return end
 
-    local ok, err = Kora.locale.setLanguage(result.selectedId)
-    if ok then
+    local set, err = Kora.locale.setLanguage(result.selectedId)
+    if set then
         Kora.notify.send({ title = 'Language', message = ('Language set to %s.'):format(languageName(result.selectedId)), type = 'success' })
     else
         Kora.notify.send({ title = 'Language', message = err, type = 'error' })
@@ -41,4 +47,11 @@ RegisterCommand('language', function()
     Core.locales.openSelector()
 end, false)
 
-RegisterKeyMapping('language', 'Open language selector', 'keyboard', '')
+-- Key presses use a +/- pair so only the press opens the menu; releases and
+-- focus-regain events after alt-tab are ignored.
+RegisterCommand('+language', function()
+    Core.locales.openSelector()
+end, false)
+RegisterCommand('-language', function() end, false)
+
+RegisterKeyMapping('+language', 'Open language selector', 'keyboard', (Config.locales and Config.locales.defaultKey) or '')
