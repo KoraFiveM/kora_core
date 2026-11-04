@@ -37,6 +37,16 @@ local function deleteSpawnedVehicle(vehicle)
     end
 end
 
+local vehiclesReady
+-- On a blank database kora_core creates player_vehicles a few seconds after start; boot-time callers wait here.
+local function awaitVehicles()
+    if vehiclesReady then return true end
+    local ok, err = Kora.sql.awaitTables({ 'player_vehicles' }, 60000)
+    if not ok then return false, err end
+    vehiclesReady = true
+    return true
+end
+
 local function resolveNetworkId(vehicle)
     local deadline = GetGameTimer() + Config.garage.spawnNetworkIdTimeout
     repeat
@@ -56,6 +66,9 @@ end
 function Core.garage.createVehicle(citizenid, model, plate, job, extra)
     assert(citizenid or job, 'Core.garage.createVehicle requires citizenid or job.')
     assert(type(plate) == 'string' and #plate > 0, 'Core.garage.createVehicle requires a plate.')
+
+    local ready, readyErr = awaitVehicles()
+    if not ready then return false, readyErr end
 
     extra = extra or {}
     local modelName = type(model) == 'number' and tostring(model) or model
@@ -80,6 +93,7 @@ end
 ---@param plate string
 ---@return table|nil
 function Core.garage.getByPlate(plate)
+    if not awaitVehicles() then return nil end
     local row = Kora.sql.single('SELECT * FROM `player_vehicles` WHERE `plate` = ? AND `deleted_at` IS NULL', { plate })
     return hydrate(row)
 end
@@ -87,6 +101,7 @@ end
 ---@param citizenid string
 ---@return table[]
 function Core.garage.getByOwner(citizenid)
+    if not awaitVehicles() then return {} end
     local rows = Kora.sql.query(
         'SELECT * FROM `player_vehicles` WHERE `citizenid` = ? AND `deleted_at` IS NULL ORDER BY `id`', { citizenid }
     ) or {}

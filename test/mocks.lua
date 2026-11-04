@@ -340,6 +340,7 @@ function M.install(opts)
         execute = function(sql, params) table.insert(sqlCalls.execute, { sql = sql, params = params }); return { affectedRows = 1 } end,
         flush = function() return true end,
         ensureTables = function(specs) table.insert(sqlCalls.ensureTables, specs); return {} end,
+        awaitTables = function() return true end,
         migrate = function(resource, list) table.insert(sqlCalls.migrate, { resource = resource, list = list }); return true end,
     }
 

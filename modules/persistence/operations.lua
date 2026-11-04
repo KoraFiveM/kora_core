@@ -8,6 +8,16 @@ local function provider()
     if caller == 'kora_banking' or caller == Config.inventory.provider then return caller end
 end
 
+local schemaReady
+-- On a blank database kora_core creates its tables a few seconds after start; boot-time callers wait here.
+function Core.persistence.awaitSchema()
+    if schemaReady then return true end
+    local ok, err = Kora.sql.awaitTables({ 'players', 'player_vehicles', 'qbcore_player_column_operations' }, 60000)
+    if not ok then return false, err end
+    schemaReady = true
+    return true
+end
+
 function Core.persistence._isColumnLocked(citizenid, column)
     return locks[citizenid] and locks[citizenid][column] ~= nil or false
 end
@@ -61,6 +71,8 @@ local function release(operation)
 end
 
 function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
+    local ready, readyErr = Core.persistence.awaitSchema()
+    if not ready then return nil, 'unavailable', readyErr end
     local caller = provider()
     if not caller then return nil, 'rejected', 'Only configured durable providers may fence player data.' end
     if type(key) ~= 'string' or #key < 1 or #key > 240 or type(citizenids) ~= 'table' or type(columns) ~= 'table'
@@ -211,6 +223,8 @@ end
 function Core.persistence.getPlayerColumnOperations()
     local caller, result = provider(), {}
     if not caller then return result end
+    local ready, readyErr = Core.persistence.awaitSchema()
+    if not ready then error(readyErr or 'Player operation storage unavailable') end
     local stored, err = Kora.sql.query('SELECT * FROM `qbcore_player_column_operations` WHERE `resource`=?', { caller })
     if not stored then error(err or 'Player operation storage unavailable') end
     for _, row in ipairs(stored) do
