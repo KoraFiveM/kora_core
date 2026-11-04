@@ -3,7 +3,7 @@
 kora's `player_vehicles` (`modules/persistence/schema.lua`) stays authoritative and
 declares the stock qb-garages / qb-vehicleshop columns too. Two `BEFORE INSERT/UPDATE`
 triggers (installed at boot by `modules/persistence/boot.lua`,
-`qbcore_player_vehicles_compat_insert` and `_update`) keep the pairs in sync.
+`kora_core_player_vehicles_compat_insert` and `_update`) keep the pairs in sync.
 
 | kora column | stock column | notes |
 |---|---|---|

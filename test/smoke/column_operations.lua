@@ -80,7 +80,7 @@ end)
 h.test('a stale character query is rejected when a transaction crosses its read', function()
     local single = Kora.sql.single
     Kora.sql.single = function(sql)
-        if sql:find('qbcore_player_column_operations', 1, true) then return nil end
+        if sql:find('kora_core_player_column_operations', 1, true) then return nil end
         coroutine.yield('read'); return { citizenid = 'RACE' }
     end
     local thread = coroutine.create(function() return Core.persistence._load('RACE') end)
@@ -154,7 +154,7 @@ h.test('a core restart recovers durable fences before login and publishes curren
     local stored, committed = {}, { cash = 500, bank = 42, crypto = 0 }
     Kora.sql.query = function() return Core.util.deepClone(stored) end
     Kora.sql.single = function(sql)
-        if sql:find('qbcore_player_column_operations', 1, true) then return stored[1] end
+        if sql:find('kora_core_player_column_operations', 1, true) then return stored[1] end
         return { citizenid = 'RESTART', license = 'license:restart', money = json.encode(committed), inventory = '{}' }
     end
     Kora.sql.transactionChecked = function(statements)

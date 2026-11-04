@@ -20,7 +20,7 @@ Core.identity.primary = function(src) return identities[src] end
 exports.kora_sql = { hasActivePlayerOperation = function() return activeOperation end }
 local originalSingle, originalEnqueue = Kora.sql.single, Kora.sql.enqueue
 Kora.sql.single = function(sql, params)
-    if sql:find('qbcore_player_column_operations', 1, true) and storedFence then
+    if sql:find('kora_core_player_column_operations', 1, true) and storedFence then
         return { operation_key = 'pending' }
     end
     return originalSingle(sql, params)

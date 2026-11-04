@@ -12,8 +12,8 @@ end
 
 local VEHICLE_SYNC_TRIGGERS = {
     {
-        name = 'qbcore_player_vehicles_compat_insert',
-        sql = ([[CREATE TRIGGER `qbcore_player_vehicles_compat_insert`
+        name = 'kora_core_player_vehicles_compat_insert',
+        sql = ([[CREATE TRIGGER `kora_core_player_vehicles_compat_insert`
             BEFORE INSERT ON `player_vehicles` FOR EACH ROW
             SET NEW.`model` = COALESCE(NULLIF(NEW.`model`, ''), NEW.`vehicle`),
                 NEW.`vehicle` = NEW.`model`,
@@ -28,8 +28,8 @@ local VEHICLE_SYNC_TRIGGERS = {
             clamp16('NEW.`engine`'), clamp16('NEW.`body`')),
     },
     {
-        name = 'qbcore_player_vehicles_compat_update',
-        sql = ([[CREATE TRIGGER `qbcore_player_vehicles_compat_update`
+        name = 'kora_core_player_vehicles_compat_update',
+        sql = ([[CREATE TRIGGER `kora_core_player_vehicles_compat_update`
             BEFORE UPDATE ON `player_vehicles` FOR EACH ROW
             SET NEW.`model` = CASE
                     WHEN NOT (NEW.`vehicle` <=> OLD.`vehicle`)

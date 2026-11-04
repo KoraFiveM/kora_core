@@ -33,7 +33,7 @@ end)
 
 h.test('schema declares every kora_core table', function()
     for _, name in ipairs({ 'players', 'player_identifiers', 'inventories', 'bans', 'users',
-        'player_vehicles', 'qbcore_player_column_operations' }) do
+        'player_vehicles', 'kora_core_player_column_operations' }) do
         h.assertTrue(spec(name) ~= nil, name)
     end
     h.assertTrue(column(spec('players'), 'active_cid').generated ~= nil, 'players.active_cid is generated')

@@ -150,7 +150,7 @@ KoraCoreSchema = {
         },
     },
     {
-        name = 'qbcore_player_column_operations',
+        name = 'kora_core_player_column_operations',
         columns = {
             { name = 'citizenid', type = 'varchar(50)' },
             { name = 'column_name', type = 'varchar(16)' },
