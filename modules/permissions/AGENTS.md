@@ -16,13 +16,6 @@ Map the legacy QBCore permission vocabulary (`user`/`mod`/`admin`/`god`) onto Fi
 - **Grants are session-scoped.** `add_principal` is not written to disk here; persisting an admin roster is intentionally out of scope.
 - **The legacy `QBCore.Functions.GetPermission` is a DIFFERENT shape.** Native `getPermission` returns one level string; upstream qb-core returns a set of every configured group the player holds (`{ god = true, admin = true }`) which callers index by name (`if perms['admin'] then`). The compat wrapper builds that set from `QBCore.Config.Server.Permissions`, so never point it straight at `getPermission` — legacy scripts index the result and a string silently misbehaves or errors. Same file: `QBCore.Functions.HasPermission` also accepts an array of permissions (any match passes), which the native single-string `hasPermission` asserts against.
 - **No `CoreInternal.permissions` table.** `LEVELS` is file-local; all functions are public. Internals elsewhere use `CoreInternal.<module>`; `build/finalise.lua` walks only `Core.<module>` and skips `_`-prefixed functions.
-- **txAdmin automatic grants stay in `txadmin.lua`.** It owns only `player.<id> -> qbcore.txadmin`, using the monitor helper maintained in `integrations/txadmin.lua`. Never remove manual identifier principals or read/expose txAdmin's private token from kora_core. Joins, `adminsUpdated`, and resource lifecycle events drive all work; outstanding responses are invalidated on revocation/drop/stop. The local `qbcore:server:txAdminPermissionChanged` event refreshes consumers without changing public exports.
-
-## Testing
-`test/smoke/txadmin.lua` exercises the actual monitor helper and kora_core adapter
-against mocked HTTP and ACE natives, including stale responses and session reuse.
-`test/txadmin_installer.sh` checks installation and artifact replacement. Both
-run through `test/run.sh`.
 
 ## Best practices
 - Gate commands and admin features on `hasPermission`, not on `getPermission == 'admin'`, so `command.`/`group.` aces are honoured.

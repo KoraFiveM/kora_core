@@ -119,7 +119,6 @@ server_scripts {
     'modules/transaction/server.lua',
     'modules/multichar/server.lua',
     'modules/permissions/server.lua',
-    'modules/permissions/txadmin.lua',
     'modules/commands/server.lua',
     'modules/logging/server.lua',
     'modules/garage/server.lua',
