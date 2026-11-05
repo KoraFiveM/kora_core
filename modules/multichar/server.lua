@@ -11,6 +11,7 @@ local PI = CoreInternal.player
 function Core.multichar.getCharacters(src)
     local license = Core.identity.primary(src)
     if not license then return {} end
+    Core.users.recordDiscord(src)
     local rows = Core.persistence._listCharacters(license)
     local function dec(s) local ok, v = pcall(json.decode, s or ''); return ok and v or {} end
     for _, row in ipairs(rows) do

@@ -97,10 +97,12 @@ KoraCoreSchema = {
         columns = {
             { name = 'license', type = 'varchar(60)' },
             { name = 'max_characters', type = 'tinyint', unsigned = true, null = true, default = NULL },
+            { name = 'discord', type = 'varchar(50)', null = true, default = NULL },
             { name = 'created_at', type = 'timestamp', default = NOW },
             { name = 'last_seen', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
         },
         primary = { 'license' },
+        indexes = { { name = 'idx_users_discord', columns = { 'discord' } } },
     },
     {
         name = 'player_vehicles',

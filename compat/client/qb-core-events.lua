@@ -187,7 +187,9 @@ local function emitVehicleInfo(event, vehicle, seat)
         -- its client compatibility handler reads `modelName`.
         name = modelName,
         modelName = modelName,
-        netId = VehToNet(vehicle),
+        -- A vehicle deleted while occupied (admin /dv) is already gone by the
+        -- Left edge; VehToNet on it only prints a 'no such entity' warning.
+        netId = DoesEntityExist(vehicle) and VehToNet(vehicle) or 0,
         event = event,
     })
 end

@@ -236,7 +236,7 @@ QBCoreSeed.items = {
 
     -- Optional licence record for servers that choose to gate weapon-shop
     -- access through a player item rather than a metadata/ACE policy.
-    { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weaponlicense.png', imageUrl = QBCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
+    { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weapon_license.png', imageUrl = QBCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
 
     { name = "baking_soda", label = "Baking soda", weight = 1000, type = "item", image = "baking_soda.png", unique = false, useable = false, shouldClose = true, description = "I can use this for cakes or maybe something else" },
     { name = "gram_bag", label = "Gram Bag", weight = 1, type = "item", image = "gram_bag.png", unique = false, useable = false, shouldClose = true, description = "A small bag containing a gram." },

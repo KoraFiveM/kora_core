@@ -18,6 +18,7 @@ local stored = {
 
 _G.Core = {
     multichar = {},
+    users = { recordDiscord = function() end },
     identity = { primary = function(src) return src == 1 and 'license:owner' or 'license:other' end },
     persistence = {
         _listCharacters = function(license) return license == 'license:owner' and rows or {} end,

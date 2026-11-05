@@ -487,6 +487,7 @@ local function createCharacterUnlocked(src, charinfo, cid)
     local license = Core.identity.primary(src)
     if not license then return nil, 'could not resolve primary identifier' end
 
+    Core.users.recordDiscord(src)
     local maxCharacters = Core.users.getMaxCharacters(license)
     local existing = Core.persistence._listCharacters(license)
     local taken = {}

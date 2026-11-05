@@ -10,6 +10,7 @@ Config.identity = {
     citizenIdLength = 8,             -- length of a generated citizenid (excluding the type prefix)
     citizenIdPrefix = '',            -- optional prefix, e.g. 'QB' -> 'QBAB12CD34'
     maxCharacters = 5,               -- default multichar slots per identity; a `users` row can override this per-license (see Core.users.setMaxCharacters)
+    saveDiscord = true,              -- store the player's Discord id on their `users` row (e.g. for Discord-role character slots); needs Discord running when they connect
 }
 
 Config.persistence = {

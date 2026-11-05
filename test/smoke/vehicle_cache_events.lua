@@ -14,6 +14,7 @@ dofile('compat/shared/coreobject.lua')
 _G.GetEntityModel = function(vehicle) return vehicle * 10 end
 _G.GetDisplayNameFromVehicleModel = function(model) return 'MODEL_' .. model end
 _G.VehToNet = function(vehicle) return vehicle + 1000 end
+_G.DoesEntityExist = function(vehicle) return vehicle ~= 0 end
 QBCore.Functions.GetPlate = function(vehicle) return 'PLATE' .. vehicle end
 _G.GetPedInVehicleSeat = function(vehicle, seat) return vehicle * 100 + seat end
 

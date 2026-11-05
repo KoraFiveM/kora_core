@@ -219,6 +219,36 @@ h.test('setMaxCharacters issues an upsert with the license and value', function(
     h.assertEqual(call.params[2], 8)
 end)
 
+h.test('recordDiscord upserts the discord id once and skips repeats and missing ids', function()
+    local realNum, realGet = _G.GetNumPlayerIdentifiers, _G.GetPlayerIdentifier
+    _G.GetNumPlayerIdentifiers = function() return 2 end
+    _G.GetPlayerIdentifier = function(_, i) return i == 0 and 'license:test-license' or 'discord:123456789' end
+    local before = #handle.sqlCalls.execute
+    Core.users.recordDiscord(1)
+    h.assertEqual(#handle.sqlCalls.execute, before + 1)
+    local call = handle.sqlCalls.execute[#handle.sqlCalls.execute]
+    h.assertEqual(call.params[1], 'test-license')
+    h.assertEqual(call.params[2], '123456789')
+    Core.users.recordDiscord(1)
+    h.assertEqual(#handle.sqlCalls.execute, before + 1, 'unchanged id must not rewrite')
+    _G.GetNumPlayerIdentifiers, _G.GetPlayerIdentifier = realNum, realGet
+    local n = #handle.sqlCalls.execute
+    Core.users.recordDiscord(2)
+    h.assertEqual(#handle.sqlCalls.execute, n, 'no discord identifier -> no write')
+end)
+
+h.test('recordDiscord does nothing when Config.identity.saveDiscord is off', function()
+    local realNum, realGet = _G.GetNumPlayerIdentifiers, _G.GetPlayerIdentifier
+    _G.GetNumPlayerIdentifiers = function() return 2 end
+    _G.GetPlayerIdentifier = function(_, i) return i == 0 and 'license:other' or 'discord:999' end
+    Config.identity.saveDiscord = false
+    local n = #handle.sqlCalls.execute
+    Core.users.recordDiscord(3)
+    h.assertEqual(#handle.sqlCalls.execute, n)
+    Config.identity.saveDiscord = true
+    _G.GetNumPlayerIdentifiers, _G.GetPlayerIdentifier = realNum, realGet
+end)
+
 h.test('freshData seeds metadata.fingerprint and metadata.walletid, matching real qb-core\'s PlayerDefaults', function()
     -- Real qb-core's config.lua seeds both on every new character
     -- (fingerprint = QBCore.Player.CreateFingerId(), walletid =
