@@ -106,7 +106,7 @@ RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
 
     local ok, err = pcall(handler, respond, ...)
     if not ok then
-        print(('^1[qbcore:qb-core-bridge]^7 legacy client callback %q raised an error: %s'):format(tostring(name), tostring(err)))
+        print(('^1[kora_core:qb-core-bridge]^7 legacy client callback %q raised an error: %s'):format(tostring(name), tostring(err)))
     end
 end)
 
@@ -170,7 +170,7 @@ function F.TriggerCallback(name, ...)
             if entry.answered then return end
             entry.answered = true
             dropPending(name, entry)
-            print(('^3[qbcore:qb-core-bridge]^7 TriggerCallback(%q) timed out waiting for a server reply'):format(tostring(name)))
+            print(('^3[kora_core:qb-core-bridge]^7 TriggerCallback(%q) timed out waiting for a server reply'):format(tostring(name)))
             entry.promise:resolve(nil)
         end)
         Citizen.Await(entry.promise)
@@ -264,17 +264,21 @@ end
 ---@param speed number - The speed at which the entity should turn
 ---@return number - The time at which the entity was looked at
 function F.LookAtEntity(entity, timeout, speed)
-    local involved = GetInvokingResource()
-    if not DoesEntityExist(entity) then
-        return involved .. ' :^1  Entity does not exist'
-    end
+    -- nil when called from inside kora_core; concatenating it raised instead of
+    -- returning the message.
+    local involved = GetInvokingResource() or GetCurrentResourceName()
     if type(entity) ~= 'number' then
         return involved .. ' :^1  Entity must be a number'
+    end
+    if not DoesEntityExist(entity) then
+        return involved .. ' :^1  Entity does not exist'
     end
     if type(speed) ~= 'number' then
         return involved .. ' :^1  Speed must be a number'
     end
     if speed > 5.0 then speed = 5.0 end
+    -- Optional in practice: callers pass (entity, nil, speed) and nil > 5000 errors.
+    timeout = tonumber(timeout) or 5000
     if timeout > 5000 then timeout = 5000 end
     local ped = PlayerPedId()
     local playerPos = GetEntityCoords(ped)
@@ -314,7 +318,7 @@ end
 --- @param duration number - The duration of the animation in milliseconds. -1 will play the animation indefinitely
 --- @return number - The timestamp indicating when the animation concluded.
 function F.PlayAnim(animDict, animName, upperbodyOnly, duration)
-    local invoked = GetInvokingResource()
+    local invoked = GetInvokingResource() or GetCurrentResourceName()
     local animPromise = promise.new()
     if type(animDict) ~= 'string' or type(animName) ~= 'string' then
         animPromise:reject(invoked .. ' :^1  Wrong type for animDict or animName')
@@ -518,7 +522,7 @@ function F.LoadModel(model, timeout)
     if HasModelLoaded(modelName) then return true, model end
 
     if not IsModelValid(modelName) and not IsModelInCdimage(modelName) then
-        print(('[QBCore] Model does not exist: %s'):format(modelName or model))
+        print(('[kora_core] Model does not exist: %s'):format(modelName or model))
         return false, modelName
     end
 
@@ -571,7 +575,7 @@ function F.SpawnVehicle(model, cb, coords, isnetworked, teleportInto)
         end
         if not warnedClientNetworkVehicle then
             warnedClientNetworkVehicle = true
-            print('[qbcore] client SpawnVehicle could not get a server-validated networked vehicle (see Config.compat.vehicleSpawnCallbacks); creating a local vehicle instead.')
+            print('[kora_core] client SpawnVehicle could not get a server-validated networked vehicle (see Config.compat.vehicleSpawnCallbacks); creating a local vehicle instead.')
         end
     end
     local loaded = F.LoadModel(model)
@@ -1098,7 +1102,7 @@ function F.Draw3DText(coords, text, opts) Kora.drawing.text3d(coords, text, opts
 function F.RequestAnimDict(animDict, timeout)
     timeout = timeout or 5000
     if not DoesAnimDictExist(animDict) then
-        print(('[QBCore] Animation dictionary does not exist: %s'):format(animDict))
+        print(('[kora_core] Animation dictionary does not exist: %s'):format(animDict))
         return false, animDict
     end
     return awaitStreamingAsset(animDict, timeout, RequestAnimDict, HasAnimDictLoaded, RemoveAnimDict)

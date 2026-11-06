@@ -585,6 +585,21 @@ h.test('legacy item updates resolve the visible canonical definition and removal
     h.assertFalse(ok); h.assertEqual(reason, 'item_not_exists')
 end)
 
+h.test('a legacy UpdateItem on a native weapon keeps the native fields it does not send', function()
+    local name = 'weapon_legacy_native'
+    h.assertTrue(Core.registry.registerShared('weapons', name, {
+        name = name, label = 'Grenade', type = 'weapon', weapontype = 'Throwable', damageModifier = 1.0, useable = true,
+    }))
+    h.assertTrue(QBCore.Functions.UpdateItem(name, { name = name, label = 'Frag', weight = 500, type = 'weapon', useable = false }))
+    local record = Core.registry.getShared('weapons', name)
+    h.assertEqual(record.label, 'Frag')
+    h.assertEqual(record.weight, 500)
+    h.assertEqual(record.useable, false, 'a field the update sends still wins')
+    h.assertEqual(record.weapontype, 'Throwable')
+    h.assertEqual(record.damageModifier, 1.0)
+    h.assertTrue(QBCore.Functions.RemoveItem(name))
+end)
+
 h.test('legacy removal rejects registry failure instead of announcing partial success', function()
     local name = 'weapon_legacy_failure'
     for _, registry in ipairs({ 'items', 'weapons' }) do

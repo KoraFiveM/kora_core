@@ -61,14 +61,26 @@ local function refresh()
 end
 
 -- The cache updates seat before vehicle; both handlers re-evaluate from local copies.
-Kora.cache.onChange('seat', function(value)
-    seat = value
-    refresh()
-end)
+-- kora_lib drops every onChange registration when it restarts, so register
+-- again then and re-seed from the restarted cache.
+local function watchCache()
+    Kora.cache.onChange('seat', function(value)
+        seat = value
+        refresh()
+    end)
 
-Kora.cache.onChange('vehicle', function(value)
-    vehicle = value
-    refresh()
-end)
+    Kora.cache.onChange('vehicle', function(value)
+        vehicle = value
+        refresh()
+    end)
+end
 
+watchCache()
 refresh()
+
+AddEventHandler('onClientResourceStart', function(resource)
+    if resource ~= 'kora_lib' then return end
+    vehicle, seat = Kora.cache.vehicle(), Kora.cache.seat()
+    watchCache()
+    refresh()
+end)

@@ -7,7 +7,11 @@ local H = require('harness')
 local mocks = require('mocks')
 mocks.install({ client = true })
 
-local commands, notices = {}, {}
+-- modules/locales/client.lua reads Config.locales at load; in game config.lua is
+-- the first shared_script, so load it the same way here.
+dofile(repoRoot .. 'config.lua')
+
+local commands, notices, keyMappings = {}, {}, {}
 local selected = 'en'
 Kora.locale = {
     getLanguage = function() return selected end,
@@ -21,7 +25,7 @@ Kora.nui = {
 }
 Kora.notify = { send = function(payload) notices[#notices + 1] = payload end }
 _G.RegisterCommand = function(name, handler) commands[name] = handler end
-_G.RegisterKeyMapping = function() end
+_G.RegisterKeyMapping = function(command, _, _, key) keyMappings[command] = key end
 
 dofile(repoRoot .. 'modules/locales/client.lua')
 
@@ -33,6 +37,12 @@ H.test('selector saves a language through kora_lib rather than PlayerData', func
     commands.language()
     H.assertEqual(selected, 'de')
     H.assertEqual(notices[#notices].type, 'success')
+end)
+
+H.test('the press-only keybind uses the configured default key', function()
+    H.assertTrue(type(commands['+language']) == 'function')
+    H.assertTrue(type(commands['-language']) == 'function')
+    H.assertEqual(keyMappings['+language'], Config.locales.defaultKey)
 end)
 
 H.report('locales')

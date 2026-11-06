@@ -50,7 +50,7 @@ end
 
 -- Client register is refused -- the server owns the registries.
 function Core.registry.registerShared(name, key)
-    print(("^3[qbcore:registry]^7 client-side registerShared('%s','%s') refused -- register on the server."):format(tostring(name), tostring(key)))
+    print(("^3[kora_core:registry]^7 client-side registerShared('%s','%s') refused -- register on the server."):format(tostring(name), tostring(key)))
     return false, 'client-side registration is not supported'
 end
 

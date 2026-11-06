@@ -55,7 +55,7 @@ end)
 
 RegisterNetEvent('qbcore:client:characterSelected', function(ok, err)
     if not ok then
-        print(('^1[qbcore:multichar]^7 character select failed: %s'):format(tostring(err)))
+        print(('^1[kora_core:multichar]^7 character select failed: %s'):format(tostring(err)))
         selecting = false
     end
 end)

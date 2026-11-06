@@ -39,4 +39,20 @@ h.test('keys removed from the mirror disappear from the captured table', functio
     h.assertEqual(QBCore.PlayerData, captured)
 end)
 
+h.test('unload empties QBCore.PlayerData so the next character starts clean', function()
+    local captured = QBCore.PlayerData
+    TriggerEvent('qbcore:rep:delta', 6, { { p = { 'metadata' }, v = { ishandcuffed = true, isdead = true } } })
+    h.assertEqual(captured.metadata.ishandcuffed, true)
+    TriggerEvent('QBCore:Client:OnPlayerUnload')
+    h.assertEqual(next(captured), nil, 'no field of the previous character survives unload')
+    h.assertEqual(QBCore.PlayerData, captured)
+    TriggerEvent('qbcore:rep:snapshot', 0, {
+        citizenid = 'CID2', money = { cash = 10 },
+        job = { name = 'unemployed', label = 'Civilian', grade = { level = 1, name = 'Freelancer' }, onduty = true },
+        gang = { name = 'none', label = 'None', grade = { level = 1, name = 'None' } },
+    })
+    h.assertEqual(captured.citizenid, 'CID2')
+    h.assertEqual(captured.metadata, nil, 'the old metadata is not carried over')
+end)
+
 h.report('client_playerdata_inplace')

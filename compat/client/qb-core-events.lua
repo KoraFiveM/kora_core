@@ -16,6 +16,10 @@ RegisterNetEvent('QBCore:Command:TeleportToPlayer', function(coords)
     SetPedCoordsKeepVehicle(ped, coords.x, coords.y, coords.z)
 end)
 
+-- The entity GoToMarker froze while it searches for ground (up to ~80 s), so a
+-- resource stop mid-search can release it and lift the black screen.
+local markerFrozen = nil
+
 -- Ported from real qb-core. Real uses Lang:t() for its notifications; we don't
 -- ship the qb locale object client-side, so the notify strings are inlined and
 -- routed through QBCore.Functions.Notify (which forwards to kora_lib).
@@ -45,11 +49,8 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
     -- 825.0 seems to be the max a player can reach while 0.0 being the lowest.
     local x, y, groundZ, Z_START = coords['x'], coords['y'], 850.0, 950.0
     local found = false
-    if vehicle > 0 then
-        FreezeEntityPosition(vehicle, true)
-    else
-        FreezeEntityPosition(ped, true)
-    end
+    markerFrozen = vehicle > 0 and vehicle or ped
+    FreezeEntityPosition(markerFrozen, true)
 
     for i = Z_START, 0, -25.0 do
         local z = i
@@ -88,11 +89,8 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
     end
 
     DoScreenFadeIn(650)
-    if vehicle > 0 then
-        FreezeEntityPosition(vehicle, false)
-    else
-        FreezeEntityPosition(ped, false)
-    end
+    if DoesEntityExist(markerFrozen) then FreezeEntityPosition(markerFrozen, false) end
+    markerFrozen = nil
 
     if not found then
         SetPedCoordsKeepVehicle(ped, oldCoords['x'], oldCoords['y'], oldCoords['z'] - 1.0)
@@ -102,6 +100,13 @@ RegisterNetEvent('QBCore:Command:GoToMarker', function()
 
     SetPedCoordsKeepVehicle(ped, x, y, groundZ)
     QBCore.Functions.Notify('Teleported to waypoint', 'success', 5000)
+end)
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() or not markerFrozen then return end
+    if DoesEntityExist(markerFrozen) then FreezeEntityPosition(markerFrozen, false) end
+    markerFrozen = nil
+    DoScreenFadeIn(0)
 end)
 
 -- Ported verbatim from real qb-core's client/events.lua. Real qb-core admin

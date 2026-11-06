@@ -204,9 +204,9 @@ QBCoreSeed.weapons = {
 
     -- Missing inventory defaults from qb-core 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf.
     -- Existing native definitions above retain their configured values.
-    { name = 'weapon_bread', label = 'Baquette', weight = 1000, type = 'weapon', ammotype = nil, image = 'baquette.png', unique = true, useable = false, description = 'Bread...?' },
+    { name = 'weapon_bread', label = 'Baguette', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_bread.png', unique = true, useable = false, description = 'Bread...?' },
     { name = 'weapon_briefcase', label = 'Briefcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase.png', unique = true, useable = false, description = 'A briefcase for storing important documents' },
-    { name = 'weapon_briefcase_02', label = 'Suitcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase2.png', unique = true, useable = false, description = 'Wonderfull for nice vacation to Liberty City' },
+    { name = 'weapon_briefcase_02', label = 'Suitcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase_02.png', unique = true, useable = false, description = 'Wonderfull for nice vacation to Liberty City' },
     { name = 'weapon_garbagebag', label = 'Garbage Bag', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_garbagebag.png', unique = true, useable = false, description = 'A garbage bag' },
     { name = 'weapon_handcuffs', label = 'Handcuffs', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_handcuffs.png', unique = true, useable = false, description = 'A pair of lockable linked metal rings for securing a prisoner\'s wrists' },
     { name = 'weapon_remotesniper', label = 'Remote Sniper', weight = 1000, type = 'weapon', ammotype = 'AMMO_SNIPER_REMOTE', image = 'weapon_remotesniper.png', unique = true, useable = false, description = 'A portable high-precision, long-range rifle' },
@@ -261,7 +261,7 @@ QBCoreSeed.legacyWeaponMetadata = {
     weapon_battleaxe = { name = 'weapon_battleaxe', label = 'Battle Axe', weapontype = 'Melee', ammotype = nil, damagereason = 'Knifed / Stabbed / Eviscerated' },
     weapon_bleeding = { name = 'weapon_bleeding', label = 'Bleeding', weapontype = 'Miscellaneous', ammotype = nil, damagereason = 'Bled out' },
     weapon_bottle = { name = 'weapon_bottle', label = 'Broken Bottle', weapontype = 'Melee', ammotype = nil, damagereason = 'Knifed / Stabbed / Eviscerated' },
-    weapon_bread = { name = 'weapon_bread', label = 'Baquette', weapontype = 'Melee', ammotype = nil, damagereason = 'Melee killed / Whacked / Executed / Beat down / Murdered / Battered' },
+    weapon_bread = { name = 'weapon_bread', label = 'Baguette', weapontype = 'Melee', ammotype = nil, damagereason = 'Melee killed / Whacked / Executed / Beat down / Murdered / Battered' },
     weapon_briefcase = { name = 'weapon_briefcase', label = 'Briefcase', weapontype = 'Melee', ammotype = nil, damagereason = 'Melee killed / Whacked / Executed / Beat down / Murdered / Battered' },
     weapon_briefcase_02 = { name = 'weapon_briefcase_02', label = 'Briefcase', weapontype = 'Melee', ammotype = nil, damagereason = 'Melee killed / Whacked / Executed / Beat down / Murdered / Battered' },
     weapon_bullpuprifle = { name = 'weapon_bullpuprifle', label = 'Bullpup Rifle', weapontype = 'Assault Rifle', ammotype = 'AMMO_RIFLE', damagereason = 'Ended / Rifled / Shot down / Floored' },

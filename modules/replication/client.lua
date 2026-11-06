@@ -42,7 +42,7 @@ local function dispatch(path, value)
     for _, sub in pairs(subscribers) do
         if pathMatchesPrefix(path, sub.prefix) then
             local ok, err = pcall(sub.handler, path, value)
-            if not ok then print(("^3[qbcore:rep]^7 onChange errored: %s"):format(tostring(err))) end
+            if not ok then print(("^3[kora_core:rep]^7 onChange errored: %s"):format(tostring(err))) end
         end
     end
 end
@@ -191,7 +191,7 @@ RegisterNetEvent('QBCore:Player:SetPlayerData', function(data, token)
     if data == mirror or type(data) ~= 'table' then return end
     pendingLegacy = nil
 
-    print(('^3[qbcore:rep]^7 %s wrote PlayerData directly via the legacy event -- it bypassed the '
+    print(('^3[kora_core:rep]^7 %s wrote PlayerData directly via the legacy event -- it bypassed the '
         .. 'delta stream and will be overwritten on the next server snapshot.')
         :format(writer and ("resource '" .. writer .. "'") or 'an unknown resource'))
 
@@ -242,6 +242,13 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     mirror = nil
     expectedSeq = 0
     stats.seq = 0
+    -- Stock qb-core empties QBCore.PlayerData on unload. Keeping the old view
+    -- until the next snapshot lets legacy scripts read the previous
+    -- character's job, cuffs or death state on the select screen. Emptied in
+    -- place so a captured reference sees it too.
+    if QBCore and type(QBCore.PlayerData) == 'table' then
+        for key in pairs(QBCore.PlayerData) do QBCore.PlayerData[key] = nil end
+    end
 end)
 
 AddEventHandler('onClientResourceStop', function(resource)

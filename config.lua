@@ -150,6 +150,7 @@ Config.vehicleAirControl = {
 
 Config.replication = {
     resyncRateLimit = 5000,          -- ms; a client may request at most one resync per this window
+    snapshotCoalesceMs = 250,        -- ms; shared-registry snapshot requests from one client inside this window get one trailing answer (every resource using @kora_core/init.lua asks on join). 0 = answer every request
 }
 
 Config.dependencySupervisor = {
@@ -209,7 +210,7 @@ if Kora and Kora.config and Kora.config.adopt then
             scope = 'client',
             live = true,
             label = 'Air-control exempt vehicle classes',
-            description = 'GTA vehicle class numbers that keep normal air control. The default 13, 14, 15, 16, 21 covers cycles, boats, helicopters, planes and trains. Add 8 to let motorcycles keep air control; remove a number to disable air control for that class. Read each time the driver enters a vehicle.',
+            description = 'GTA vehicle class numbers that keep normal air control. The default 8, 13, 14, 15, 16, 21 covers motorcycles, cycles, boats, helicopters, planes and trains. Remove 8 to make motorcycles lose air control; remove any number to disable air control for that class. Read each time the driver enters a vehicle.',
         })
     Config.locales.defaultKey = Kora.config.string(Config.locales.defaultKey, {
         scope = 'client',

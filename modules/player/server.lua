@@ -493,8 +493,11 @@ local function createCharacterUnlocked(src, charinfo, cid)
     local taken = {}
     for _, character in ipairs(existing) do taken[character.cid] = true end
 
-    if cid then
-        if cid < 1 or cid > maxCharacters or taken[cid] then
+    if cid ~= nil then
+        -- The cid reaches here from a client net event. A fractional slot (1.5)
+        -- is never `taken`, so it would add characters past the limit.
+        cid = tonumber(cid)
+        if not cid or cid ~= math.floor(cid) or cid < 1 or cid > maxCharacters or taken[cid] then
             return nil, 'requested character slot is unavailable'
         end
     elseif #existing >= maxCharacters then

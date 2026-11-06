@@ -19,6 +19,14 @@ local function validAccount(account)
     return false
 end
 
+-- NaN passes every `<= 0` guard and +/-inf survives arithmetic, so either would
+-- corrupt a balance for good. Same rule as addOfflineMoney below.
+local function finiteAmount(value)
+    value = tonumber(value)
+    if not value or value ~= value or value == math.huge or value == -math.huge then return nil end
+    return value
+end
+
 local function floorFor(account)
     if Config.money.allowNegative and Config.money.allowNegative[account] then
         return Config.money.minusLimit or -math.huge
@@ -123,7 +131,7 @@ end
 ---than its strict share and a whole-number amount stays whole.
 ---@return number
 function Core.money.calculateTax(amount, account, action)
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return 0 end
     local rate = Core.money.getTaxRate(account, action)
     if rate <= 0 then return 0 end
@@ -150,7 +158,7 @@ end
 function Core.money.collectTax(amount, reason)
     local cfg = taxConfig()
     if not cfg then return false, 'transaction tax is disabled' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local resource, unavailable = taxProvider(cfg)
     if not resource then return false, unavailable end
@@ -177,6 +185,22 @@ function Core.money.collectTax(amount, reason)
     end
     TriggerEvent('qbcore:server:taxCollected', cfg.account, amount, reason)
     return true
+end
+
+---Compensation for a failed deposit: credit the CHARACTER the tax was withheld
+---from, not whoever holds `src` once the deposit returns. The deposit yields, so
+---the player may have switched character or left; an offline credit is applied
+---to the stored balance (and imported as cash items at the next login).
+local function taxRefund(src, account, tax)
+    if tax <= 0 then return nil end
+    local player = PI.handle(src)
+    local citizenid = player and player.citizenid
+    return function()
+        local current = citizenid and PI.byCitizenId[citizenid]
+        if current then return Core.money.addMoney(current.source, account, tax, TAX_REFUND_REASON, true) end
+        if citizenid then return Core.money.addOfflineMoney(citizenid, account, tax) end
+        return Core.money.addMoney(src, account, tax, TAX_REFUND_REASON, true)
+    end
 end
 
 ---Bank `tax` off the critical path. The deposit hits the database, so it must
@@ -485,7 +509,7 @@ end
 ---@return boolean, string|nil
 function Core.money.addMoney(src, account, amount, reason, ignoreTax)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
@@ -493,7 +517,7 @@ function Core.money.addMoney(src, account, amount, reason, ignoreTax)
     local tax = taxFor(account, amount, 'add', ignoreTax)
     local net = amount - tax
     -- The tax was withheld from THIS player, so a failed deposit goes back here.
-    local refund = tax > 0 and function() Core.money.addMoney(src, account, tax, TAX_REFUND_REASON, true) end or nil
+    local refund = taxRefund(src, account, tax)
 
     if provider then
         if amount ~= math.floor(amount) then return false, 'physical cash amount must be whole' end
@@ -530,7 +554,7 @@ end
 ---@return boolean, string|nil
 function Core.money.removeMoney(src, account, amount, reason, ignoreTax)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not amount or amount <= 0 then return false, 'amount must be positive' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
@@ -571,8 +595,8 @@ end
 ---@return boolean, string|nil
 function Core.money.setMoney(src, account, amount, reason)
     if not validAccount(account) then return false, 'invalid account' end
-    amount = tonumber(amount)
-    if not amount then return false, 'amount must be a number' end
+    amount = finiteAmount(amount)
+    if not amount then return false, 'amount must be a finite number' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
     if provider then
@@ -606,7 +630,7 @@ end
 ---@param ignoreTax boolean|nil -- true exempts this call from the transaction tax
 ---@return boolean, string|nil
 local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
-    amount = tonumber(amount)
+    amount = finiteAmount(amount)
     if not validAccount(account) or not amount or amount <= 0 then return false, 'invalid transfer' end
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
@@ -616,7 +640,7 @@ local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
     -- The tax is charged to the SENDER (they paid `amount` while the recipient
     -- received `net`), so a failed deposit refunds them -- leaving exactly an
     -- untaxed transfer of `net`, with no money created or destroyed.
-    local refund = tax > 0 and function() Core.money.addMoney(fromSrc, account, tax, TAX_REFUND_REASON, true) end or nil
+    local refund = taxRefund(fromSrc, account, tax)
 
     if provider then
         if amount ~= math.floor(amount) then return false, 'physical cash amount must be whole' end

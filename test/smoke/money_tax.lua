@@ -235,4 +235,38 @@ h.test('collectTax rejects a non-positive amount and a stopped provider', functi
     handle.resourceStates['qb-banking'] = 'started'
 end)
 
+h.test('a refund for a deposit that fails after a character switch goes to the taxed character', function()
+    Core.money.setMoney(1, 'bank', 0)
+    bank.rejectDeposits = true
+    h.assertTrue(Core.money.addMoney(1, 'bank', 100, 'paycheck'))
+    -- The deposit yields; meanwhile source 1 leaves CID1 and loads CID3.
+    Core.player.dropPlayer(1)
+    local data3 = CoreInternal.player.freshData('CID3', 'license:abc', 2, { firstname = 'E', lastname = 'F' })
+    assert(Core.player.login(1, 'CID3', data3))
+    Core.money.setMoney(1, 'bank', 0)
+    local offline = {}
+    handle.Kora.sql.update = function(sql, params) offline[#offline + 1] = params; return 1 end
+    settle()
+    h.assertEqual(Core.money.getMoney(1, 'bank'), 0, 'the new character on the same source is not credited')
+    h.assertEqual(#offline, 1, 'the offline character is credited instead')
+    h.assertEqual(offline[1][3], 5)
+    h.assertEqual(offline[1][4], 'CID1')
+    handle.Kora.sql.update = nil
+    bank.rejectDeposits = false
+end)
+
+h.test('NaN and infinite amounts never reach a balance', function()
+    Core.money.setMoney(1, 'bank', 100)
+    for _, bad in ipairs({ 0 / 0, math.huge, -math.huge }) do
+        h.assertFalse(Core.money.addMoney(1, 'bank', bad, 'x'))
+        h.assertFalse(Core.money.removeMoney(1, 'bank', bad, 'x'))
+        h.assertFalse(Core.money.setMoney(1, 'bank', bad, 'x'))
+        h.assertFalse(Core.money.transferMoney(1, 2, 'bank', bad, 'x'))
+        h.assertFalse(Core.money.collectTax(bad, 'x'))
+        h.assertEqual(Core.money.calculateTax(bad, 'bank', 'add'), 0)
+    end
+    settle()
+    h.assertEqual(Core.money.getMoney(1, 'bank'), 100)
+end)
+
 h.report('money_tax')

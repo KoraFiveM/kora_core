@@ -178,6 +178,15 @@ h.test('rejects an explicit cid out of bounds', function()
     h.assertEqual(err, 'requested character slot is unavailable')
 end)
 
+h.test('rejects a fractional or non-numeric cid, so a client cannot add a slot past the limit', function()
+    withExistingCount(Config.identity.maxCharacters)
+    for i, bad in ipairs({ 1.5, 0 / 0, 'abc', {} }) do
+        local citizenid, err = Core.player.createCharacter(40 + i, { firstname = 'A', lastname = 'B' }, bad)
+        h.assertTrue(citizenid == nil)
+        h.assertEqual(err, 'requested character slot is unavailable')
+    end
+end)
+
 h.test('rejects creation once the configured limit is reached', function()
     withExistingCount(Config.identity.maxCharacters)
     local citizenid, err = Core.player.createCharacter(12, { firstname = 'A', lastname = 'B' })

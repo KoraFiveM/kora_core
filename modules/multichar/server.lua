@@ -42,6 +42,8 @@ end
 ---@param citizenid string
 ---@return boolean, string|nil
 function Core.multichar.selectCharacter(src, citizenid)
+    -- Reached straight from client net events; never hand a table to the loader.
+    if type(citizenid) ~= 'string' or citizenid == '' then return false, 'invalid citizenid' end
     local license = Core.identity.primary(src)
     local data, err = Core.persistence._load(citizenid)
     if not data then return false, err end

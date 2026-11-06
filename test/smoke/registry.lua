@@ -193,4 +193,24 @@ h.test('reseed refreshes the allShared list IN PLACE (stable reference)', functi
     h.assertTrue(Core.registry.getShared('items', 'water_bottle') == nil, 'old keys cleared')
 end)
 
+h.test('snapshot requests from one client share one trailing answer', function()
+    handle.drainTimeouts()
+    local function sent()
+        local n = 0
+        for _, event in ipairs(handle.clientEvents) do
+            if event.name == 'qbcore:registry:snapshotAll' and event.target == 77 then n = n + 1 end
+        end
+        return n
+    end
+    for _ = 1, 5 do handle.fireEvent('qbcore:registry:requestSnapshot', 77) end
+    h.assertEqual(sent(), 1, 'the first request is answered at once')
+    handle.drainTimeouts()
+    h.assertEqual(sent(), 2, 'requests inside the window get one trailing answer')
+    handle.drainTimeouts()
+    h.assertEqual(sent(), 2, 'a quiet window sends nothing more')
+    handle.fireEvent('qbcore:registry:requestSnapshot', 77)
+    h.assertEqual(sent(), 3, 'a request after the window is answered at once')
+    handle.drainTimeouts()
+end)
+
 h.report('registry')

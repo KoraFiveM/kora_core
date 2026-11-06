@@ -90,7 +90,8 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
     if not p then return false, 'no such player' end
     if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
-    if amount <= 0 then return false, 'amount must be positive' end
+    -- floor() passes NaN and inf through, and NaN slips past `<= 0`.
+    if not Kora.util.isFiniteNumber(amount) or amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
 
     local def = Core.registry.getShared('items', name) or Core.registry.getShared('weapons', name)
@@ -152,7 +153,8 @@ function Core.inventory.removeItem(src, name, amount, slot, reason)
     if not p then return false, 'no such player' end
     if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
-    if amount <= 0 then return false, 'amount must be positive' end
+    -- floor() passes NaN and inf through, and NaN slips past `<= 0`.
+    if not Kora.util.isFiniteNumber(amount) or amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
 
     -- Remove from a specific slot, or drain across matching slots lowest-first.

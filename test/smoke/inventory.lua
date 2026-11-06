@@ -272,4 +272,13 @@ h.test('moving onto the same slot succeeds without changing items or dirty state
     h.assertFalse(Core.inventory.moveItem(1, 3, 3), 'same-slot move still requires an item')
 end)
 
+h.test('NaN and infinite amounts are refused by the fallback engine', function()
+    Core.inventory.setItems(1, {})
+    for _, bad in ipairs({ 0 / 0, math.huge }) do
+        h.assertFalse(Core.inventory.addItem(1, 'water_bottle', bad))
+        h.assertFalse(Core.inventory.removeItem(1, 'water_bottle', bad))
+    end
+    h.assertEqual(next(Core.player.getPlayerData(1, { 'items' }) or {}), nil)
+end)
+
 h.report('inventory')

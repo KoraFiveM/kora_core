@@ -1288,7 +1288,17 @@ local function sharedUpdate(kind, key, record)
     if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
     local existing, registry = sharedRecord(kind, key)
     if not existing then return false, kind .. '_not_exists' end
-    local ok, err = Core.registry.registerShared(registry, key, Core.util.deepClone(record))
+    record = Core.util.deepClone(record)
+    -- A legacy UpdateItem on a native weapon sends a qb-shaped item record with
+    -- no weapontype/damageModifier/ammoItem. Replacing the record outright
+    -- breaks throwables, carry tiers and damage the same way the upstream
+    -- merge once did, so fields the update leaves out keep their native value.
+    if registry == 'weapons' and type(record) == 'table' then
+        for field, value in pairs(existing) do
+            if record[field] == nil then record[field] = Core.util.deepClone(value) end
+        end
+    end
+    local ok, err = Core.registry.registerShared(registry, key, record)
     if not ok then return false, err end
     TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key,
         QBCore.Shared[SHARED_KEY[kind]][key])

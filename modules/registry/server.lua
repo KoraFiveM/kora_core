@@ -179,6 +179,36 @@ do
     end
 end
 
+-- Every resource that includes @kora_core/init.lua asks for a snapshot when it
+-- starts, so one join sends the whole catalogue 20+ times, and any client can
+-- spam the event. Requests from one client inside the window share a single
+-- trailing answer, sent after the last of them, so every requester still gets
+-- a snapshot newer than its request. 0 answers every request immediately.
+local snapshotWindows = {}
+
+local function sendSnapshot(src)
+    TriggerClientEvent('qbcore:registry:snapshotAll', src, RI.snapshotAll())
+    local windowMs = tonumber(Config.replication and Config.replication.snapshotCoalesceMs) or 0
+    if windowMs <= 0 then return end
+    local window = { pending = false }
+    snapshotWindows[src] = window
+    SetTimeout(windowMs, function()
+        if snapshotWindows[src] ~= window then return end
+        snapshotWindows[src] = nil
+        if window.pending then sendSnapshot(src) end
+    end)
+end
+
 RegisterNetEvent('qbcore:registry:requestSnapshot', function()
-    TriggerClientEvent('qbcore:registry:snapshotAll', source, RI.snapshotAll())
+    local src = source
+    local window = snapshotWindows[src]
+    if window then
+        window.pending = true
+        return
+    end
+    sendSnapshot(src)
+end)
+
+AddEventHandler('playerDropped', function()
+    snapshotWindows[source] = nil
 end)
