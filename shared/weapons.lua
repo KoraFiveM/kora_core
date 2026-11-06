@@ -212,6 +212,36 @@ QBCoreSeed.weapons = {
     { name = 'weapon_remotesniper', label = 'Remote Sniper', weight = 1000, type = 'weapon', ammotype = 'AMMO_SNIPER_REMOTE', image = 'weapon_remotesniper.png', unique = true, useable = false, description = 'A portable high-precision, long-range rifle' },
 }
 
+-- qb-core's inventory copies of these weapons (held aside by
+-- shared/upstream/merge.lua) only fill fields a native record leaves empty,
+-- in practice the item `description`. A weapon that exists only upstream is
+-- still added so no legacy inventory name stops resolving.
+do
+    local upstream = QBCoreSeed.upstreamWeapons
+    if type(upstream) == 'table' then
+        local native = {}
+        for _, record in ipairs(QBCoreSeed.weapons) do
+            native[record.name] = record
+        end
+        local names = {}
+        for name in pairs(upstream) do
+            names[#names + 1] = name
+        end
+        table.sort(names)
+        for _, name in ipairs(names) do
+            local source, current = upstream[name], native[name]
+            if current then
+                for field, value in pairs(source) do
+                    if current[field] == nil then current[field] = value end
+                end
+            else
+                QBCoreSeed.weapons[#QBCoreSeed.weapons + 1] = source
+            end
+        end
+    end
+    QBCoreSeed.upstreamWeapons = nil
+end
+
 -- Pinned qb-core damage descriptions for the hash-indexed compatibility view.
 -- These do not override native inventory/gameplay definitions. Environmental
 -- causes are exposed only as damage metadata, never registered as items.
