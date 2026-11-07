@@ -25,13 +25,12 @@ dependency 'kora_sql'
 -- [compat]/qb-core exists for -- see its fxmanifest.lua and [compat]/README.md.
 provide 'qb-core'
 
--- Both are shared_script (not shared_scripts) so they resolve BEFORE the table
--- below, kora_lib strictly before qbsql: '@kora_sql/init.lua' extends and asserts on
--- the Kora table '@kora_lib/init.lua' creates. '@kora_core/init.lua' is NOT included
+-- shared_script (not shared_scripts) so it resolves BEFORE the table below.
+-- '@kora_sql/init.lua' is server-only: it is the first server_script, after every
+-- shared script, and extends the Kora table '@kora_lib/init.lua' creates. '@kora_core/init.lua' is NOT included
 -- here -- it's for OTHER resources to pull Kora.shared.* into their own VM. It
 -- must still be listed in `files` below so FiveM can resolve that @-import.
 shared_script '@kora_lib/init.lua'
-shared_script '@kora_sql/init.lua'
 
 files {
     'init.lua' -- '@kora_core/init.lua' -- shared registry mirror for consumers
@@ -98,6 +97,7 @@ shared_scripts {
 --                GetInvokingResource() resolves to the real external consumer
 --   build/finalise.lua  absolutely last -- flattens Core.<module>.<fn> to exports
 server_scripts {
+    '@kora_sql/init.lua',
     'modules/registry/server.lua',
     'modules/identity/server.lua',
     'modules/users/server.lua',
