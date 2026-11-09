@@ -1,7 +1,3 @@
--- dependencySupervisor smoke test -- enabled gating, restart-on-provider-start,
--- per-resource cooldown, "not currently started" skip, and "provider not in
--- map" no-op. Server realm.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -29,8 +25,6 @@ h.test('enabled + mapped provider restarts a currently-started dependent', funct
 end)
 
 h.test('cooldown blocks a second restart of the same resource in quick succession', function()
-    -- A resource name unused by any earlier test, so its cooldown state
-    -- starts fresh regardless of test order within this file.
     Config.dependencySupervisor.enabled = true
     Config.dependencySupervisor.map = { kora_target = { 'qb-test-dependent' } }
     Config.dependencySupervisor.cooldownMs = 15000
@@ -56,9 +50,6 @@ h.test('a dependent that is not currently started is never restarted', function(
 end)
 
 h.test('disabled supervisor never restarts anything', function()
-    -- Fresh dependent name, never touched by an earlier test in this file --
-    -- otherwise a leftover cooldown from an earlier restart could mask a
-    -- broken enabled-check (it would block the restart for the wrong reason).
     Config.dependencySupervisor.enabled = false
     Config.dependencySupervisor.map = { kora_inventory = { 'qb-disabled-check-dep' } }
     Config.dependencySupervisor.cooldownMs = 15000
@@ -70,7 +61,6 @@ h.test('disabled supervisor never restarts anything', function()
 end)
 
 h.test('a provider not present in the map triggers nothing', function()
-    -- Also a fresh dependent name for the same reason as above.
     Config.dependencySupervisor.enabled = true
     Config.dependencySupervisor.map = { kora_inventory = { 'qb-unmapped-check-dep' } }
     Config.dependencySupervisor.cooldownMs = 15000

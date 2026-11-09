@@ -1,6 +1,3 @@
--- qb-core parity batch B: identifier forms, bans, DB info, drop ordering, AddPermission,
--- zero-amount money, Round, callbacks tables, instance bucket state, setJobDuty events,
--- fallback hasItem map form, Locale API, hud stress events, qb-log forwarding.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

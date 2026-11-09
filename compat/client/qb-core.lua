@@ -1,24 +1,8 @@
--- compat/client/qb-core.lua -- the client half of the QBCore object, exposed via
--- exports['qb-core']:GetCoreObject() AND, like real qb-core, as one direct
--- export per function (exports['qb-core']:Notify(...)). Two implementation
--- strategies are used, mirroring real qb-core's own client/functions.lua:
---   * Self-contained CFX-native helpers are PORTED near-verbatim from real
---     qb-core -- there is nothing qb-core-specific in them, so a faithful copy
---     is safer than a re-derivation.
---   * The handful that touch player/UI state (GetPlayerData, HasItem, Notify,
---     Progressbar) are THIN FORWARDS to kora_lib (Kora.*) / our replicated mirror --
---     the whole point of building on kora_lib.
-
 local provideExport = Kora.compat.provideExport
 local isCallable = Kora.util.isCallable
 
 local F = QBCore.Functions
 
--- Notify type strings differ between realms: real qb-core passes 'primary' and
--- assorted freeform types straight into its NUI, whereas kora_lib validates
--- against info/success/warning/error and DROPS (logs) anything else. Map the
--- common qb-core types onto kora_lib's set so a legacy Notify('primary') still
--- shows rather than silently vanishing; unknown types fall back to 'info'.
 local NOTIFY_TYPE_MAP = {
     primary = 'info',
     inform  = 'info',
@@ -42,29 +26,8 @@ end
 
 QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
 
--- legacyClientCallbacks is CreateClientCallback's single source of truth --
--- mirrors legacyCallbacks in compat/server/qb-core.lua. CreateClientCallback
--- stores the handler here (keyed by name); both the kora_lib-registered wrapper
--- below AND the raw QBCore:Client:TriggerClientCallback net event handler
--- look the CURRENT handler up from this table at dispatch time instead of
--- closing over it, so a later CreateClientCallback call for the same name (a
--- legitimate resource restart) updates what both transports invoke.
 local legacyClientCallbacks = {}
 
--- Real qb-core stores this in QBCore.ClientCallbacks (server-side) and fires
--- it from the QBCore:Client:TriggerClientCallback net event -- the raw wire
--- handled below. We ALSO keep registering with kora_lib's Kora.callback so a
--- cross-resource caller that talks to Kora.callback.trigger directly (rather
--- than through QBCore.Functions.TriggerClientCallback) still reaches this
--- handler; see compat/server/qb-core.lua's TriggerClientCallback comment for
--- why the SERVER trigger itself now speaks the raw wire exclusively instead
--- of also going through kora_lib (it would double-invoke this handler otherwise).
---
--- Real QBCore hands the legacy handler a RESPONDER as its first argument --
--- function(cb, ...) ... cb(result) end -- not a value to return. kora_lib's
--- Kora.callback.register instead ships back whatever the registered function
--- RETURNS, same mismatch (and same fix: bridge via a promise + timeout) as
--- the server's CreateCallback above.
 function F.CreateClientCallback(name, handler)
     legacyClientCallbacks[name] = handler
     Kora.callback.register(name, function(...)
@@ -77,8 +40,6 @@ function F.CreateClientCallback(name, handler)
             p:resolve(table.pack(...))
         end
 
-        -- Dispatch through legacyClientCallbacks[name], NOT the `handler`
-        -- upvalue -- see the table's comment above.
         legacyClientCallbacks[name](respond, ...)
 
         CreateThread(function()
@@ -91,10 +52,6 @@ function F.CreateClientCallback(name, handler)
     end)
 end
 
--- Raw wire, server->client leg: the server's TriggerClientCallback (raw wire
--- exclusively -- see compat/server/qb-core.lua) delivers the request here.
--- Looks up the handler CreateClientCallback registered and invokes it with a
--- responder that replies over the matching raw event.
 RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
     if type(name) ~= 'string' then return end
     local handler = legacyClientCallbacks[name]
@@ -110,24 +67,7 @@ RegisterNetEvent('QBCore:Client:TriggerClientCallback', function(name, ...)
     end
 end)
 
--- Use qb-core's native callback wire for legacy callers. Routing this through
--- kora_lib's promise-valued export makes a callback timeout surface as an export
--- exception before the legacy callback can receive its normal nil result.
--- Arg shape matches qb-core 1.3.0: (name, [cb], ...). When the first argument
--- after the name is callable it is the callback (and is NOT forwarded); with no
--- callback every argument is forwarded to the server and the call AWAITS the
--- reply, returning its first value (`local r = TriggerCallback('name', arg)`).
---
--- ALSO stores into QBCore.ServerCallbacks[name], matching upstream's own
--- side effect of TriggerCallback, so a raw reply (or a script that pokes
--- ServerCallbacks directly) finds the expected handler.
---
--- The reply wire carries only the callback NAME, so concurrent calls of one name
--- (stock overwrites the single ServerCallbacks[name] slot and loses all but the
--- last) are queued per name and answered first-in-first-out. The await form is
--- bounded by Config.compat.callbackTimeoutMs: a lost reply resolves nil instead
--- of parking the calling thread forever.
-local pendingCallbacks = {}   -- name -> array of entries awaiting a reply
+local pendingCallbacks = {}
 
 local function dropPending(name, entry)
     local queue = pendingCallbacks[name]
@@ -144,8 +84,6 @@ local function dropPending(name, entry)
 end
 
 function F.TriggerCallback(name, ...)
-    -- Stock only treats a callable FIRST argument as the callback; a leading nil
-    -- (TriggerCallback(name, nil, x)) is the await form and nil is forwarded.
     local args = table.pack(...)
     local cb
     if isCallable(args[1]) then
@@ -178,10 +116,6 @@ function F.TriggerCallback(name, ...)
     end
 end
 
--- Raw wire, client->server REPLY leg: a legacy script that fired
--- QBCore:Server:TriggerCallback directly (skipping our TriggerCallback) gets
--- its answer here. Pop-then-clear so a stray duplicate reply can't invoke a
--- stale entry a second time.
 RegisterNetEvent('QBCore:Client:TriggerCallback', function(name, ...)
     if type(name) ~= 'string' then return end
     local queue = pendingCallbacks[name]
@@ -197,19 +131,12 @@ RegisterNetEvent('QBCore:Client:TriggerCallback', function(name, ...)
         if entry.promise then entry.promise:resolve(...) end
         if entry.callback then entry.callback(...) end
     elseif entry then
-        entry(...)    -- a bare function stored directly in ServerCallbacks by a script
+        entry(...)
     end
 end)
 
--- Not part of real qb-core's CLIENT surface, but kept as a harmless alias some
--- of our resources already call; it registers the same way CreateClientCallback
--- does, so it needs the same responder/promise bridge.
 function F.CreateCallback(name, handler) F.CreateClientCallback(name, handler) end
 
--- Real returns QBCore.PlayerData; if cb is supplied it calls cb(data) too.
--- QBCore.PlayerData itself is kept in sync by modules/replication/client.lua
--- (the same place the legacy QBCore:Player:SetPlayerData event fires from --
--- see its comment), already legacy-shaped (zero-based job/gang grade.level).
 function F.GetPlayerData(cb)
     local data = QBCore.PlayerData
     if cb then cb(data) end
@@ -228,10 +155,6 @@ function F.GetCoords(entity)
     return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
 end
 
--- Real forwards to exports['qb-inventory']:HasItem. Ours forwards to kora_inventory
--- (which also answers the qb-inventory export identity) when it is running, and
--- otherwise falls back to scanning the replicated items table so HasItem still
--- returns a sane answer without the inventory resource present.
 function F.HasItem(items, amount)
     if GetResourceState('kora_inventory') == 'started' then
         return exports.kora_inventory:HasItem(items, amount)
@@ -264,8 +187,6 @@ end
 ---@param speed number - The speed at which the entity should turn
 ---@return number - The time at which the entity was looked at
 function F.LookAtEntity(entity, timeout, speed)
-    -- nil when called from inside kora_core; concatenating it raised instead of
-    -- returning the message.
     local involved = GetInvokingResource() or GetCurrentResourceName()
     if type(entity) ~= 'number' then
         return involved .. ' :^1  Entity must be a number'
@@ -277,7 +198,6 @@ function F.LookAtEntity(entity, timeout, speed)
         return involved .. ' :^1  Speed must be a number'
     end
     if speed > 5.0 then speed = 5.0 end
-    -- Optional in practice: callers pass (entity, nil, speed) and nil > 5000 errors.
     timeout = tonumber(timeout) or 5000
     if timeout > 5000 then timeout = 5000 end
     local ped = PlayerPedId()
@@ -356,10 +276,6 @@ function F.IsWearingGloves()
     return Core.player.isWearingGloves()
 end
 
--- Real qb-core SendNUIMessage's its own notify. We forward to kora_lib's notifier
--- instead. The full real signature (text, texttype, length, icon) is honoured,
--- including the table form of `text` ({ text=, caption= }); caption maps onto
--- kora_lib's title.
 function F.Notify(text, texttype, length, icon)
     local payload = {
         type = NOTIFY_TYPE_MAP[texttype] or 'info',
@@ -377,8 +293,6 @@ function F.Notify(text, texttype, length, icon)
     Kora.notify.send(payload)
 end
 
--- Real qb-core defers to the standalone `progressbar` resource. We forward to
--- the shared legacy adapter, which owns conversion, cancellation and cleanup.
 function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableControls, animation, prop, propTwo, onFinish, onCancel)
     local owner = GetInvokingResource() or GetCurrentResourceName()
     exports['progressbar']:Progress({
@@ -412,9 +326,6 @@ function F.GetPlayers()
     return GetActivePlayers()
 end
 
--- ped->playerId mapping the same way modules/closest/client.lua does -- Kora.world
--- deals in ped handles for entityType 'player', but qb-core's contract here is
--- player ids.
 local function pedToPlayerId(ped)
     for _, playerId in ipairs(GetActivePlayers()) do
         if GetPlayerPed(playerId) == ped then return playerId end
@@ -437,10 +348,6 @@ function F.GetPlayersFromCoords(coords, distance)
     return closePlayers
 end
 
--- Returns (playerId, distance) -- the first value is a PLAYER ID, not an entity
--- handle. This is the real qb-core signature (ported verbatim), NOT
--- Kora.world.getClosestEntity's (entity, coords, distance) -- see AGENTS.md's
--- "thin forwards to Kora.*, not reimplementations" for why this still forwards.
 function F.GetClosestPlayer(coords)
     if coords then
         coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
@@ -470,9 +377,6 @@ function F.GetPeds(ignoreList)
     return peds
 end
 
--- GetClosestPed/Vehicle/Object return an entity handle (not a converted id),
--- so unlike GetClosestPlayer these forward straight to Kora.world.getClosestEntity
--- -- see AGENTS.md's "thin forwards to Kora.*, not reimplementations".
 function F.GetClosestPed(coords, ignoreList)
     if coords then
         coords = type(coords) == 'table' and vec3(coords.x, coords.y, coords.z) or coords
@@ -536,10 +440,6 @@ local function applyOwnedVehicleDefaults(veh)
     SetVehicleFuelLevel(veh, 100.0)
 end
 
--- Strict entity lockdown deletes client-created networked entities, so a networked
--- request is relayed to the server's validated QBCore:Server:SpawnVehicle (see
--- compat/server/qb-vehicles.lua). Any refusal returns nil and the caller falls
--- back to a local vehicle.
 local function spawnNetworkedVehicle(model, coords, heading, teleportInto)
     if Config.compat.vehicleSpawnCallbacks == 'off' or not coroutine.isyieldable() then return nil end
     local netId = F.TriggerCallback('QBCore:Server:SpawnVehicle', model,
@@ -1067,8 +967,6 @@ function F.SetVehicleProperties(vehicle, props)
     end
 end
 
--- Ported verbatim from real qb-core.
-
 function F.DrawText(x, y, width, height, scale, r, g, b, a, text)
     SetTextFont(4)
     SetTextScale(scale, scale)
@@ -1093,10 +991,6 @@ function F.DrawText3D(x, y, z, text)
     ClearDrawOrigin()
 end
 
--- Harmless alias kept from our previous compat: some of our resources call
--- Draw3DText(coords, text, opts) with a coords-table signature and route through
--- kora_lib's drawing module. DrawText3D above is the real qb-core (x, y, z, text)
--- function and MUST exist; this stays only for backward-compat.
 function F.Draw3DText(coords, text, opts) Kora.drawing.text3d(coords, text, opts) end
 
 function F.RequestAnimDict(animDict, timeout)
@@ -1108,8 +1002,6 @@ function F.RequestAnimDict(animDict, timeout)
     return awaitStreamingAsset(animDict, timeout, RequestAnimDict, HasAnimDictLoaded, RemoveAnimDict)
 end
 
--- Alias kept from our previous compat -- not a real qb-core function, but some
--- of our resources call it; forwards to kora_lib's streamer.
 function F.LoadAnimDict(dict, cb) Kora.stream.loadAnimDict(dict, cb) end
 
 function F.GetClosestBone(entity, list)
@@ -1316,27 +1208,12 @@ function F.GetGroundHash(entity)
     return materialHash, entityHit, surfaceNormal, endCoords, success, retval
 end
 
--- config.lua is a shared_script (both realms), so this is the same mapping the server compat builds, at zero network cost.
 Core.compat.populateLegacyConfig()
 
--- Force the lazy QBCore.Shared data views to materialise as REAL keys, same
--- as the server compat does: a consumer's GetCoreObject() result crosses the
--- export boundary as a msgpack copy that drops the metatable, so a key still
--- hiding behind coreobject.lua's lazy __index would be absent from the copy.
--- The client registries exist by now (RI.create in modules/registry/client.lua,
--- loaded before this file) but may still be EMPTY until the async snapshot
--- arrives -- that's fine: every compatibility view re-fills via its
--- 'qbcore:registry:synced' refresh hook when the snapshot lands, while keeping
--- its table reference stable for unchanged legacy consumers.
 for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
     local _ = QBCore.Shared[k]
 end
 
--- Real qb-core ends client/functions.lua with `for fn, func in pairs(QBCore.Functions) do exports(fn, func) end`,
--- exposing every function as exports['qb-core']:Fn(...). We can't call exports()
--- with the qb-core identity from here (we're the kora_core resource), so we use the
--- same __cfx_export identity-hijack helper GetCoreObject uses to register each
--- one under the 'qb-core' export name.
 for functionName, func in pairs(QBCore.Functions) do
     if type(func) == 'function' then
         provideExport('qb-core', functionName, func)
@@ -1353,7 +1230,6 @@ provideExport('qb-core', 'GetCoreObject', function(filters)
     return result
 end)
 
--- GetShared is a top-level export in real qb-core (shared/main.lua), registered on BOTH realms. Reads QBCore.Shared[namespace] (a live compat view from coreobject.lua), with a canonical-casing fallback because legacy scripts call it with 'items' (e.g. qb-recyclejob).
 local function getShared(namespace, item)
     local ns = QBCore.Shared[namespace]
     if not ns and Core.compat.canonicalSharedNamespace then
@@ -1364,26 +1240,12 @@ local function getShared(namespace, item)
 end
 provideExport('qb-core', 'GetShared', getShared)
 
--- Thin per-namespace wrappers around GetShared, mirroring the server compat's
--- copies -- real qb-core exposes these as their own top-level exports too.
--- GetSharedJobs/Gangs go through the SAME getShared('Jobs'/'Gangs') call, so
--- they resolve to the legacy zero-based grade view, not the raw internal one.
 provideExport('qb-core', 'GetSharedItems', function() return getShared('Items') end)
 provideExport('qb-core', 'GetSharedVehicles', function() return getShared('Vehicles') end)
 provideExport('qb-core', 'GetSharedJobs', function() return getShared('Jobs') end)
 provideExport('qb-core', 'GetSharedGangs', function() return getShared('Gangs') end)
 provideExport('qb-core', 'GetSharedWeapons', function() return getShared('Weapons') end)
 
--- Upstream qb-core's client/drawtext.lua exports a persistent on-screen prompt
--- family -- exports['qb-core']:DrawText(text, position) / ChangeText /
--- HideText / KeyPressed -- that legacy resources (qb-banking's 'Open Bank'
--- prompt) drive around their own key-press loops. That is a DIFFERENT function
--- from QBCore.Functions.DrawText(x, y, width, height, scale, r, g, b, a, text)
--- above: upstream registers both under the same export name and drawtext.lua
--- loads last, so its 2-arg version wins resolution. Mirror that shadowing by
--- registering AFTER the Functions loop (the last __cfx_export handler's setCB
--- runs last and wins). Rendered as a native per-frame draw rather than
--- upstream's NUI page -- same contract, no UI dependency.
 local drawTextState = nil
 local drawTextGen = 0
 
@@ -1419,15 +1281,12 @@ end
 
 local function compatHideText()
     drawTextState = nil
-    -- Bump the generation so a draw thread mid-iteration exits even if a new
-    -- DrawText immediately restarts the prompt (prevents doubled draw threads).
     drawTextGen = drawTextGen + 1
 end
 
 provideExport('qb-core', 'DrawText', compatDrawText)
 provideExport('qb-core', 'ChangeText', compatDrawText)
 provideExport('qb-core', 'HideText', compatHideText)
--- Upstream's KeyPressed plays a brief NUI press animation, then hides.
 local function compatKeyPressed()
     CreateThread(function()
         Wait(500)

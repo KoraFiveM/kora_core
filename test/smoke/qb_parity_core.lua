@@ -1,6 +1,4 @@
 -- qb-core parity items: offline GetPlayerByLicense, Commands.Add/List shape,
--- optin, position.w, derived identity defaults, charinfo.account, GetName,
--- PlayerLoaded wrapper, deferred Client:OnPlayerLoaded, ToggleDuty notify.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

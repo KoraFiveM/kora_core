@@ -1,16 +1,3 @@
--- Client-realm smoke test for QBCore:Client:OnPlayerUpdated
--- (compat/client/qb-core-events.lua). The critical invariant: this handler
--- must NEVER write an externally-pushed `val` into the replication mirror --
--- kora_core is server-authoritative via its own seq-tracked delta-replication
--- protocol (modules/replication/client.lua), so a raw legacy event pushed by
--- a foreign resource must not be able to desync it. The handler may only
--- re-announce the mirror's CURRENT data through the derived local legacy
--- events.
---
--- IsDuplicityVersion is referenced unconditionally by compat/shared/
--- coreobject.lua (client-only section); the shared test mocks do not define
--- it, so it's set locally here, same pattern player_create.lua uses for
--- identity natives no shared mock covers.
 _G.IsDuplicityVersion = function() return false end
 
 local h = dofile('test/harness.lua')

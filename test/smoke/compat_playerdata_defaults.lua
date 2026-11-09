@@ -1,6 +1,3 @@
--- Compat PlayerData view: stock metadata defaults are filled in (view only, never
--- overwriting, never persisted), job.grade.payment/isboss and gang.grade.isboss
--- exist, and SetJob/SetGang lower-case the name like stock qb-core.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -20,7 +17,7 @@ dofile('compat/shared/coreobject.lua')
 dofile('compat/server/qb-core.lua')
 
 local data = CoreInternal.player.freshData('PD1', 'license:pd1', 1, { firstname = 'A', lastname = 'B' })
-data.metadata.licences = { driver = false, weapon = true }   -- existing values must survive
+data.metadata.licences = { driver = false, weapon = true }
 assert(Core.player.login(1, 'PD1', data))
 local p = QBCore.Functions.GetPlayer(1)
 

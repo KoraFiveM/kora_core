@@ -1,15 +1,6 @@
--- Core.inventory (server realm) -- the item model. Storage is the legacy
--- slot-keyed table PlayerData.items[slot] = { slot, name, amount, info, type,
--- unique, useable, image, imageUrl, label, weight, ... }. Every mutation goes through the
--- funnel Core.player.setPath(src, {'items', slot}, record) so inventory gets
--- per-slot dirty tracking + delta replication for free. No NUI is shipped; open
--- emits an event for a UI resource.
-
 local PI = CoreInternal.player
 local II = CoreInternal.inventory
 
--- Registered useable-item handlers: name -> { resource, handler(src, item) }.
--- OWNER-TRACKED via Kora.resources.serverRegistry so a restarted resource leaves no stale handlers.
 local useables = {}
 
 local useableRegistry = Kora.resources.serverRegistry(function(name)
@@ -90,7 +81,6 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
     if not p then return false, 'no such player' end
     if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
-    -- floor() passes NaN and inf through, and NaN slips past `<= 0`.
     if not Kora.util.isFiniteNumber(amount) or amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
 
@@ -103,7 +93,6 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
             return false, 'invalid slot'
         end
         local existing = it[slot]
-        -- Bulk unique grants have always used free slots rather than the requested slot.
         if existing and (not unique or amount == 1) then
             if unique or existing.name ~= name then return false, 'slot occupied' end
             if Config.inventory.matchInfoOnStack and not II.infoEquals(existing.info, info) then
@@ -128,7 +117,6 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
 
     local target = slot or II.firstFreeSlot(it)
     if not target then return false, 'no free slot' end
-    -- A unique item added with amount > 1 occupies multiple slots one at a time.
     if unique and amount > 1 then
         for _ = 1, amount do
             local free = II.firstFreeSlot(p.PlayerData.items)
@@ -153,21 +141,17 @@ function Core.inventory.removeItem(src, name, amount, slot, reason)
     if not p then return false, 'no such player' end
     if p._loggingOut or Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(p.citizenid, 'inventory') then return false, 'player data is busy' end
     amount = math.floor(tonumber(amount) or 1)
-    -- floor() passes NaN and inf through, and NaN slips past `<= 0`.
     if not Kora.util.isFiniteNumber(amount) or amount <= 0 then return false, 'amount must be positive' end
     local it = p.PlayerData.items
 
-    -- Remove from a specific slot, or drain across matching slots lowest-first.
     if slot and it[slot] and it[slot].name == name then
         return Core.inventory._removeFromSlot(src, slot, amount)
     end
 
     local remaining = amount
-    -- Deterministic order: lowest slot first.
     local slots = {}
     for s, item in pairs(it) do if item.name == name then slots[#slots + 1] = s end end
     table.sort(slots)
-    -- Verify total first so we never partially remove.
     local total = 0
     for _, s in ipairs(slots) do total = total + it[s].amount end
     if total < amount then return false, 'not enough of item' end
@@ -188,7 +172,7 @@ function Core.inventory._removeFromSlot(src, slot, amount)
     local item = p.PlayerData.items[slot]
     if not item then return false, 'empty slot' end
     if item.amount <= amount then
-        Core.player.setPath(src, { 'items', slot }, nil)   -- nil -> delete op + dirty
+        Core.player.setPath(src, { 'items', slot }, nil)
     else
         item.amount = item.amount - amount
         Core.player.setPath(src, { 'items', slot }, item)
@@ -326,7 +310,6 @@ end
 function Core.inventory.createUseable(name, handler)
     local owner = GetInvokingResource() or GetCurrentResourceName()
     useables[name] = { resource = owner, handler = handler }
-    -- track(resource, id) needs both args (one arg raised "table index is nil").
     if owner then useableRegistry.track(owner, name) end
 end
 
@@ -351,7 +334,7 @@ function Core.inventory.useItem(src, slotOrName)
     if not item then return false end
     local u = useables[item.name]
     if not u then
-        TriggerEvent('QBCore:Server:UseItem', src, item)   -- legacy hook
+        TriggerEvent('QBCore:Server:UseItem', src, item)
         return false
     end
     local ok, result = pcall(u.handler, src, item)
@@ -393,7 +376,6 @@ function Core.inventory.stashOpen(src, identifier, opts)
         slots = opts and opts.slots or 50,
         maxweight = opts and opts.maxweight or 100000,
     })
-    -- TriggerEvent returns nothing, so use an ack flag; warn if no UI resource set it.
     if Config.inventory.warnOnUnhandledOpen and not _G.__qbcoreInventoryUIHandled then
         print(("^3[qbcore:inventory]^7 stashOpen('%s') emitted qbcore:inventory:open but no UI resource "
             .. "handled it. Ship or bridge an inventory UI, or set Config.inventory.warnOnUnhandledOpen=false.")
@@ -402,7 +384,7 @@ function Core.inventory.stashOpen(src, identifier, opts)
     return true
 end
 
-local drops = {}   -- dropId -> { coords, items, created }
+local drops = {}
 local nextDropId = 1
 
 ---@param coords table
@@ -437,8 +419,6 @@ function Core.inventory.dropTake(src, dropId, slot, amount)
     return true
 end
 
--- Uncollected drops otherwise live forever in memory for the life of the
--- process; periodically expire ones older than Config.inventory.dropTTL.
 CreateThread(function()
     while true do
         Wait(Config.inventory.dropSweepInterval)

@@ -1,14 +1,3 @@
--- Core.player (server realm) -- the authoritative player cache and the SINGLE
--- mutation funnel, Core.player.setPath. Every money/job/metadata/inventory
--- change routes through setPath so dirty-tracking, delta replication, and
--- onChange subscribers are handled in exactly one place.
---
--- Caches (in-memory, zero DB reads on hot paths):
---   bySource[src]        -> Player
---   byCitizenId[cid]     -> Player
--- A Player is never crossed to another resource in the modern API; getPlayer()
--- returns a plain deep-cloned snapshot (see the modern-API stance in AGENTS.md).
-
 local PI = CoreInternal.player
 local COLUMN_FOR = PI.COLUMN_FOR
 
@@ -16,20 +5,13 @@ local bySource = {}
 local byCitizenId = {}
 PI.bySource = bySource
 PI.byCitizenId = byCitizenId
--- Opaque same-VM capability for Core.money's ledger-to-item migration. It is
--- never exported, so another resource cannot forge the exception accepted by
--- setPath below.
 local physicalCashWriteToken = {}
 local logoutWriteToken = {}
 local sourceSessions = {}
 
--- Resource-owned, replicated-only PlayerData roots. These fields let a domain
--- resource expose a read model to client UI without putting that domain's
--- authoritative state in the players.metadata JSON blob.
 local playerDataFields = {}
 local playerDataFieldWriteToken = {}
 
--- Path-prefix onChange subscribers: { id -> { resource, prefix (array), handler } }
 local subscribers = {}
 local nextSubId = 1
 
@@ -69,9 +51,6 @@ function Core.player.setPath(src, path, value, opts)
         end
     end
 
-    -- Once kora_inventory owns a physical cash account, a generic direct write
-    -- here would create a second balance beside the cash item. The only
-    -- exception is Core.money's one-way, preflighted ledger-to-item migration.
     if path[1] == 'money' and Core.money and Core.money.isPhysicalCash
         and Core.money.isPhysicalCash(path[2]) and not (opts and opts._physicalCashToken == physicalCashWriteToken) then
         return false, 'physical cash account is inventory-owned'
@@ -79,10 +58,6 @@ function Core.player.setPath(src, path, value, opts)
 
     Core.util.pathSet(player.PlayerData, path, value)
 
-    -- Optional compat hook (registered by compat/shared/coreobject.lua) keeping the legacy-shaped
-    -- PlayerData table in sync with every write. That table crosses the export boundary, so it must
-    -- be a real table, not a metatable proxy. Core is an auto-vivifying proxy, so check the
-    -- specific function, not `Core.compat`.
     if Core.compat.onPlayerDataChanged then
         Core.compat.onPlayerDataChanged(src, path, value)
     end
@@ -105,7 +80,6 @@ function Core.player.setPath(src, path, value, opts)
         end
     end
 
-    -- Lets inventory authorities invalidate stale views after an item write made through the funnel.
     if path[1] == 'items' then
         TriggerEvent('qbcore:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
     end
@@ -243,8 +217,6 @@ function Core.player.registerPlayerDataField(key, provider)
     local field = { resource = resource, provider = provider }
     playerDataFields[key] = field
 
-    -- A resource can restart while characters are already online. Hydrate
-    -- those sessions immediately; ordinary logins are hydrated in adopt().
     for src, player in pairs(bySource) do
         local value, err = loadPlayerDataField(field, player)
         if err then
@@ -270,8 +242,6 @@ function Core.player.setPlayerDataField(src, key, value)
     if field.resource ~= resource then return false, ('PlayerData field is owned by %s'):format(field.resource) end
     return Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
 end
-
--- --- subscriptions ---
 
 ---Subscribe to changes under a path prefix. handler(src, path, value). Prefix is
 ---a key array, e.g. {'money'} or {'metadata','hunger'}.
@@ -310,8 +280,6 @@ AddEventHandler('onResourceStop', function(resource)
     end
 end)
 
--- --- lifecycle ---
-
 local function adopt(src, player)
     player.source = src
     player.PlayerData.source = src
@@ -320,8 +288,6 @@ local function adopt(src, player)
     Core.persistence._adopt(player)
     Core.replication._adopt(player)
 
-    -- Hydrate external read models after persistence has captured its baseline
-    -- but before any load event or snapshot can expose an incomplete shape.
     for key, field in pairs(playerDataFields) do
         local value, err = loadPlayerDataField(field, player)
         if err then
@@ -335,9 +301,6 @@ local function adopt(src, player)
         end
     end
 
-    -- kora_inventory may own the physical cash account. Convert any persisted
-    -- ledger balance before a snapshot or legacy load event can expose it;
-    -- failure is fail-closed, avoiding a hidden or duplicated balance.
     if Core.money and Core.money.migratePhysicalCash then
         local migrated, migrateErr = Core.money.migratePhysicalCash(src)
         if not migrated then
@@ -349,26 +312,12 @@ local function adopt(src, player)
         end
     end
 
-    -- Legacy load events (both directions), plus the modern one.
-    -- Stock qb-core sends the Player wrapper. Legacy resources (including
-    -- qb-inventory) immediately dereference Player.PlayerData here.
-    -- Stock hands listeners its Player object (.PlayerData/.Functions); the compat layer builds it.
     TriggerEvent('QBCore:Server:PlayerLoaded', Core.compat.buildLoadedPlayer and Core.compat.buildLoadedPlayer(src) or player)
-    TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)     -- modern
-    Core.replication._sendSnapshot(player)                                 -- prime the client mirror
+    TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)
+    Core.replication._sendSnapshot(player)
     if Core.money and Core.money.syncState then Core.money.syncState(src) end
-    -- The state bag is the authoritative client-facing character-session
-    -- signal. It intentionally follows the snapshot so state-bag consumers
-    -- can show UI only after the local PlayerData mirror is usable.
     Player(src).state:set('qbcore:loggedIn', true, true)
-    -- Legacy alias: stock qb-core sets a bare 'isLoggedIn' key that scripts read directly
-    -- (e.g. qb-doorlock); kora_core's own resources use the namespaced key above.
     Player(src).state:set('isLoggedIn', true, true)
-    -- Preserve the legacy client event, but dispatch it only after the
-    -- snapshot has reached the client.  Legacy consumers now observe usable
-    -- PlayerData rather than having to race the replication channel.
-    -- Config.compat.deferClientPlayerLoaded moves this to the stock point: the client's
-    -- QBCore:Server:OnPlayerLoaded after spawn (compat/server/qb-core-events.lua).
     if Config.compat.deferClientPlayerLoaded ~= true then
         player._clientLoadedSent = true
         TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
@@ -395,7 +344,6 @@ function Core.player.login(src, citizenid, data)
         if not latest then return false, err end
         for field in pairs(COLUMN_FOR) do data[field] = latest[field] end
     end
-    -- The durable-storage checks yield; another session may have won meanwhile.
     if bySource[src] then return false, 'source already logged in' end
     if byCitizenId[citizenid] then return false, 'character already logged in' end
     if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
@@ -408,7 +356,7 @@ function Core.player.login(src, citizenid, data)
         cid = data.cid or 1,
         PlayerData = data,
         _dirty = {},
-        _encoded = {},           -- seeded by persistence.adopt from the DB row
+        _encoded = {},
         _pendingOps = {},
         _seq = 0,
     }
@@ -473,9 +421,6 @@ local function normalizeCharinfo(raw)
         birthdate = birthdate,
         gender = gender,
         nationality = nationality,
-        -- Never accept a client-supplied phone. There is no phone allocation
-        -- service in this core yet, so generate the same seven-digit shape the
-        -- legacy UI used, but on the authoritative side of the boundary.
         phone = tostring(math.random(1000000, 9999999)),
     }
 end
@@ -494,8 +439,6 @@ local function createCharacterUnlocked(src, charinfo, cid)
     for _, character in ipairs(existing) do taken[character.cid] = true end
 
     if cid ~= nil then
-        -- The cid reaches here from a client net event. A fractional slot (1.5)
-        -- is never `taken`, so it would add characters past the limit.
         cid = tonumber(cid)
         if not cid or cid ~= math.floor(cid) or cid < 1 or cid > maxCharacters or taken[cid] then
             return nil, 'requested character slot is unavailable'
@@ -511,15 +454,11 @@ local function createCharacterUnlocked(src, charinfo, cid)
         end
     end
 
-    -- Unreachable in practice (the branch above guarantees a free slot); asserted so a
-    -- future change fails loudly instead of inserting a nil cid.
     assert(cid ~= nil, 'createCharacter: failed to compute a free slot')
 
     local citizenid = Core.identity.generateCitizenId()
     local data = PI.freshData(citizenid, license, cid, normalizedCharinfo)
 
-    -- Only authoritative creation grants eligibility; loading an old character
-    -- must never recreate a consumed cityhall starter entitlement.
     data.metadata.starterItems = {}
     local starterItems = QBCore and QBCore.Shared and QBCore.Shared.StarterItems or {}
     for _, starterItem in pairs(starterItems) do
@@ -588,8 +527,6 @@ function Core.player.logout(src, options)
         if not available then return false, err end
     end
     if not current() then return false, 'player session changed' end
-    -- Reuse the ordinary-write reservation so a durable inventory/bank operation
-    -- cannot begin while logout drains queued player writes.
     if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(player.citizenid) then
         return false, 'player data is busy'
     end
@@ -613,14 +550,10 @@ function Core.player.logout(src, options)
         if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
         return false, not sameSession and 'player session changed' or tostring(err or saved or 'player save failed')
     end
-    -- Clear this before any legacy unload notifications or cache teardown so
-    -- state-bag consumers immediately stop rendering character-only UI.
     Player(src).state:set('qbcore:loggedIn', false, true)
-    Player(src).state:set('isLoggedIn', false, true) -- legacy mirror, see login()
+    Player(src).state:set('isLoggedIn', false, true)
     TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
-    -- An unload subscriber can yield or drop the connection. Never evict a
-    -- replacement session that acquired this source while it was running.
     if bySource[src] == player then bySource[src] = nil end
     if byCitizenId[player.citizenid] == player then
         byCitizenId[player.citizenid] = nil
@@ -632,14 +565,12 @@ function Core.player.logout(src, options)
     return true
 end
 
--- Handle a hard disconnect: flush immediately, then evict from every cache.
 ---@param src integer
 ---@param reason string|nil
 function Core.player.dropPlayer(src, reason)
     local player = bySource[src]
     if not player then return end
     Core.persistence.saveNow(player)
-    -- Legacy-named events fire before eviction so GetPlayer(src) still works in handlers; server-LOCAL only (the client is gone).
     TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
     if bySource[src] == player then bySource[src] = nil end
@@ -658,7 +589,6 @@ AddEventHandler('playerJoining', function()
     sourceSessions[source] = (sourceSessions[source] or 0) + 1
 end)
 
--- Readiness marker so @kora_core/init.lua / consumers can detect the core is up.
 local coreReady = false
 function Core.player.isCoreReady() return coreReady end
 CreateThread(function() Wait(0); coreReady = true end)

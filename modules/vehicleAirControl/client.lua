@@ -1,21 +1,10 @@
--- Core.vehicleAirControl (client realm) -- optionally removes the driver's
--- ability to steer, pitch or roll a land vehicle while it is airborne, so jumps
--- cannot be "landed perfectly" with the keyboard/stick. Driven by
--- Config.vehicleAirControl (see config.lua).
---
--- No permanent loop: a worker exists only while the local ped is the DRIVER of a
--- vehicle whose class is not exempt. It idles at 250 ms while the vehicle is on
--- the ground (so a car upside down on the road can still be rocked back) and
--- only runs per frame while the vehicle is actually airborne.
-
 local DRIVER_SEAT = -1
 local GROUND_POLL_MS = 250
--- 59/60 move left-right / up-down, 61/62 up-only/down-only, 63/64 left-only/right-only.
 local AIR_CONTROLS = { 59, 60, 61, 62, 63, 64 }
 
 local vehicle = Kora.cache.vehicle()
 local seat = Kora.cache.seat()
-local generation = 0 -- bumping it retires any running worker
+local generation = 0
 
 local function isExempt(settings, class)
     for _, exempt in ipairs(settings.exemptClasses or {}) do
@@ -52,7 +41,6 @@ local function refresh()
     generation = generation + 1
     if not vehicle or seat ~= DRIVER_SEAT then return end
 
-    -- Read on every start so a live Config change applies on the next entry.
     local settings = Config.vehicleAirControl
     if not settings or not settings.disable then return end
     if isExempt(settings, GetVehicleClass(vehicle)) then return end
@@ -60,9 +48,6 @@ local function refresh()
     startWorker(vehicle, generation)
 end
 
--- The cache updates seat before vehicle; both handlers re-evaluate from local copies.
--- kora_lib drops every onChange registration when it restarts, so register
--- again then and re-seed from the restarted cache.
 local function watchCache()
     Kora.cache.onChange('seat', function(value)
         seat = value

@@ -1,15 +1,5 @@
--- Default item definitions. Plain data, no Core dependency -- loaded before
--- the server registry module, which registers every record through the runtime
--- mutation API. Other resources extend the same registry with
--- Kora.shared.register('items', ...).
 QBCoreSeed = QBCoreSeed or {}
 
--- Temporary remote artwork catalogue. `image` remains the legacy local-file
--- field; `imageUrl` is an optional, browser-ready source that UI resources can
--- use while this collection is hosted on GitHub. Only exact, reviewed paths
--- are listed so a missing community image falls back cleanly instead of making
--- a guessed remote request. Server owners can replace the base or set a direct
--- `imageUrl` on their own shared-item record.
 QBCoreSeed.itemImageBaseUrl = QBCoreSeed.itemImageBaseUrl
     or 'https://raw.githubusercontent.com/aifazi/items-images/main/'
 QBCoreSeed.itemImagePaths = {
@@ -121,10 +111,6 @@ function QBCoreSeed.imageUrl(name)
     return path and (QBCoreSeed.itemImageBaseUrl .. path) or nil
 end
 
--- Native ammo type -> kora_inventory item id. The six magazine records use the
--- long-standing Kora names (`snp_ammo` is deliberately retained for backwards
--- compatibility). Specialised ammunition is included as stockable data too,
--- but shops decide what to sell; defining it here does not make it available.
 QBCoreSeed.ammoItems = {
     AMMO_PISTOL = 'pistol_ammo',
     AMMO_SMG = 'smg_ammo',
@@ -163,7 +149,6 @@ local function ammo(name, label, ammoType, weight, rounds)
 end
 
 QBCoreSeed.items = {
-    -- Retain legacy names for existing inventories, shops and integrations.
     { name = 'water_bottle', label = 'Water',    weight = 500,  type = 'item', image = 'water_bottle.png', imageUrl = QBCoreSeed.imageUrl('water_bottle'), unique = false, useable = true,  shouldClose = true,  description = 'Refreshing.' },
     { name = 'sandwich',     label = 'Sandwich', weight = 220,  type = 'item', image = 'sandwich.png',     imageUrl = QBCoreSeed.imageUrl('sandwich'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
     { name = 'beer',          label = 'Beer',          weight = 350, type = 'item', image = 'beer.png',          imageUrl = QBCoreSeed.imageUrl('beer'),          unique = false, useable = true, shouldClose = true, description = 'An alcoholic drink.' },
@@ -175,24 +160,12 @@ QBCoreSeed.items = {
     { name = 'vehiclekey',   label = 'Vehicle Key', weight = 20, type = 'item', image = 'vehiclekey.png',   imageUrl = QBCoreSeed.imageUrl('vehiclekey'), unique = true, useable = true, shouldClose = false, description = 'A key assigned to a vehicle.' },
     { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
 
-    -- Further consumables (food/drink/alcohol/drugs). Their actual hunger/
-    -- thirst/stress/drunk/high effects live in kora_inventory's own useable
-    -- handler (server/useables.lua), not here -- this registry only carries
-    -- display/weight/useable metadata, same as every other item.
     { name = 'chocolate_bar', label = 'Chocolate Bar', weight = 80,  type = 'item', image = 'chocolate_bar.png', imageUrl = QBCoreSeed.imageUrl('chocolate_bar'), unique = false, useable = true, shouldClose = true, description = 'A quick snack.' },
     { name = 'soda',          label = 'Soda',          weight = 350, type = 'item', image = 'soda.png',          imageUrl = QBCoreSeed.imageUrl('soda'),          unique = false, useable = true, shouldClose = true, description = 'Sweet and fizzy.' },
 
-    -- A unique item because kora_inventory binds one durable secondary inventory
-    -- to each physical backpack. Its capacity/access policy lives in
-    -- kora_inventory's server-side container configuration.
     { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
     { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
-    -- Recycling plant rewards are a public civilian activity,
-    -- but its server-side payout still travels through kora_core's shared item
-    -- registry and kora_inventory's authoritative add/remove path. Keeping these
-    -- here means a completed package can be received, displayed, and sold
-    -- instead of failing as an unknown item.
     { name = 'metalscrap', label = 'Metal Scrap', weight = 100, type = 'item', image = 'metalscrap.png', imageUrl = QBCoreSeed.imageUrl('metalscrap'), unique = false, useable = false, shouldClose = true, description = 'Salvaged mixed metal.' },
     { name = 'plastic',    label = 'Plastic',     weight = 100, type = 'item', image = 'plastic.png',    imageUrl = QBCoreSeed.imageUrl('plastic'),    unique = false, useable = false, shouldClose = true, description = 'Sorted recyclable plastic.' },
     { name = 'copper',     label = 'Copper',      weight = 100, type = 'item', image = 'copper.png',     imageUrl = QBCoreSeed.imageUrl('copper'),     unique = false, useable = false, shouldClose = true, description = 'Recovered copper.' },
@@ -203,16 +176,11 @@ QBCoreSeed.items = {
     { name = 'glass',      label = 'Glass',       weight = 100, type = 'item', image = 'glass.png',      imageUrl = QBCoreSeed.imageUrl('glass'),      unique = false, useable = false, shouldClose = true, description = 'Sorted glass.' },
     { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = QBCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
 
-    -- Crafting components and finished workshop supplies. Recipes and access
-    -- policy live in kora_crafting; these records only define inventory metadata.
     { name = 'wire_bundle',        label = 'Wire Bundle',        weight = 180,  type = 'item', image = 'wire_bundle.png',        imageUrl = QBCoreSeed.imageUrl('wire_bundle'),        unique = false, useable = false, shouldClose = true, description = 'Insulated copper wiring for electrical projects.' },
     { name = 'metal_bracket',      label = 'Metal Bracket',      weight = 350,  type = 'item', image = 'metal_bracket.png',      imageUrl = QBCoreSeed.imageUrl('metal_bracket'),      unique = false, useable = false, shouldClose = true, description = 'A reinforced bracket for mechanical assemblies.' },
     { name = 'electronics_kit',    label = 'Electronics Kit',    weight = 650,  type = 'item', image = 'electronics_kit.png',    imageUrl = QBCoreSeed.imageUrl('electronics_kit'),    unique = false, useable = false, shouldClose = true, description = 'Packaged wiring and components for electronic repairs.' },
     { name = 'vehicle_repair_kit', label = 'Vehicle Repair Kit', weight = 1800, type = 'item', image = 'vehicle_repair_kit.png', imageUrl = QBCoreSeed.imageUrl('vehicle_repair_kit'), unique = false, useable = false, shouldClose = true, description = 'Workshop supplies for repairing a damaged vehicle.' },
 
-    -- Standard Ammu-Nation ammunition. These are ordinary stackable inventory
-    -- items, allowing shops and a future weapon system to move them through the
-    -- same authoritative kora_inventory transfer path as every other item.
     ammo('pistol_ammo', 'Pistol Magazine', 'AMMO_PISTOL', 180, 12),
     ammo('smg_ammo', 'SMG Magazine', 'AMMO_SMG', 300, 30),
     ammo('shotgun_ammo', 'Shotgun Shell Box', 'AMMO_SHOTGUN', 360, 12),
@@ -220,8 +188,6 @@ QBCoreSeed.items = {
     ammo('mg_ammo', 'MG Belt', 'AMMO_MG', 900, 100),
     ammo('snp_ammo', 'Sniper Cartridge Box', 'AMMO_SNIPER', 420, 10),
 
-    -- Specialised native ammunition. They are registered for valid future
-    -- stock/loot recipes but are not implicitly offered by any shop.
     ammo('taser_cartridge', 'Taser Cartridge', 'AMMO_STUNGUN', 80, 1),
     ammo('flare_ammo', 'Flare Cartridge', 'AMMO_FLARE', 120, 1),
     ammo('musket_ammo', 'Musket Ball', 'AMMO_MUSKET', 70, 1),
@@ -234,8 +200,6 @@ QBCoreSeed.items = {
     ammo('homing_missile', 'Homing Missile', 'AMMO_HOMINGLAUNCHER', 2400, 1),
     ammo('emp_round', 'EMP round', 'AMMO_EMPLAUNCHER', 1000, 1),
 
-    -- Optional licence record for servers that choose to gate weapon-shop
-    -- access through a player item rather than a metadata/ACE policy.
     { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weapon_license.png', imageUrl = QBCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
 
     { name = "baking_soda", label = "Baking soda", weight = 1000, type = "item", image = "baking_soda.png", unique = false, useable = false, shouldClose = true, description = "I can use this for cakes or maybe something else" },
@@ -351,8 +315,6 @@ QBCoreSeed.items = {
     { name = 'qbr_monitor',    label = 'Monitor',    weight = 100,    type = 'item',    image = 'qbr_monitor.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
     { name = 'qbr_speakers',    label = 'Speakers',    weight = 100,    type = 'item',    image = 'qbr_speakers.png',    unique = false,    useable = false,    shouldClose = false,    description = ''},
 
-    -- Missing inventory defaults from qb-core 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf.
-    -- Existing native definitions above retain their configured values.
     { name = 'advancedlockpick', label = 'Advanced Lockpick', weight = 500, type = 'item', image = 'advancedlockpick.png', unique = false, useable = true, shouldClose = true, description = 'If you lose your keys a lot this is very useful... Also useful to open your beers' },
     { name = 'advancedrepairkit', label = 'Advanced Repairkit', weight = 4000, type = 'item', image = 'advancedkit.png', unique = false, useable = true, shouldClose = true, description = 'A nice toolbox with stuff to repair your vehicle' },
     { name = 'advscope_attachment', label = 'Advanced Scope', weight = 1000, type = 'item', image = 'advscope_attachment.png', unique = false, useable = true, shouldClose = true, description = 'An advanced scope for a weapon' },
@@ -561,10 +523,6 @@ QBCoreSeed.items = {
     { name = 'qbr_monitor', label = 'Monitor', weight = 100, type = 'item', image = 'qbr_monitor.png', unique = false, useable = false, shouldClose = false, description = '' },
     { name = 'qbr_speakers', label = 'Speakers', weight = 100, type = 'item', image = 'qbr_speakers.png', unique = false, useable = false, shouldClose = false, description = '' },
 
-    -- Items stock ox_inventory 2.48.1 refers to by name in its own code (modules/
-    -- items/client.lua, server.lua, containers.lua, pefcl, init.lua loot tables),
-    -- so a generated data/items.lua never lacks them. Labels/weights follow ox's
-    -- data/items.lua; `parachute`, `bandage` and `phone` already exist above.
     { name = 'armour', label = 'Bulletproof Vest', weight = 3000, type = 'item', image = 'armour.png', unique = true, useable = true, shouldClose = true, description = 'Body armour.' },
     { name = 'clothing', label = 'Clothing', weight = 0, type = 'item', image = 'clothing.png', unique = true, useable = true, shouldClose = true, description = 'An outfit; its metadata carries the components.' },
     { name = 'identification', label = 'Identification', weight = 0, type = 'item', image = 'card_id.png', unique = true, useable = false, shouldClose = true, description = 'An ID card; its metadata carries the holder details.' },
@@ -576,7 +534,6 @@ QBCoreSeed.items = {
     { name = 'mustard', label = 'Mustard', weight = 500, type = 'item', image = 'mustard.png', unique = false, useable = true, shouldClose = true, description = 'A bottle of mustard.' },
     { name = 'panties', label = 'Knickers', weight = 10, type = 'item', image = 'panties.png', unique = false, useable = true, shouldClose = true, description = 'A slightly used pair of knickers.' },
 
-    -- Mining and jewelry items converted from the supplied inventory definitions.
     { name = 'amethyst_necklace_gold', label = 'Amethyst necklace gold', weight = 1000, type = 'item', image = 'amethyst_necklace_gold.png', unique = false, useable = false, shouldClose = true },
     { name = 'amethyst_necklace_silver', label = 'Amethyst necklace silver', weight = 1000, type = 'item', image = 'amethyst_necklace_silver.png', unique = false, useable = false, shouldClose = true },
     { name = 'amethyst_ring_gold', label = 'Amethyst ring gold', weight = 1000, type = 'item', image = 'amethyst_ring_gold.png', unique = false, useable = false, shouldClose = true },

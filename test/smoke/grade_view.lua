@@ -1,11 +1,3 @@
--- Pins the legacy zero-based grade VIEW (Track 1 of the qb-core drag-and-drop
--- compat work). Internal grade numbering stays ONE-based throughout kora_core
--- (registry, persistence, replication, our own qb* resources) -- per an
--- explicit decision, nothing internal is renumbered. Only the legacy
--- QBCore.* surface and QBCore:*-named event payloads present real qb-core's
--- ZERO-based grade.level. See compat/shared/coreobject.lua's
--- toLegacyPlayerData/toLegacyJobOrGang and Core.player.setPath's
--- onPlayerDataChanged hook (modules/player/server.lua).
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -34,8 +26,6 @@ dofile('compat/server/qb-core.lua')
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 
--- police has 5 seed grades (shared/jobs.lua): internal 1..5 = Cadet..Chief,
--- legacy 0..4 = the same records. Internal grade 3 = Sergeant = legacy 2.
 Core.jobs.setJob(1, 'police', 3)
 
 h.test('the legacy PlayerData view exposes a zero-based grade.level', function()
@@ -58,7 +48,6 @@ end)
 
 h.test('a legacy SetJob(name, zeroBasedLevel) call lands on the correct internal grade', function()
     local Player = QBCore.Functions.GetPlayer(1)
-    -- Legacy level 4 = Chief (the top grade, internal index 5).
     local ok = Player.Functions.SetJob('police', 4)
     h.assertTrue(ok, 'SetJob must succeed')
     h.assertEqual(Core.jobs.getJob(1).grade.level, 5, 'internal grade must be 5 (Chief), not 4')
@@ -70,29 +59,18 @@ end)
 h.test('QBCore:Server:OnJobUpdate fires with a legacy-shaped (zero-based) payload', function()
     local captured
     AddEventHandler('QBCore:Server:OnJobUpdate', function(src, job) captured = job end)
-    Core.jobs.setJob(1, 'police', 2) -- internal grade 2 = Officer = legacy level 1
+    Core.jobs.setJob(1, 'police', 2)
     h.assertTrue(captured ~= nil, 'the event must fire')
     h.assertEqual(captured.grade.level, 1, 'the event payload must already be legacy-shaped')
     h.assertEqual(captured.grade.name, 'Officer')
 end)
 
 h.test('setJob also fires QBCore:Server:OnPlayerUpdated -- real qb-core\'s actual event name', function()
-    -- Real qb-core has no OnJobUpdate/OnGangUpdate at all (verified against
-    -- qbcore-fivem/qb-core's server/player.lua) -- every job/gang/duty change
-    -- funnels through Player:UpdateClient(key, val), which fires
-    -- QBCore:Server:OnPlayerUpdated / QBCore:Client:OnPlayerUpdated. Real
-    -- qb-ambulancejob/qb-policejob listen for OnPlayerUpdated directly, so
-    -- OnJobUpdate alone (pinned above) is not enough for real legacy scripts.
-    -- The CLIENT-side half of this (TriggerClientEvent, or the client-derived
-    -- equivalent from a replication delta) is config-gated by
-    -- Config.compat.jobUpdateEventSource (default 'client' -- the replicated
-    -- delta path, not this direct server trigger) and pinned separately in
-    -- test/smoke/replication.lua where that default path actually lives.
     local serverCaptured
     AddEventHandler('QBCore:Server:OnPlayerUpdated', function(src, key, val)
         if key == 'job' then serverCaptured = val end
     end)
-    Core.jobs.setJob(1, 'police', 1) -- internal grade 1 = Cadet = legacy level 0
+    Core.jobs.setJob(1, 'police', 1)
 
     h.assertTrue(serverCaptured ~= nil, 'QBCore:Server:OnPlayerUpdated must fire with key = "job"')
     h.assertEqual(serverCaptured.grade.level, 0, 'the payload must already be legacy-shaped')

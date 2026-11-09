@@ -1,7 +1,3 @@
--- Inventory gateway smoke test. kora_core must preserve PlayerData.items as its
--- persistence shape, but delegate public inventory operations to a running
--- kora_inventory. The fallback remains deliberately explicit for staged rollout.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()

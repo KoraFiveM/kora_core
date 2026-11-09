@@ -1,26 +1,8 @@
--- '@kora_core/init.lua' -- installs a LIVE-UPDATING shared-registry mirror into the
--- consumer's own Lua VM, as Kora.shared.*. This is what the /ideas file and the
--- user's follow-up ask for: shared items/vehicles/jobs lists that are
--- updateable at runtime from any resource and have change handlers "across other
--- resources that have called on the shared list" fire automatically.
---
--- A consumer opts in with, in order:
---     shared_script '@kora_lib/init.lua'
---     shared_script '@kora_core/init.lua'
---
--- Same trick as @kora_sql/init.lua: kora_lib's `Kora` table has only __index, so
--- `Kora.shared = {...}` is a plain rawset in the consumer's VM. The mirror is LOCAL
--- tables patched by 'qbcore:registry:delta'; onChange handlers dispatch IN-VM (no
--- boundary crossing, and they die with the resource). Each registry carries an epoch
--- so a kora_core restart triggers a re-seed rather than silent drift.
-
 assert(Kora, '@kora_core/init.lua must be loaded AFTER @kora_lib/init.lua (add its shared_script first).')
 
 Kora.shared = Kora.shared or {}
 
--- name -> { list = {}, index = {}, epoch = 0 }
 local mirror = {}
--- name -> { subId -> handler }
 local subs = {}
 local nextSubId = 1
 
@@ -34,9 +16,6 @@ end
 
 local function reseed(name, keyField, records, epoch)
     local m = ensure(name)
-    -- Preserve the array reference across a full resync. Consumers should call
-    -- Kora.shared.all() when building a list, but an accidental cached reference
-    -- should still observe the newest snapshot rather than freeze forever.
     for i = #m.list, 1, -1 do m.list[i] = nil end
     m.index = {}
     m.keyField = keyField
@@ -50,9 +29,6 @@ end
 
 local function applyDelta(name, action, key, record, epoch)
     local m = ensure(name)
-    -- Epoch gap on a non-remove means we missed a reseed: pull a fresh snapshot
-    -- rather than applying a delta onto stale data. On the server the snapshot is
-    -- a same-VM export call; on the client it must go over the network.
     if epoch and m.epoch ~= 0 and epoch ~= m.epoch and action ~= 'remove' then
         if IsDuplicityVersion and IsDuplicityVersion() then
             local ok, all = pcall(function() return exports.kora_core:sharedSnapshotAll() end)
@@ -162,10 +138,6 @@ function Kora.shared.offChange(name, id)
     if subs[name] then subs[name][id] = nil end
 end
 
--- Net registrations below are CLIENT-ONLY on purpose: on the client the events arrive
--- over the wire and are dropped without RegisterNetEvent; on the server they are
--- same-VM events, and registering them would let any client inject records into every
--- consumer's mirror.
 local isServerRealm = IsDuplicityVersion and IsDuplicityVersion()
 
 if not isServerRealm then
@@ -175,9 +147,8 @@ AddEventHandler('qbcore:registry:delta', function(name, action, key, record, epo
     applyDelta(name, action, key, record, epoch)
 end)
 
--- Full-snapshot handler (initial seed + epoch-gap resync). Works in both realms.
 if not isServerRealm then
-    RegisterNetEvent('qbcore:registry:snapshotAll')   -- client path (server->client)
+    RegisterNetEvent('qbcore:registry:snapshotAll')
 end
 AddEventHandler('qbcore:registry:snapshotAll', function(all)
     for name, payload in pairs(all) do
@@ -185,12 +156,8 @@ AddEventHandler('qbcore:registry:snapshotAll', function(all)
     end
 end)
 
--- Seed the mirror as soon as kora_core is available. On the server this is a direct
--- export call (same process); on the client it asks the server for a snapshot.
 CreateThread(function()
     if isServerRealm then
-        -- Same process: pull the authoritative snapshot directly, retrying until
-        -- kora_core's exports are up.
         for _ = 1, 200 do
             local ok, all = pcall(function() return exports.kora_core:sharedSnapshotAll() end)
             if ok and type(all) == 'table' and next(all) ~= nil then
@@ -202,8 +169,6 @@ CreateThread(function()
             Wait(25)
         end
     else
-        -- Client: request the snapshot over the network; the snapshotAll handler
-        -- above reseeds when it arrives.
         Wait(0)
         TriggerServerEvent('qbcore:registry:requestSnapshot')
     end

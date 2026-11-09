@@ -1,7 +1,3 @@
--- qbx facade OFF (the default): compat/server/qbx.lua must register no event
--- handlers and publish no qbx_core / qbx_vehicles export identity, so loading
--- it changes nothing. Also covers the refuse-to-hijack guard for a real
--- qbx_core resource even when the opt-in is set.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

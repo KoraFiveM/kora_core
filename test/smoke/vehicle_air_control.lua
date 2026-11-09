@@ -79,7 +79,7 @@ end)
 H.test('a kora_lib restart re-registers the cache listeners and re-seeds the vehicle', function()
     setCache('vehicle', false)
     for i = #threads, 1, -1 do table.remove(threads, i) end
-    listeners = {}             -- the restarted kora_lib forgot every onChange
+    listeners = {}
     cache.vehicle, cache.seat = 12, -1
     TriggerEvent('onClientResourceStart', 'kora_lib')
     H.assertEqual(#threads, 1, 'the driver seat read from the new cache starts a worker')

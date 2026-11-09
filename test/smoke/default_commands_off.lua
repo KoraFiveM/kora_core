@@ -1,4 +1,3 @@
--- Config.compat.defaultCommands = false registers none of the stock commands.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); mocks.install()
 dofile('config.lua')

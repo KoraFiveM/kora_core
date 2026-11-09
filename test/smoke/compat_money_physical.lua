@@ -1,7 +1,3 @@
--- Legacy money writes while kora_inventory owns physical cash: SetPlayerData /
--- UpdateClient money edits are translated into item-backed Add/Remove through
--- the money funnel; SetMoney('cash', x) goes through setMoney; non-cash
--- accounts keep working; overdraws refuse the whole write.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -57,7 +53,6 @@ end)
 
 h.test('SetPlayerData money translates a cash decrease and changes bank together', function()
     local bank = p.PlayerData.money.bank
-    -- PlayerData.money.cash mirrors the real balance, so a decrease is written as the new total.
     h.assertTrue(p.Functions.SetPlayerData('money', { cash = p.PlayerData.money.cash - 40, bank = bank + 7, crypto = 0 }))
     h.assertEqual(Core.money.getMoney(1, 'cash'), start + 60)
     h.assertEqual(Core.money.getMoney(1, 'bank'), bank + 7)
@@ -112,7 +107,7 @@ local function deltaValue(path1, path2)
 end
 
 h.test('mirror: PlayerData.money.cash reads the real item balance after an inventory cash change', function()
-    physical[1] = 777                                    -- kora_inventory item stack changed
+    physical[1] = 777
     handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
     h.assertEqual(QBCore.Functions.GetPlayer(1).PlayerData.money.cash, 777)
     h.assertEqual(p.Functions.GetPlayerData().money.cash, 777)
@@ -148,7 +143,7 @@ end)
 h.test('write-back of {cash = x} applies the delta against the real balance', function()
     physical[1] = 500
     handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
-    local read = p.Functions.GetMoney('cash')            -- script reads 500 ...
+    local read = p.Functions.GetMoney('cash')
     h.assertEqual(read, 500)
     h.assertTrue(p.Functions.SetPlayerData('money', { cash = read - 100, bank = 50, crypto = 0 }))
     h.assertEqual(Core.money.getMoney(1, 'cash'), 400, 'not 900')
@@ -160,12 +155,11 @@ end)
 h.test('write-back delta is against the mirrored value the script saw, not the live balance (race)', function()
     physical[1] = 500
     handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
-    local seen = p.Functions.GetPlayerData().money.cash   -- script reads 500
+    local seen = p.Functions.GetPlayerData().money.cash
     h.assertEqual(seen, 500)
-    physical[1] = 650                                      -- stack moves before the inventory event lands
+    physical[1] = 650
     h.assertTrue(p.Functions.SetPlayerData('money', { cash = seen + 10 }))
     h.assertEqual(Core.money.getMoney(1, 'cash'), 660, 'intended +10 applies on top of live 650')
-    -- insufficient funds is still judged against the live balance
     physical[1] = 5
     h.assertFalse(p.Functions.SetPlayerData('money', { cash = 660 - 100 }))
     h.assertEqual(Core.money.getMoney(1, 'cash'), 5)

@@ -1,8 +1,3 @@
--- Core.garage smoke test -- uses a small in-memory fake `player_vehicles`
--- table in place of the generic mocks.lua Kora.sql stub, since that stub's
--- responses are canned per exact SQL string (not parameter-aware) and
--- garage's CRUD genuinely needs INSERT-then-SELECT-back behavior to test
--- meaningfully.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -14,7 +9,7 @@ dofile('modules/player/shared.lua')
 dofile('modules/replication/server.lua'); dofile('modules/persistence/server.lua')
 dofile('modules/player/server.lua')
 
-local rows = {} -- plate -> row
+local rows = {}
 local nextStateTransitionAffected
 local deletedEntities = {}
 local encodedJson = {}
@@ -70,8 +65,6 @@ handle.Kora.sql.execute = function(sql, params)
         if rows[plate] then rows[plate].deleted_at = os.time() end
         return { affectedRows = 1 }
     elseif sql:find('UPDATE `player_vehicles` SET', 1, true) then
-        -- updateState's generic patch, distinguished from storeVehicle's by
-        -- not setting `state` at all.
         local fuel, engineHealth, bodyHealth, mods, lastPosition, plate = table.unpack(params)
         local row = rows[plate]
         if not row then return nil, 'not found' end
@@ -313,7 +306,7 @@ h.test('spawnVehicle refuses an impounded vehicle', function()
 end)
 
 h.test("retrieveImpound refuses a citizen who doesn't own the vehicle", function()
-    local ok, err = Core.garage.retrieveImpound(1, 'IMP001') -- src 1 is CID1, row is owned by CID3
+    local ok, err = Core.garage.retrieveImpound(1, 'IMP001')
     h.assertFalse(ok)
     h.assertEqual(err, 'not your vehicle')
 end)

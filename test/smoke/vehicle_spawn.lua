@@ -1,5 +1,3 @@
--- QBCore:Server:SpawnVehicle / CreateVehicle (compat/server/qb-vehicles.lua) in
--- 'limited' mode: stock args and netId return, validated and rate limited.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

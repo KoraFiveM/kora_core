@@ -1,4 +1,3 @@
--- tools/ox_items generator against a tiny fixture registry.
 local h = dofile('test/harness.lua')
 local gen = dofile('tools/ox_items/generate.lua')
 local fx = 'test/fixtures/ox_items'
@@ -8,15 +7,15 @@ local items = assert(load(result.itemsLua, '=items.lua', 't', {}))()
 local report, mapping = result.report, result.mapping
 
 h.test('output loads as Lua with ox item shapes', function()
-    h.assertEqual(items.water.label, 'Water')       -- kora registry beats upstream and stock
+    h.assertEqual(items.water.label, 'Water')
     h.assertEqual(items.water.weight, 500)
     h.assertEqual(items.water.stack, nil)
-    h.assertEqual(items.phone.stack, false)          -- unique
-    h.assertEqual(items.phone.close, false)          -- shouldClose = false
-    h.assertEqual(items.phone.description, nil)      -- empty description omitted
+    h.assertEqual(items.phone.stack, false)
+    h.assertEqual(items.phone.close, false)
+    h.assertEqual(items.phone.description, nil)
     h.assertEqual(items.phone.client.image, 'smartphone.png')
-    h.assertEqual(items.water.client, nil)           -- default image omitted
-    h.assertEqual(items.sandwich.label, 'Sandwich')  -- filled from upstream via merge.lua
+    h.assertEqual(items.water.client, nil)
+    h.assertEqual(items.sandwich.label, 'Sandwich')
 end)
 
 h.test('weapons, ammo and cash are not emitted but are mapped', function()
@@ -59,10 +58,10 @@ h.test('resource items: emitted with registry field mapping, registry wins, rese
     h.assertEqual(ri.blank_film.description, 'Unexposed film.')
     h.assertEqual(ri.card_cam.stack, false)
     h.assertEqual(ri.card_cam.close, false)
-    h.assertEqual(ri.card_cam.client, nil)          -- name defaults to the key; <name>.png image omitted
-    h.assertEqual(ri.water.label, 'Water')          -- registry wins
-    h.assertEqual(ri.money.label, 'Money')          -- reserved keeps ox semantics
-    h.assertEqual(ri.weapon_cardgun, nil)           -- weapons stay excluded
+    h.assertEqual(ri.card_cam.client, nil)
+    h.assertEqual(ri.water.label, 'Water')
+    h.assertEqual(ri.money.label, 'Money')
+    h.assertEqual(ri.weapon_cardgun, nil)
     local e = res.report.resourceItems[1]
     h.assertEqual(e.resource, 'resource')
     h.assertEqual(table.concat(e.items, ','), 'blank_film,card_cam')
@@ -74,7 +73,6 @@ h.test('resource items: emitted with registry field mapping, registry wins, rese
         h.assertTrue(m.name ~= 'blank_film' and m.name ~= 'card_cam', m.name .. ' still reported missing')
     end
     h.assertTrue(gen.reportMarkdown(res.report):find('`resource`: 2 item%(s%)') ~= nil)
-    -- without the option the same names are reported missing
     local without = gen.build({ root = fx, oxDir = fx .. '/ox', scanDirs = { fx .. '/resource' } })
     h.assertEqual(#without.report.scan.missing, 2)
 end)
@@ -90,7 +88,7 @@ h.test('CLI writes items.lua, mapping and reports', function()
     local out = os.tmpname() .. '_oxitems'
     local rc = gen.main({ '--root', fx, '--ox-dir', fx .. '/ox', '--no-default-scan', '--scan', fx .. '/scan',
         '--out', out .. '/items.lua', '--strict', '--resource-items', fx .. '/resource' })
-    h.assertEqual(rc, 2) -- strict + non-empty missing list
+    h.assertEqual(rc, 2)
     for _, f in ipairs({ 'items.lua', 'mapping.json', 'report.json', 'report.md' }) do
         local fh = io.open(out .. '/' .. f, 'rb')
         h.assertTrue(fh ~= nil, f .. ' not written')
@@ -106,7 +104,7 @@ h.test('real registry defines every item stock ox_inventory names in code', func
     for _, rec in ipairs((gen.loadRegistry('.'))) do real[rec.name] = rec end
     for _, name in ipairs(gen.ENGINE_REFERENCED) do h.assertTrue(real[name] ~= nil, name .. ' missing from registry') end
     h.assertEqual(real.identification.unique, true)
-    h.assertEqual(real.bandage.label, 'Bandage') -- existing kora records are untouched
+    h.assertEqual(real.bandage.label, 'Bandage')
 end)
 
 h.report("ox_items")

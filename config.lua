@@ -1,176 +1,154 @@
-
 Config = Config or {}
 
 Config.server = {
-    name = 'Roleplay Server Name',   -- shown as the title in GTA's standard pause menu; set an empty string to leave FiveM's default title intact
+    name = 'Roleplay Server Name',
 }
 
 Config.identity = {
-    primaryIdentifier = 'license',   -- which identifier keys a player across characters
-    citizenIdLength = 8,             -- length of a generated citizenid (excluding the type prefix)
-    citizenIdPrefix = '',            -- optional prefix, e.g. 'QB' -> 'QBAB12CD34'
-    maxCharacters = 5,               -- default multichar slots per identity; a `users` row can override this per-license (see Core.users.setMaxCharacters)
-    saveDiscord = true,              -- store the player's Discord id on their `users` row (e.g. for Discord-role character slots); needs Discord running when they connect
+    primaryIdentifier = 'license',
+    citizenIdLength = 8,
+    citizenIdPrefix = '',
+    maxCharacters = 5,
+    saveDiscord = true,
 }
 
 Config.persistence = {
-    interval = 60000,                -- ms between coalescing save flushes (worst-case crash loss)
-    intervalJitter = 0.10,           -- +/- fraction of jitter so saves don't thundering-herd
-    positionEpsilon = 2.0,           -- metres a player must move before position is re-persisted
-    positionMaxAge = 300000,         -- ms after which position persists even if the player is parked
-    volatileMetadataKeys = {},       -- metadata keys routed to a separate column (OFF by default; see AGENTS.md)
-    generatedColumns = false,        -- run sql/003 to add VIRTUAL cash/bank/job columns for SQL-side queries
-    saveOnDrop = true,               -- immediate flush when a player disconnects
+    interval = 60000,
+    intervalJitter = 0.10,
+    positionEpsilon = 2.0,
+    positionMaxAge = 300000,
+    volatileMetadataKeys = {},
+    generatedColumns = false,
+    saveOnDrop = true,
 }
 
 Config.money = {
-    types = { 'cash', 'bank', 'crypto' },  -- account names; the first is the "walking" cash account
-    default = { cash = 500, bank = 5000, crypto = 0 },  -- starting balances for a new character
-    cashType = 'cash',               -- which account the physical `cash` item / paycheck touches
-    allowNegative = { bank = true }, -- accounts permitted to go below zero
-    minusLimit = -50000,             -- floor for accounts that allow negative balances
+    types = { 'cash', 'bank', 'crypto' },
+    default = { cash = 500, bank = 5000, crypto = 0 },
+    cashType = 'cash',
+    allowNegative = { bank = true },
+    minusLimit = -50000,
 
-    -- Transaction tax. A percentage of every taxable transaction is carved out
-    -- of the amount and deposited into a banking account (the "government"),
-    -- never added on top -- see modules/money/AGENTS.md for the exact model and
-    -- why that direction was chosen. Pass `ignoreTax = true` as the last
-    -- argument to addMoney/removeMoney/transferMoney to exempt one call.
     tax = {
-        enabled = false,             -- master switch; OFF so an existing economy is unchanged until a server opts in
-        rate = 0.05,                 -- fraction of each taxable transaction diverted to the government (0.05 = 5%)
-        account = 'government',      -- banking account name the collected tax is deposited into
-        provider = 'qb-banking',     -- resource holding that account; while it is not running transactions go through UNTAXED (money is never destroyed)
-        autoCreateAccount = true,    -- create `account` through the provider the first time tax is collected
-        exports = { add = 'AddMoney', get = 'GetAccount', create = 'CreateJobAccount' }, -- provider export names, so a non-qb-banking bank can be pointed at
-        accounts = { cash = true, bank = true, crypto = false }, -- which Config.money.types are taxable; an account absent here is never taxed
-        actions = { add = true, remove = true, transfer = true }, -- taxable operations; setMoney is NEVER taxed (absolute assignment, not a transaction)
+        enabled = false,
+        rate = 0.05,
+        account = 'government',
+        provider = 'qb-banking',
+        autoCreateAccount = true,
+        exports = { add = 'AddMoney', get = 'GetAccount', create = 'CreateJobAccount' },
+        accounts = { cash = true, bank = true, crypto = false },
+        actions = { add = true, remove = true, transfer = true },
     },
 }
 
 Config.inventory = {
-    maxWeight = 120000,              -- grams
-    slots = 41,                      -- inventory slots per player
-    matchInfoOnStack = false,        -- if true, items only stack when their `info` matches (stricter than legacy)
-    warnOnUnhandledOpen = true,      -- print when stashOpen has no UI resource listening
-    provider = 'kora_inventory',        -- headless inventory authority kora_core delegates operational calls to
-    allowLegacyFallback = true,      -- temporary staged-rollout fallback; set false to require kora_inventory
-    dropTTL = 1800000,               -- ms a ground drop survives uncollected before the sweep removes it
-    dropSweepInterval = 300000,      -- ms between sweeps that expire old ground drops
+    maxWeight = 120000,
+    slots = 41,
+    matchInfoOnStack = false,
+    warnOnUnhandledOpen = true,
+    provider = 'kora_inventory',
+    allowLegacyFallback = true,
+    dropTTL = 1800000,
+    dropSweepInterval = 300000,
 }
 
 Config.jobs = {
-    defaultJob = 'unemployed',       -- job assigned to a fresh character
-    defaultGrade = 1,                -- one-based grade for the default job
-    defaultDuty = true,              -- on-duty state for the default job
-    paycheckInterval = 300000,       -- ms between Core.paycheck ticks
+    defaultJob = 'unemployed',
+    defaultGrade = 1,
+    defaultDuty = true,
+    paycheckInterval = 300000,
 }
 
 Config.dispatch = {
-    legacyEvents = true,             -- also fire police:client:policeAlert / hospital:client:ambulanceAlert compat events
+    legacyEvents = true,
 }
 
 Config.needs = {
-    tickInterval = 60000,            -- ms between server-authoritative hunger/thirst decay ticks
-    hungerDecay = 1,                 -- hunger lost per tick
-    thirstDecay = 1,                 -- thirst lost per tick
-    hungerDamage = 5,                -- client ped damage on each server update while hunger is zero
-    thirstDamage = 5,                -- client ped damage on each server update while thirst is zero (stacks with hunger damage)
+    tickInterval = 60000,
+    hungerDecay = 1,
+    thirstDecay = 1,
+    hungerDamage = 5,
+    thirstDamage = 5,
 }
 
 Config.development = {
-    walkSpeed = 1.75,                -- per-frame SetPedMoveRateOverride value while a player's development mode is active
+    walkSpeed = 1.75,
 }
 
 Config.jail = {
-    -- Resources checked (in order) via GetResourceState before Core.jail
-    -- applies its own teleport/timer -- if one of these is running, Core.jail
-    -- fires 'qbcore:server:onJailRequest' and steps aside entirely, same
-    -- deference pattern qbx_police uses for xt-prison/qbx_prison.
     deferToResources = { 'xt-prison', 'qbx_prison' },
-    coords = vector4(1651.86, 2570.13, 45.56, 22.0), -- Bolingbroke Penitentiary yard, used when nothing else configures a location
+    coords = vector4(1651.86, 2570.13, 45.56, 22.0),
 }
 
 Config.garage = {
     defaultFuel = 100,
     defaultEngineHealth = 1000,
     defaultBodyHealth = 1000,
-    spawnNetworkIdTimeout = 1000, -- ms to wait for a positive entity network ID before changing durable state
+    spawnNetworkIdTimeout = 1000,
 }
 
 Config.consumables = {
-    enabled = true,                  -- bridge kora_inventory's 'usingItem' hook into Kora.status/Kora.fx for any item with a shared `effect` table
+    enabled = true,
 }
 
 Config.compat = {
-    fireLegacyPlayerDataEvent = true,     -- fire QBCore:Player:SetPlayerData client-side from the mirror
-    inventoryPlayerDataEventInterval = 250, -- ms; coalesce inventory-only legacy notifications; 0 fires every delta
-    jobUpdateEventSource = 'client',      -- 'client' | 'server' | 'both' -- who emits QBCore:Client:OnJobUpdate
-    coreObjectExport = true,              -- register exports['qb-core']:GetCoreObject()
-    warnOnUnknownRoot = true,             -- warn when SetPlayerData targets an unmapped root key
-    clientMetadataKeys = {                -- explicit allow-list for legacy QBCore:Server:SetMetaData client writes.
-        hunger = true,                    -- defaults = the keys stock qb-core accepts from clients: numeric only, clamped to 0..100 server-side
-        thirst = true,                    -- (rules live in compat/server/qb-core-events.lua). Every other key is rejected; do NOT add money,
-        stress = true,                    -- jail, isdead, inlaststand, licences, criminalrecord or callsign -- a client could forge them.
+    fireLegacyPlayerDataEvent = true,
+    inventoryPlayerDataEventInterval = 250,
+    jobUpdateEventSource = 'client',
+    coreObjectExport = true,
+    warnOnUnknownRoot = true,
+    clientMetadataKeys = {
+        hunger = true,
+        thirst = true,
+        stress = true,
     },
-    toggleDutyEvent = true,               -- register the stock client-inbound QBCore:ToggleDuty (flips the caller's own duty flag; needs a non-default job, 2s per-player cooldown). false = job resources must own duty transitions
-    callbackTimeoutMs = 5000,              -- CreateCallback/CreateClientCallback: how long to wait for the legacy handler to call its responder before resolving empty
-    qbxFacade = false,                    -- publish the qbx_core/qbx_vehicles export+event surface for stock ox_inventory (`inventory:framework qbx`); also enabled by `setr kora:qbxFacade true`. See compat/server/qbx.lua
-    defaultCommands = true,               -- register the 20 stock qb-core commands (tp, tpm, togglepvp, addpermission, removepermission, openserver, closeserver, car, dv, dvall, dvp, dvo, givemoney, setmoney, job, setjob, gang, setgang, ooc, me); a name another resource already registered is kept. See docs/default-commands.md
-    vehicleSpawnCallbacks = 'limited',    -- stock server callbacks QBCore:Server:SpawnVehicle / CreateVehicle: 'off' | 'admin' (kora admin permission only) | 'limited' (any loaded player, validated; see vehicleSpawn). Also backs the networked client QBCore.Functions.SpawnVehicle. See docs/vehicle-spawn.md
+    toggleDutyEvent = true,
+    callbackTimeoutMs = 5000,
+    qbxFacade = false,
+    defaultCommands = true,
+    vehicleSpawnCallbacks = 'limited',
     vehicleSpawn = {
-        maxDistance = 75.0,               -- requested coords must be within this many metres of the caller's ped (limited mode)
-        cooldownMs = 2000,                -- per-player minimum time between spawn requests
-        maxLive = 2,                      -- live compat-spawned vehicles per player; the oldest is deleted to make room
-        allowModels = {},                 -- extra model names accepted besides QBCore.Shared.Vehicles, e.g. { 'adder' }
-        grantKeys = true,                 -- give the requester keys through kora_vehiclekeys when it is started
-        deleteOnDrop = true,              -- delete a player's compat-spawned vehicles when they leave
+        maxDistance = 75.0,
+        cooldownMs = 2000,
+        maxLive = 2,
+        allowModels = {},
+        grantKeys = true,
+        deleteOnDrop = true,
     },
-    deferClientPlayerLoaded = false,      -- false: QBCore:Client:OnPlayerLoaded fires at login (kora consumers rely on it). true: stock timing, fired when the client sends QBCore:Server:OnPlayerLoaded after spawn (kora_multichar and stock qb-spawn/qb-multicharacter send it). See docs/index.md
-    stress = {                            -- stock hud:server:GainStress / RelieveStress (ignored while a real qb-hud is started)
-        disabled = false,                 -- true = ignore both events
-        whitelistedJobs = { leo = true, ambulance = true }, -- job names or job types that never gain or lose stress
-        cooldownMs = 250,                 -- per-player minimum time between accepted events
+    deferClientPlayerLoaded = false,
+    stress = {
+        disabled = false,
+        whitelistedJobs = { leo = true, ambulance = true },
+        cooldownMs = 250,
     },
-    fireSharedUpdateAtLogin = false,      -- also fire QBCore:Client:SharedUpdate(QBCore.Shared) at login; OFF because the registry snapshot already covers this
+    fireSharedUpdateAtLogin = false,
 }
 
 Config.locales = {
-    defaultKey = 'F10',              -- default key for the "Open language selector" keybind; players can rebind it in Settings > Key Bindings > FiveM. Empty string = no default key (the /language command still works). Read when the resource starts
+    defaultKey = 'F10',
 }
 
 Config.vehicleAirControl = {
-    disable = true,                  -- true = the driver cannot steer, pitch or roll a vehicle while it is airborne (no "perfect landings"). false = stock GTA air control
-    -- Vehicle classes (GetVehicleClass) that KEEP their air control. Default: motorcycles (8),
-    -- cycles (13), boats (14), helicopters (15), planes (16) and trains (21). Remove 8 to make
-    -- bikes lose air control too. Other classes:
-    -- 0 compacts, 1 sedans, 2 SUVs, 3 coupes, 4 muscle, 5 sports classics, 6 sports, 7 super,
-    -- 9 off-road, 10 industrial, 11 utility, 12 vans, 17 service, 18 emergency, 19 military, 20 commercial.
+    disable = true,
     exemptClasses = { 8, 13, 14, 15, 16, 21 },
 }
 
 Config.replication = {
-    resyncRateLimit = 5000,          -- ms; a client may request at most one resync per this window
-    snapshotCoalesceMs = 250,        -- ms; shared-registry snapshot requests from one client inside this window get one trailing answer (every resource using @kora_core/init.lua asks on join). 0 = answer every request
+    resyncRateLimit = 5000,
+    snapshotCoalesceMs = 250,
 }
 
 Config.dependencySupervisor = {
-    -- OFF by default -- new behavior with no existing convention; opt in
-    -- per-server once server.cfg's ensure order and restart blast radius have
-    -- been reviewed. See modules/dependencySupervisor/AGENTS.md.
     enabled = false,
-    -- provider resource name -> list of resources to restart once the
-    -- provider (re)starts. Exists for legacy scripts that can't re-register
-    -- themselves against a dependency that restarted mid-session.
     map = {
         kora_inventory = { 'qb-banking' },
         kora_target = { 'qb-banking' },
         PolyZone = { },
         kora_core = { 'qb-banking' },
     },
-    cooldownMs = 15000,               -- a resource won't be restarted again within this many ms of its own last restart
+    cooldownMs = 15000,
 }
 
--- Registers this resource-owned configuration with kora_lib without changing its public Config table.
 if Kora and Kora.config and Kora.config.adopt then
     Config.compat.jobUpdateEventSource = Kora.config.enum(Config.compat.jobUpdateEventSource, {
         label = 'Legacy job-update event source',

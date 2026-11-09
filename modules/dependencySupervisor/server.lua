@@ -1,21 +1,4 @@
--- dependencySupervisor (server realm) -- qb-banking is an
--- untouchable legacy scripts that never re-register themselves when a
--- resource they depend on (kora_core, kora_inventory, kora_target, PolyZone) restarts
--- mid-session. Since it can't self-heal, this restarts it instead,
--- driven entirely by Config.dependencySupervisor (disabled by default -- this
--- is new behavior with no existing convention to lean on).
---
--- Config.dependencySupervisor.map[provider] lists resources restarted (via
--- ExecuteCommand('restart <name>')) whenever `provider` (re)starts. Two guards:
---   * a dependent is only restarted if it is CURRENTLY 'started' -- no firing on
---     first boot (ensure order), and an operator-stopped resource stays stopped.
---   * a per-resource cooldown (cooldownMs) collapses restart storms to one restart.
---
--- No `Core.dependencySupervisor` table -- this module is purely reactive
--- (same pattern as modules/consumables/server.lua's onUsingItem hook); it has
--- nothing worth exporting.
-
-local lastRestartAt = {}   -- resourceName -> GetGameTimer() at the last restart WE issued
+local lastRestartAt = {}
 
 AddEventHandler('onResourceStart', function(resourceName)
     local cfg = Config.dependencySupervisor
@@ -28,8 +11,6 @@ AddEventHandler('onResourceStart', function(resourceName)
     local now = GetGameTimer()
 
     for _, dependent in ipairs(dependents) do
-        -- Never restart the provider that just triggered this, even if it
-        -- somehow lists itself as its own dependent.
         if dependent ~= resourceName then
             if GetResourceState(dependent) == 'started' then
                 local last = lastRestartAt[dependent]

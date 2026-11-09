@@ -1,5 +1,3 @@
--- Fuel and engine setters are client natives. Apply the saved condition once,
--- after the server has committed the garage take-out.
 RegisterNetEvent('qbcore:client:vehicleCondition', function(netId, fuel, engineHealth)
     if source ~= 65535 then return end
     if not Kora.util.isFiniteNumber(netId) or netId <= 0 or netId % 1 ~= 0

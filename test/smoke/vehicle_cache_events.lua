@@ -1,7 +1,3 @@
--- kora_lib cache -> legacy QBCore vehicle lifecycle bridge. This replaces the
--- old client poll plus server relay, while preserving the local
--- QBCore:Client:EnteringVehicle/EnteredVehicle/LeftVehicle and
--- AbortVehicleEntering contracts legacy resources consume.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install({ client = true })

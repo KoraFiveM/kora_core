@@ -1,11 +1,3 @@
--- compat/server/qb-vehicles.lua -- stock QBCore:Server:SpawnVehicle and
--- QBCore:Server:CreateVehicle callbacks (qb-core/server/events.lua), returning the
--- network id like stock. Stock lets any client choose any model at any
--- coordinates; here the request is validated against Config.compat.vehicleSpawn
--- and the vehicle is created by the server (strict entity lockdown never sees a
--- client-created entity). Config.compat.vehicleSpawnCallbacks selects
--- 'off' (not registered) | 'admin' | 'limited'. See docs/vehicle-spawn.md.
-
 local mode = Config.compat.vehicleSpawnCallbacks
 if mode ~= 'admin' and mode ~= 'limited' then return end
 

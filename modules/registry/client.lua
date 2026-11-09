@@ -1,8 +1,3 @@
--- Core.registry (client realm) -- the RECEIVE side. The server is authoritative;
--- the client mirrors the registries so getter reads work client-side with zero
--- network cost per read. Legacy QBCore.Shared maps are derived compatibility
--- views. On resource start the client requests a full snapshot, then applies deltas.
-
 local RI = CoreInternal.registry
 
 RI.create('items', 'name')
@@ -23,8 +18,6 @@ RegisterNetEvent('qbcore:registry:delta', function(name, action, key, record, ep
     local r = RI.registries[name]
     if not r then return end
     if epoch and epoch ~= r.epoch and action ~= 'remove' then
-        -- Epoch gap: mirror is stale, pull a fresh snapshot rather than apply a
-        -- delta onto stale data.
         TriggerServerEvent('qbcore:registry:requestSnapshot')
         return
     end
@@ -33,7 +26,6 @@ RegisterNetEvent('qbcore:registry:delta', function(name, action, key, record, ep
     RI.dispatch(name, action, key, record, previous)
 end)
 
--- Subscriptions work client-side too (local, in-VM) for HUD/UI code.
 function Core.registry.onSharedChange(name, handler)
     local r = RI.registries[name]
     if not r then return nil, 'no such registry' end
@@ -48,7 +40,6 @@ function Core.registry.offSharedChange(name, subId)
     if r then r.subscribers[subId] = nil end
 end
 
--- Client register is refused -- the server owns the registries.
 function Core.registry.registerShared(name, key)
     print(("^3[kora_core:registry]^7 client-side registerShared('%s','%s') refused -- register on the server."):format(tostring(name), tostring(key)))
     return false, 'client-side registration is not supported'

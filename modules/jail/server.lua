@@ -1,15 +1,3 @@
--- Core.jail (server realm) -- a self-contained, minimal jail: teleport a
--- player to Config.jail.coords, lock movement client-side for a duration,
--- release on timer or /unjail. Defers to a real prison resource
--- (Config.jail.deferToResources) if one is running, same detection pattern
--- qbx_police uses for xt-prison/qbx_prison -- so dropping in a fancier
--- prison resource later needs no changes here or in a job resource calling
--- Core.jail.jailPlayer.
---
--- Persisted in metadata.jailed as a UNIX release timestamp (not a duration); 0 = not jailed.
--- metadata.injail is mirrored alongside it because legacy scripts (e.g. the ambulance
--- flow) read qb-core's `injail` key directly.
-
 local PI = CoreInternal.player
 
 ---@return boolean deferred True if an external prison resource is running and should handle this instead.
@@ -53,7 +41,7 @@ function Core.jail.jailPlayer(src, minutes, reason)
 
     local releaseAt = os.time() + math.floor(minutes * 60)
     Core.player.setPath(src, { 'metadata', 'jailed' }, releaseAt)
-    Core.player.setPath(src, { 'metadata', 'injail' }, releaseAt) -- legacy mirror, see header comment
+    Core.player.setPath(src, { 'metadata', 'injail' }, releaseAt)
     TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, minutes * 60)
     TriggerEvent('qbcore:server:playerJailed', src, minutes, reason)
     scheduleRelease(src, p, releaseAt)
@@ -72,7 +60,7 @@ function Core.jail.release(src)
     if (p.PlayerData.metadata.jailed or 0) == 0 then return false end
 
     Core.player.setPath(src, { 'metadata', 'jailed' }, 0)
-    Core.player.setPath(src, { 'metadata', 'injail' }, 0) -- legacy mirror, see header comment
+    Core.player.setPath(src, { 'metadata', 'injail' }, 0)
     TriggerClientEvent('qbcore:client:jailRelease', src)
     TriggerEvent('qbcore:server:playerReleased', src)
 
@@ -95,9 +83,6 @@ function Core.jail.isJailed(src)
     return Core.jail.getRemaining(src) > 0
 end
 
--- Re-apply the teleport/lock on (re)connect if a sentence is still active --
--- covers a relog/crash mid-sentence. Skipped if an external prison resource
--- is now running; that resource is expected to own its own rejoin handling.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
     local p = PI.handle(src)
     if not p or (p.PlayerData.metadata.jailed or 0) == 0 then return end

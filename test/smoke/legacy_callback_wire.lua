@@ -1,17 +1,3 @@
--- Pins the RAW NET EVENT wire protocol some legacy scripts speak directly
--- instead of going through QBCore.Functions.TriggerCallback/TriggerClientCallback:
---   client->server: QBCore:Server:TriggerCallback / QBCore:Client:TriggerCallback
---   server->client: QBCore:Client:TriggerClientCallback / QBCore:Server:TriggerClientCallback
---
--- The design is compat-local handler registries (legacyCallbacks on the
--- server, legacyClientCallbacks on the client) that BOTH the kora_lib bridge and
--- the raw wire dispatch through -- one registration (CreateCallback /
--- CreateClientCallback), reachable over either transport, never invoked twice
--- for one incoming request. This file loads the server compat first and
--- exercises the server-side leg (raw request in, raw reply out, garbage
--- input, re-registration), THEN loads the client compat on top of the same
--- QBCore global and exercises the client-side leg the same way -- see the
--- "client half" section below for why that load order is safe.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -36,8 +22,6 @@ dofile('modules/commands/server.lua')
 dofile('modules/logging/server.lua')
 dofile('compat/shared/coreobject.lua')
 
--- Kora.callback fake that actually stores handlers (mocks.lua's is a total
--- no-op) -- same approach as test/smoke/callback_compat.lua.
 local registered = {}
 Kora.callback = {
     register = function(name, handler) registered[name] = handler end,
@@ -55,9 +39,6 @@ _G.promise = {
 
 dofile('compat/server/qb-core.lua')
 
--- Same reasoning as callback_compat.lua: run the adapter's timeout thread
--- synchronously instead of queueing it, scoped to after every module has
--- already loaded.
 _G.CreateThread = function(fn) fn() end
 
 local function invokeViaKoraLib(name, src, ...)
@@ -135,16 +116,6 @@ h.test('server->client raw wire: the QBCore:Server:TriggerClientCallback reply r
     h.assertTrue(QBCore.ClientCallbacks['test:svc29'] == nil, 'the entry must be cleared after use')
 end)
 
--- Loading compat/client/qb-core.lua into the SAME process, on top of the
--- already-loaded QBCore global, is safe here even though both realm files
--- write into QBCore.Functions: every server-side test above already ran
--- (and QBCore.Functions.CreateCallback/TriggerCallback are captured as
--- upvalues nowhere else needed past this point), and the raw net events each
--- realm registers use disjoint event names, so nothing gets overwritten out
--- from under an earlier assertion. From here on, QBCore.Functions.CreateCallback
--- is an ALIAS for CreateClientCallback (client/qb-core.lua's own doing) and
--- QBCore.Functions.TriggerCallback is the client (name, cb, ...) signature --
--- exactly the objects the client-side tests below need.
 dofile('compat/client/qb-core.lua')
 
 h.test('raw QBCore:Client:TriggerClientCallback reaches a CreateClientCallback handler and replies over QBCore:Server:TriggerClientCallback', function()
@@ -178,7 +149,6 @@ h.test('client->server: TriggerCallback populates QBCore.ServerCallbacks and the
     h.assertEqual(request.args[1], 'test:z')
     h.assertEqual(request.args[2], 5)
 
-    -- Simulate the server's raw-wire reply arriving directly.
     handle.fireEvent('QBCore:Client:TriggerCallback', nil, 'test:z', 99)
     h.assertEqual(lastSeen, 99, 'the raw-wire reply must invoke the stored callback with its value')
     h.assertTrue(QBCore.ServerCallbacks['test:z'] == nil, 'the entry must be cleared after use')

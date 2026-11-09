@@ -1,8 +1,3 @@
--- Task 5 (server half), opt-in-true case: Config.compat.fireSharedUpdateAtLogin
--- gates a load-time AddEventHandler registration in
--- compat/server/qb-core-events.lua, so proving the true branch needs the flag
--- flipped BEFORE that file loads -- a separate process/file from
--- qb_core_events_server.lua, which proves the (default) false branch.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

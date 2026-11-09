@@ -1,7 +1,3 @@
--- Core.development (server realm) -- ephemeral, per-player development-mode
--- authority. The public setter is the only activation path; the client owns
--- ped natives while the server-owned needs loop consults this same state.
-
 local enabledBySource = {}
 
 ---@param src integer
@@ -30,9 +26,6 @@ function Core.development.setDevMode(src, enabled)
     return true
 end
 
--- A character switch keeps the same connection/source. Re-announce the
--- ephemeral session state after the new character is adopted so the client
--- and server always converge even if another resource toggled during unload.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
     TriggerClientEvent('qbcore:client:setDevMode', src, enabledBySource[src] == true)
 end)

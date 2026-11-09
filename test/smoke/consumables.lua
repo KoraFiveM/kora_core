@@ -1,6 +1,3 @@
--- Core.consumables smoke test -- the generic item-effect bridge: deferred
--- registration against kora_inventory's 'usingItem' hook, and the actual
--- effect/hunger/thirst/stress playback once registered.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -22,7 +19,6 @@ Core.registry.registerShared('items', 'weed_joint', {
 })
 Core.registry.registerShared('items', 'water_bottle', {
     name = 'water_bottle', label = 'Water', weight = 500, type = 'item', useable = true,
-    -- no `effect` table -- this item should be a no-op for Core.consumables
 })
 
 local registeredHookCallback
@@ -51,13 +47,6 @@ h.test('onResourceStart for qbinventory registers the hook', function()
 end)
 
 h.test('a second onResourceStart for qbinventory (a restart) re-registers the hook, not skipped by a stale latch', function()
-    -- This is the regression test for the latch bug: register() must not
-    -- permanently no-op after its first success. Fire onResourceStart a
-    -- SECOND time (simulating kora_inventory restarting mid-session, having
-    -- already been registered once) and assert RegisterHook is actually
-    -- called again -- a stale `if registered then return end` guard would
-    -- make this a silent no-op and leave kora_inventory's own (fresh,
-    -- post-restart) hook table without our hook.
     h.assertTrue(Core.consumables.isRegistered(), 'precondition: already registered from the prior onResourceStart')
 
     local hookCallCount = 0

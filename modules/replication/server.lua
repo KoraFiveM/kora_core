@@ -1,17 +1,12 @@
--- Core.replication (server realm) -- delta emission with per-frame coalescing.
--- Wire ops are { p = keyArray, v = value } (or { p, d = true } for a delete); a per-player `seq` lets the client detect a dropped batch.
--- Loaded before player.lua (player.adopt calls into here).
-
 local PI = CoreInternal.player
 
 local pendingPlayers = {}
 local flushScheduled = false
 
--- Rate-limit resync requests: citizenid -> last-served timestamp.
 local lastResync = {}
 
 local function opKey(path)
-    return table.concat(path, '\31')   -- unit separator; item/meta keys may contain '.'
+    return table.concat(path, '\31')
 end
 
 local function isParentPath(parent, path)
@@ -35,7 +30,7 @@ local function scheduleFlush()
                 local ops = {}
                 for _, op in pairs(player._pendingOps) do ops[#ops + 1] = op end
                 player._pendingOps = {}
-                if PI.mirrorOps then PI.mirrorOps(player, ops) end   -- physical-cash mirror (money module)
+                if PI.mirrorOps then PI.mirrorOps(player, ops) end
                 if #ops > 0 then
                     player._seq = player._seq + 1
                     TriggerClientEvent('qbcore:rep:delta', player.source, player._seq, ops)
@@ -51,8 +46,6 @@ end
 ---@param path (string|integer)[]
 ---@param value any
 function Core.replication._queueOp(player, path, value)
-    -- Overlapping paths must collapse so unordered flushing cannot replay a
-    -- stale slot after an inventory replacement, or delete a revived root.
     for pendingKey, op in pairs(player._pendingOps) do
         if isParentPath(op.p, path) then
             op.v = Core.util.pathGet(player.PlayerData, op.p)
@@ -75,8 +68,6 @@ function Core.replication._queueOp(player, path, value)
     scheduleFlush()
 end
 
--- Send a full snapshot to a client (initial load + resync). Resets the client's
--- expected seq to the current server seq.
 ---@param player table
 function Core.replication._sendSnapshot(player)
     local data = PI.mirrorSnapshot and PI.mirrorSnapshot(player) or player.PlayerData
@@ -98,7 +89,6 @@ function Core.replication._forget(player)
     lastResync[player.citizenid] = nil
 end
 
--- A client that detected a seq gap asks for a fresh snapshot. Rate-limited.
 RegisterNetEvent('qbcore:rep:resync', function()
     local src = source
     local player = PI.bySource[src]

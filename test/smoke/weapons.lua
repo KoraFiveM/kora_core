@@ -1,7 +1,3 @@
--- Weapon/ammunition seed smoke test. This deliberately exercises the data
--- through Core.registry, the same path kora_inventory uses at runtime, rather
--- than only inspecting the two source tables.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 mocks.install()

@@ -1,7 +1,3 @@
--- Core.player (client realm) -- client-side reads over the replicated mirror.
--- The heavy lifting lives in Core.replication (the mirror + delta apply); this
--- exposes the familiar player-shaped accessors on top of it.
-
 ---Full local PlayerData (live reference) or a sub-path.
 ---@param path (string|integer)[]|nil
 ---@return any

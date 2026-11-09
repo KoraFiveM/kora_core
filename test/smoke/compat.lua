@@ -1,8 +1,3 @@
--- Compat shape test -- asserts every documented legacy field of the QBCore
--- object exists and is callable, and that the per-player Player.Functions.*
--- table is complete. This is what keeps compat honest: an internal rename that
--- drops a legacy method fails HERE at CI, not in someone's production server.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -42,7 +37,6 @@ h.test('QBCore.Functions.* surface is complete', function()
         'GetOfflinePlayerByCitizenId', 'GetIdentifier', 'GetSource', 'CreateCallback', 'TriggerCallback',
         'CreateUseableItem', 'CanUseItem', 'UseItem', 'HasPermission', 'GetPermission', 'AddPermission',
         'IsOptin', 'Kick', 'Notify', 'HasItem', 'ExecuteSql', 'PaycheckInterval',
-        -- full-parity additions (real qb-core server/functions.lua + exports.lua)
         'GetCoords', 'GetPlayerByLicense', 'GetPlayerByAccount', 'GetPlayerByCharInfo',
         'GetPlayersByJob', 'GetPlayersOnDuty', 'GetDutyCount',
         'GetClosestPlayer', 'GetClosestVehicle', 'GetClosestPed', 'GetClosestObject',
@@ -75,7 +69,6 @@ h.test('QBCore.Player.* surface is complete', function()
     assertCallableFields(QBCore.Player, {
         'Login', 'Logout', 'Save', 'SaveOffline', 'CreatePlayer', 'DeleteCharacter',
         'CheckPlayerData', 'ForceUpdatePlayerData',
-        -- full-parity additions
         'ForceDeleteCharacter', 'GetOfflinePlayer', 'GetPlayerByLicense', 'GetOfflinePlayerByLicense',
         'CreateCitizenId', 'CreateFingerId', 'CreateWalletId', 'CreateSerialNumber',
     }, 'QBCore.Player')
@@ -86,16 +79,6 @@ h.test('QBCore.Commands.List is a table (not a function), matching real qb-core'
 end)
 
 h.test('QBCore.Shared data tables are RAW keys (survive the export boundary)', function()
-    -- A consumer's GetCoreObject() result crosses the export boundary as a
-    -- msgpack copy: the metatable (and its lazy __index) does not survive, so
-    -- any key still lazy at that point is simply ABSENT in the consumer's copy
-    -- of Shared -- exactly how qb-banking's `pairs(QBCore.Shared.Jobs)` ended
-    -- up iterating nil. compat/server/qb-core.lua force-materialises them at
-    -- load; this pins that so a refactor can't silently reintroduce lazy-only
-    -- exposure. rawget bypasses __index, so it only sees genuinely-set keys.
-    -- ORDER MATTERS: this must run before any other test in this file reads a
-    -- QBCore.Shared.<Data> key -- such a read would fire the lazy __index and
-    -- rawset the key itself, masking a missing eager load.
     for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
         h.assertTrue(rawget(QBCore.Shared, k) ~= nil,
             ('Shared.%s must be a raw key after server compat load, not a lazy __index view'):format(k))
@@ -104,7 +87,6 @@ end)
 
 h.test('QBCore.Shared.* helpers and data tables resolve', function()
     assertCallableFields(QBCore.Shared, { 'Round', 'Trim', 'SplitStr', 'RandomStr', 'RandomInt' }, 'QBCore.Shared')
-    -- Data tables resolve lazily via the metatable to live compatibility views.
     h.assertTrue(QBCore.Shared.Items ~= nil, 'Shared.Items resolves')
     h.assertTrue(QBCore.Shared.Items.water_bottle ~= nil, 'Shared.Items has a seed item')
     h.assertTrue(QBCore.Shared.Jobs ~= nil and QBCore.Shared.Jobs.police ~= nil, 'Shared.Jobs resolves')
@@ -155,9 +137,6 @@ h.test('QBCore.Shared.MaleNoGloves/FemaleNoGloves are number-keyed sets (index -
 end)
 
 h.test('QBCore.Shared.ChangeVehicleExtra/SetDefaultVehicleExtras are NOT defined server-side', function()
-    -- These touch client-only natives; coreobject.lua guards them with
-    -- `if not IsDuplicityVersion() then`. This test runs under the server mock
-    -- (IsDuplicityVersion() == true), so they must be absent here.
     h.assertTrue(QBCore.Shared.ChangeVehicleExtra == nil, 'ChangeVehicleExtra must not exist server-side')
     h.assertTrue(QBCore.Shared.SetDefaultVehicleExtras == nil, 'SetDefaultVehicleExtras must not exist server-side')
 end)
@@ -190,9 +169,6 @@ h.test('QBCore.Shared.VehicleHashes REFRESHES when the vehicle registry changes 
     h.assertTrue(before[GetHashKey('newcar')] == nil, 'newcar must not be registered yet')
     local ok = Core.registry.registerShared('vehicles', 'newcar', { model = 'newcar', name = 'New Car', brand = 'Test', price = 1 })
     h.assertTrue(ok, 'registerShared must succeed')
-    -- Same cached table reference (rawset caches it), but now must contain the
-    -- newly-registered vehicle keyed by its hash -- proving the onSharedChange
-    -- refresh wiring fired, not just the initial build.
     local after = QBCore.Shared.VehicleHashes
     h.assertTrue(after == before, 'VehicleHashes must stay the SAME cached table reference')
     h.assertTrue(after[GetHashKey('newcar')] ~= nil, 'VehicleHashes must include a vehicle registered AFTER the first read')
@@ -201,8 +177,6 @@ end)
 
 h.test('GetSharedItems/Vehicles/Jobs/Gangs/Weapons exports exist and return the right data', function()
     local exportHandlers = {}
-    -- Capture provideExport's registered functions the same way the export
-    -- boundary would: fire the __cfx_export_* event and record what setCB got.
     for _, name in ipairs({ 'GetSharedItems', 'GetSharedVehicles', 'GetSharedJobs', 'GetSharedGangs', 'GetSharedWeapons' }) do
         TriggerEvent(('__cfx_export_qb-core_%s'):format(name), function(fn) exportHandlers[name] = fn end)
     end
@@ -211,8 +185,6 @@ h.test('GetSharedItems/Vehicles/Jobs/Gangs/Weapons exports exist and return the 
     h.assertTrue(exportHandlers.GetSharedVehicles().sultan ~= nil, 'GetSharedVehicles must return the Vehicles namespace')
     h.assertTrue(exportHandlers.GetSharedWeapons() ~= nil, 'GetSharedWeapons must return the Weapons namespace')
 
-    -- Jobs/Gangs must be the LEGACY zero-based grade view, same as
-    -- QBCore.Shared.Jobs/Gangs -- not the raw internal one-based registry.
     local jobs = exportHandlers.GetSharedJobs()
     h.assertTrue(jobs.police ~= nil, 'GetSharedJobs must include the police job')
     h.assertTrue(jobs.police.grades['0'] ~= nil and jobs.police.grades['0'].name == 'Cadet',
@@ -225,14 +197,6 @@ h.test('GetSharedItems/Vehicles/Jobs/Gangs/Weapons exports exist and return the 
 end)
 
 h.test('GetShared accepts lowercase namespace casing (real-world legacy scripts vary)', function()
-    -- qb-recyclejob's own client.lua AND server.lua both call
-    -- exports['qb-core']:GetShared('items') -- lowercase, not the PascalCase
-    -- QBCore.Shared uses internally. A plain QBCore.Shared[namespace] lookup
-    -- silently returns nil for this, and since GetShared's callers almost
-    -- always cache the result in a file-scope local at resource start, the
-    -- nil doesn't surface until something LATER in the file indexes it --
-    -- "attempt to index a nil value (upvalue 'sharedItems')" deep in
-    -- qb-recyclejob/server.lua, with no hint the real problem was casing.
     local exportHandlers = {}
     TriggerEvent('__cfx_export_qb-core_GetShared', function(fn) exportHandlers.GetShared = fn end)
     h.assertTrue(type(exportHandlers.GetShared) == 'function', 'GetShared export must be registered')
@@ -241,14 +205,9 @@ h.test('GetShared accepts lowercase namespace casing (real-world legacy scripts 
     h.assertTrue(lower ~= nil, "GetShared('items') must resolve the same as GetShared('Items')")
     h.assertTrue(lower.water_bottle ~= nil, 'the lowercase call must return the real Items namespace, not an empty table')
 
-    -- The canonical PascalCase form (and the `item` second-arg form) must
-    -- keep working unchanged.
     h.assertEqual(exportHandlers.GetShared('Items'), lower, 'PascalCase must still resolve to the exact same table')
     h.assertTrue(exportHandlers.GetShared('items', 'water_bottle') ~= nil, 'the two-arg (namespace, item) form must also honour the casing fallback')
 
-    -- An unknown namespace (correct casing or not) must still return nil,
-    -- not error -- the fallback must not turn "no such namespace" into a
-    -- crash or a false positive.
     h.assertTrue(exportHandlers.GetShared('not_a_real_namespace') == nil, 'an unrecognised namespace must still return nil')
 end)
 
@@ -264,21 +223,12 @@ h.test('per-player Player.Functions.* is complete after login', function()
         'ClearInventory', 'SetInventory', 'SetCreditCard',
         'SetMetaData', 'GetMetaData', 'SetCharInfo', 'SetPlayerData', 'UpdatePlayerData',
         'GetPlayerData', 'Save', 'Logout', 'GetName',
-        -- modern-era additions (real qb-core varargMethods/noargMethods)
         'Notify', 'HasItem', 'AddRep', 'RemoveRep', 'GetRep', 'AddMethod', 'AddField', 'UpdateClient',
     }, 'Player.Functions')
     h.assertEqual(Player.PlayerData.citizenid, 'CID1', 'PlayerData wired through')
 end)
 
 h.test('every Player.Functions.* method is also directly callable on Player itself, matching real qb-core', function()
-    -- Real qb-core's Player class defines these as direct colon methods
-    -- (`function Player:SetMetaData(...)`), a SEPARATE thing from
-    -- Player.Functions (buildMethodTable) -- both exist simultaneously on a
-    -- real Player object. Confirmed live: real qb-policejob and
-    -- qb-ambulancejob both dot-call Player.SetMetaData(...)/Player.AddMoney(...)
-    -- directly (not through .Functions.) in their own server/main.lua, and
-    -- crashed with "attempt to call a nil value" on every player connect
-    -- before this mirror existed.
     local data = CoreInternal.player.freshData('CID-mirror', 'license:mirror', 2, { firstname = 'M', lastname = 'Irror' })
     Core.player.login(2, 'CID-mirror', data)
     local Player = QBCore.Functions.GetPlayer(2)
@@ -293,9 +243,6 @@ h.test('every Player.Functions.* method is also directly callable on Player itse
         'Notify', 'HasItem', 'AddRep', 'RemoveRep', 'GetRep', 'AddMethod', 'AddField', 'UpdateClient',
     }, 'Player (direct, no .Functions.)')
 
-    -- The mirrored methods are pre-bound closures over this player's own
-    -- `src` (from the F.* definitions), so a dot-call with no `self` argument
-    -- actually works correctly here -- not just "doesn't crash".
     local before = Player.GetMoney('cash')
     Player.AddMoney('cash', 250, 'mirror-test')
     h.assertEqual(Player.GetMoney('cash'), before + 250, 'a direct dot-call must route through the same funnel as Player.Functions.AddMoney')
@@ -408,8 +355,6 @@ h.test('CreatePlayer(PlayerData, true) returns a full offline Player interface',
 end)
 
 h.test('QBCore:Server:OnPlayerUpdated fans out to legacy-shaped OnJobUpdate + OnGangUpdate', function()
-    -- police has 5 seed grades (shared/jobs.lua): internal grade 3 = Sergeant
-    -- = legacy level 2. Same for the gang seed used below.
     Core.jobs.setJob(1, 'police', 3)
     Core.jobs.setGang(1, 'ballas', 1)
 
@@ -433,10 +378,6 @@ h.test('QBCore:Server:OnPlayerUpdated with an unrelated key is a no-op', functio
 end)
 
 h.test('QBCore.Functions.GetPermission returns an upstream-shaped permission set', function()
-    -- Legacy scripts index the result by permission name
-    -- (`if permissions['admin'] then`), so it must stay a table even for a
-    -- player with no grants -- never the single level string our native
-    -- Core.permissions.getPermission returns.
     local none = QBCore.Functions.GetPermission(1)
     h.assertTrue(type(none) == 'table', 'GetPermission must always return a table')
     h.assertFalse(none.admin, 'an ungranted player holds no permissions')

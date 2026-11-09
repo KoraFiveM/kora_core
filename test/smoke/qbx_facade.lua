@@ -1,7 +1,3 @@
--- qbx facade ON: the qbx_core / qbx_vehicles export surface, qbx events
--- re-emitted from kora's lifecycle/job paths, the loadInventory + isLoggedIn
--- state bags, group mapping, and SetMoney/SetPlayerData behaviour that stock
--- ox_inventory's qbx bridge depends on.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -201,8 +197,7 @@ end)
 
 h.test('onGroupUpdate is re-emitted exactly once per change (server + client)', function()
     local sBefore, cBefore = #groupUpdates, #clientEventsNamed('qbx_core:client:onGroupUpdate')
-    Core.jobs.setJob(2, 'police', 1) -- player 2 not yet used: unemployed -> police
-    -- the OnPlayerUpdated('all') fan-out re-fires OnJobUpdate; must not double-emit
+    Core.jobs.setJob(2, 'police', 1)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', 2, 'all')
     TriggerEvent('QBCore:Server:OnPlayerUpdated', 2, 'all')
     local seen = {}
@@ -274,7 +269,6 @@ h.test('logout clears both bags and re-emits playerLoggedOut exactly once', func
     h.assertEqual(handle.playerStates[1].loadInventory, false)
     h.assertEqual(#loggedOut, before + 1)
     h.assertEqual(loggedOut[#loggedOut][1], 1)
-    -- a later drop / stray unload for the same session must not re-emit
     TriggerEvent('QBCore:Server:OnPlayerUnload', 1)
     Core.player.dropPlayer(1, 'quit')
     h.assertEqual(#loggedOut, before + 1)

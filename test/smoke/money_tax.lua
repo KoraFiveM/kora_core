@@ -1,6 +1,3 @@
--- Core.money transaction-tax coverage against a fake banking provider. The
--- normal money smoke tests cover the untaxed paths; this file owns the
--- Config.money.tax behaviour, including the failure-open and refund rules.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -12,8 +9,6 @@ dofile('modules/player/shared.lua')
 dofile('modules/replication/server.lua'); dofile('modules/persistence/server.lua')
 dofile('modules/player/server.lua'); dofile('modules/money/server.lua')
 
--- A minimal qb-banking stand-in: the three exports Config.money.tax.exports
--- names, with the same shapes the real resource returns.
 local bank = { accounts = {}, deposits = {}, createCalls = 0, rejectDeposits = false }
 exports['qb-banking'] = {
     GetAccount = function(_, name) return bank.accounts[name] end,
@@ -35,11 +30,6 @@ handle.resourceStates['qb-banking'] = 'started'
 
 local function govBalance() return (bank.accounts.government or {}).account_balance or 0 end
 
--- Tax deposits are dispatched onto a CreateThread so the money path never blocks
--- on the bank's database write. `handle.step()` cannot drain them: it resumes
--- EVERY thread the loaded modules created, and persistence's flush loop spins
--- forever under a Wait() that does not yield (the same trap paycheck documents).
--- So capture only the threads created from here on and run them on demand.
 local pendingThreads = {}
 _G.CreateThread = function(fn) pendingThreads[#pendingThreads + 1] = fn end
 local function settle()
@@ -62,7 +52,6 @@ h.test('tax is off by default -- nothing is withheld and nothing is banked', fun
     h.assertEqual(#bank.deposits, 0, 'no deposit attempted')
 end)
 
--- Everything below runs with the tax enabled at 5%.
 Config.money.tax.enabled = true
 
 h.test('getTaxRate / calculateTax reflect config and floor the tax', function()
@@ -239,7 +228,6 @@ h.test('a refund for a deposit that fails after a character switch goes to the t
     Core.money.setMoney(1, 'bank', 0)
     bank.rejectDeposits = true
     h.assertTrue(Core.money.addMoney(1, 'bank', 100, 'paycheck'))
-    -- The deposit yields; meanwhile source 1 leaves CID1 and loads CID3.
     Core.player.dropPlayer(1)
     local data3 = CoreInternal.player.freshData('CID3', 'license:abc', 2, { firstname = 'E', lastname = 'F' })
     assert(Core.player.login(1, 'CID3', data3))

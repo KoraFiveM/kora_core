@@ -1,20 +1,7 @@
--- Core.registry -- a generic runtime registry factory backing the shared
--- items/vehicles/jobs/gangs/weapons/locations lists (the /ideas requirement).
---
--- Each registry holds a DENSE ARRAY (`list`, insertion order) + a LOOKUP TABLE
--- (`index`, key -> position). Public reads always go through getters; indexed
--- QBCore.Shared.* maps are compatibility views built outside this module.
---
--- INTERNALS live on the private `CoreInternal.registry` table so build/finalise
--- never exports them; only the curated public functions (registerShared, ...)
--- sit on Core.registry. shared.lua defines the data structures + reads; server.lua
--- adds authoritative mutation + replication; client.lua adds the receive side.
-
 CoreInternal = CoreInternal or {}
 CoreInternal.registry = CoreInternal.registry or {}
 local RI = CoreInternal.registry
 
--- name -> { keyField, list, index, epoch, subscribers, nextSubId }
 RI.registries = RI.registries or {}
 local registries = RI.registries
 
@@ -33,7 +20,6 @@ function RI.reg(name)
     return r
 end
 
--- Apply an add/update. Returns 'add' or 'update'.
 function RI.apply(name, key, record)
     local r = registries[name]
     local pos = r.index[key]
@@ -46,9 +32,6 @@ function RI.apply(name, key, record)
     return 'add'
 end
 
--- Remove by key. Swap-remove keeps the array dense in O(1); the moved element's
--- index entry is fixed up. Iteration order after a remove is NOT stable
--- (documented in AGENTS.md). Returns the removed record or nil.
 function RI.remove(name, key)
     local r = registries[name]
     local pos = r.index[key]
@@ -65,10 +48,6 @@ function RI.remove(name, key)
     return removed
 end
 
--- Full re-seed + epoch bump (used on a resource restart so mirrors re-sync).
--- Clear the list in place. Callers should fetch lists when they need them, but
--- keeping the reference live prevents an accidental cached list from freezing
--- after a snapshot/epoch resync.
 function RI.reseed(name, records, epoch)
     local r = registries[name]
     for i = #r.list, 1, -1 do r.list[i] = nil end
@@ -81,8 +60,6 @@ function RI.reseed(name, records, epoch)
     r.epoch = epoch or (r.epoch + 1)
 end
 
--- Dispatch subscribers. Handlers are pcall-wrapped so a faulty one never breaks
--- a registration.
 function RI.dispatch(name, action, key, record, previous)
     local r = registries[name]
     for _, sub in pairs(r.subscribers) do

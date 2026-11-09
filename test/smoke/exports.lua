@@ -1,7 +1,3 @@
--- Export smoke test -- loads the server scripts in the exact manifest order and
--- runs finalise.lua. This keeps Core's flat export namespace honest: a public
--- helper accidentally left on two module tables must fail here before startup.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 mocks.install()

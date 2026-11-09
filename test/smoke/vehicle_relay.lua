@@ -1,5 +1,3 @@
--- With Config.compat.vehicleSpawnCallbacks = 'off' the generic legacy vehicle
--- callbacks stay absent (the default 'limited' is covered by vehicle_spawn.lua).
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

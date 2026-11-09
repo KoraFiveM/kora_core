@@ -1,14 +1,5 @@
--- Core.inventory gateway (server realm). kora_core remains the owner of the
--- PlayerData.items persistence/replication funnel, while kora_inventory becomes
--- the inventory authority when it is available. Keeping this boundary here
--- means all legacy QBCore Player.Functions calls continue to work without
--- kora_core claiming the qb-inventory resource identity itself.
-
 local II = CoreInternal.inventory
 
--- Capture the existing funnel-backed implementation before replacing its public
--- methods with the provider gateway. It remains an explicit temporary fallback
--- for safe upgrades; kora_inventory is never allowed to fall through partially.
 local legacy = {}
 for name, fn in pairs(Core.inventory) do
     if type(fn) == 'function' and name:sub(1, 1) ~= '_' then
@@ -26,15 +17,6 @@ local function providerState()
     return GetResourceState(providerName)
 end
 
--- FXServer's export dispatch has a known bug (citizenfx/fivem#2408): calling
--- an export via dot-style dispatch -- `t[k](t, ...)` or `t.k(...)` -- can
--- shift/drop arguments, while genuine colon-call syntax (`t:k(...)`) works
--- correctly. Colon sugar only exists for a LITERAL method name at the call
--- site, which is impossible here since `name` is a dynamically computed
--- provider export -- `load()` works around that the same way kora_lib/init.lua's
--- own makeColonCall does: compile a fresh chunk from a source STRING
--- containing a literal `lib:name(...)` call, memoized per name so it's only
--- compiled once.
 local colonCallCache = {}
 
 local function providerColonCall(name)
@@ -79,9 +61,6 @@ local function unavailable(name)
 end
 
 local function callLegacy(name, ...)
-    -- Legacy methods call sibling Core.inventory functions. The depth guard keeps
-    -- those internal calls inside the captured implementation instead of routing
-    -- back through this gateway. It is only used while kora_inventory is absent.
     fallbackDepth = fallbackDepth + 1
     local results = table.pack(pcall(legacy[name], ...))
     fallbackDepth = fallbackDepth - 1

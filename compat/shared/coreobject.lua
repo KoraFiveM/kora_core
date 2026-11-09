@@ -1,29 +1,15 @@
--- compat/shared/coreobject.lua -- assembles the QBCore table skeleton and the
--- QBCore.Shared.* helper functions once, for BOTH realms. The realm-specific
--- sections (Functions, Player, per-player method tables, event wiring) are
--- filled in by compat/{server,client}/qb-core.lua, which load after this.
---
--- QBCore is a plain global in kora_core's own VM. It is handed to other resources
--- verbatim via exports['qb-core']:GetCoreObject() (server/client qb-core.lua),
--- so its shape must match legacy qb-core exactly.
-
 QBCore = QBCore or {}
 QBCore.Functions = QBCore.Functions or {}
 QBCore.Player = QBCore.Player or {}
-QBCore.Players = QBCore.Players or {}        -- src -> QBPlayer (kept in sync by the server compat)
+QBCore.Players = QBCore.Players or {}
 QBCore.PlayersByCitizenId = QBCore.PlayersByCitizenId or {}
 QBCore.Shared = QBCore.Shared or {}
 QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
 QBCore.ServerCallbacks = QBCore.ServerCallbacks or {}
 QBCore.Commands = QBCore.Commands or {}
 QBCore.Config = QBCore.Config or {}
--- Client-realm only in practice (kept server-maintained too before the
--- replication mirror is refreshed, so it is never nil for a script written
--- against real qb-core, which always has SOME value here even pre-login).
 QBCore.PlayerData = QBCore.PlayerData or {}
 
--- Shared string/number helpers, delegated to Core.util so there is one
--- implementation. Legacy names (PascalCase) preserved.
 QBCore.Shared.Round     = function(v, p) return Core.util.round(v, p) end
 QBCore.Shared.Trim      = function(v) return Core.util.trim(v) end
 QBCore.Shared.SplitStr  = function(s, d) return Core.util.splitStr(s, d) end
@@ -37,7 +23,6 @@ function QBCore.Shared.FirstToUpper(value)
     return (value:gsub('^%l', string.upper))
 end
 
--- Broader than upstream's IsFunction: also accepts callable-via-metatable tables (export funcrefs / identity proxies), matching the local isCallable convention.
 function QBCore.Shared.IsFunction(value)
     if type(value) == 'function' then return true end
     if type(value) == 'table' then
@@ -48,16 +33,12 @@ function QBCore.Shared.IsFunction(value)
     return false
 end
 
--- Starter items granted to a fresh character (real qb-core shared/functions.lua).
 QBCore.Shared.StarterItems = {
     phone = { amount = 1, item = 'phone' },
     id_card = { amount = 1, item = 'id_card' },
     driver_license = { amount = 1, item = 'driver_license' },
 }
 
--- Ped component-3 (arms/gloves) drawable indices that mean "no gloves" for the
--- default freemode models -- verbatim from real qb-core shared/functions.lua.
--- Shaped as a number-keyed SET (index -> true), as compat/client/qb-core.lua's F.IsWearingGloves indexes it.
 QBCore.Shared.MaleNoGloves = {
     [0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
     [6] = true, [7] = true, [8] = true, [9] = true, [10] = true, [11] = true,
@@ -77,16 +58,8 @@ QBCore.Shared.FemaleNoGloves = {
     [149] = true, [153] = true, [157] = true, [161] = true, [165] = true,
 }
 
--- Current qb-core forces a job's configured default duty state on login.
--- Expose the same switch for scripts that inspect it directly; kora_core's own
--- internal login policy remains Config.jobs.defaultDuty.
 QBCore.Shared.ForceJobDefaultDutyAtLogin = true
 
--- Client-only vehicle-extra helpers (real qb-core shared/functions.lua). Ported
--- near-verbatim -- these touch client-only natives (SetVehicleExtra etc), so
--- they're defined ONLY in the client realm even though this file is shared_script
--- in both. Everything else added in this file is realm-agnostic data/pure
--- functions and does not need this guard.
 if not IsDuplicityVersion() then
     ---Toggle a single vehicle extra on/off, verifying the change took (a vehicle
     ---extra can silently refuse to toggle e.g. mid-animation) and retrying once.
@@ -126,7 +99,6 @@ if not IsDuplicityVersion() then
     end
 end
 
--- Grades are stored INTERNALLY as a one-based array; real qb-core keys `grades` by the stringified ZERO-BASED level ('0', '1', ...), which legacy scripts read directly. This reshapes ONLY the exposed QBCore.Shared view.
 local function toLegacyGrades(gradesArray)
     local legacy = {}
     if gradesArray then
@@ -144,11 +116,6 @@ local function toLegacyRecord(record)
     return view
 end
 
--- Legacy indexed maps are rebuilt from the getter-backed registry. They are
--- deliberately confined to QBCore compatibility: modern code must call
--- getShared/allShared (or Kora.shared.get/all) when it needs current data.
--- Keeping each compatibility table stable still protects unchanged legacy
--- resources that captured QBCore.Shared.* once at startup.
 local function buildLegacyView(regName, transform)
     local view = {}
 
@@ -164,12 +131,6 @@ local function buildLegacyView(regName, transform)
     if Core.registry.onSharedChange then
         Core.registry.onSharedChange(regName, refresh)
     end
-    -- onSharedChange only fires on DELTAS (RI.dispatch). The client's initial
-    -- full snapshot goes through RI.reseed, which deliberately does not
-    -- dispatch -- so a view built before that snapshot lands would stay empty
-    -- until an unrelated delta arrived. The snapshot handler's own
-    -- 'qbcore:registry:synced' local event covers that gap; it is never fired
-    -- server-side, so this handler is inert there.
     AddEventHandler('qbcore:registry:synced', refresh)
 
     return view
@@ -179,7 +140,6 @@ local function buildLegacyGradeView(regName)
     return buildLegacyView(regName, toLegacyRecord)
 end
 
--- QBCore.Shared.VehicleHashes: Vehicles keyed a second way, by joaat(model), for callers holding only GetEntityModel's hash. Same refresh-on-change wiring as buildLegacyGradeView, else the cached view goes stale.
 local function buildVehicleHashesView()
     local view = {}
 
@@ -199,9 +159,6 @@ local function buildVehicleHashesView()
     return view
 end
 
--- Upstream Items includes inventory weapons. Native registries keep weapons
--- separate; merge their current records here with explicit item overrides first
--- in precedence, including after either registry changes or a snapshot arrives.
 local function buildLegacyItemsView()
     local view = {}
     local function refresh()
@@ -221,11 +178,6 @@ local function buildLegacyItemsView()
     return view
 end
 
--- Weapons is indexed by the native hash returned by GetSelectedPedWeapon and
--- GetPedCauseOfDeath. String aliases would duplicate entries in legacy pairs()
--- loops. Upstream's damage catalog is independent of Items: removing inventory
--- stock must not erase medical history for that weapon. Environmental damage
--- causes remain metadata only, never grantable inventory records.
 local function buildLegacyWeaponsView()
     local view = {}
     local metadata = QBCoreSeed.legacyWeaponMetadata or {}
@@ -240,8 +192,6 @@ local function buildLegacyWeaponsView()
             local copy = {}
             for key, value in pairs(metadata[record.name] or {}) do copy[key] = value end
             for key, value in pairs(record) do copy[key] = value end
-            -- Newer/custom native weapons have no entry in the pinned catalog.
-            -- Legacy medical logging still requires a textual death reason.
             copy.damagereason = copy.damagereason or 'Died'
             view[joaat(record.name)] = copy
         end
@@ -254,9 +204,6 @@ local function buildLegacyWeaponsView()
     return view
 end
 
--- QBCore.Shared data maps are compatibility-only views. A metatable here makes
--- an early read build the live view once its registry exists, then caches that
--- stable view for legacy scripts which captured it at startup.
 setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
     __index = function(t, k)
         local legacyGradeRegistries = { Jobs = 'jobs', Gangs = 'gangs' }
@@ -291,13 +238,6 @@ setmetatable(QBCore.Shared, getmetatable(QBCore.Shared) or {
     end,
 })
 
--- Job/gang grade LEVELS are stored internally as one-based (see the
--- toLegacyGrades comment above -- same design choice, applied to the
--- PLAYER side of the same data instead of just the Shared.Jobs/Gangs view).
--- Real qb-core's grade.level is ZERO-based. Only the legacy QBCore.* surface
--- and QBCore:* event payloads are translated; kora_core's own modern surface
--- (exports.kora_core:*, qbcore:* events, the replication mirror, persistence)
--- is untouched -- this is a VIEW, never a renumbering of the internal model.
 local function toLegacyGradeLevel(level)
     return math.max((tonumber(level) or 1) - 1, 0)
 end
@@ -306,12 +246,6 @@ local function fromLegacyGradeLevel(level)
     return math.max(math.floor(tonumber(level) or 0), 0) + 1
 end
 
--- Stock qb-core keeps `payment` and `isboss` ON the grade table
--- (job.grade.payment / job.grade.isboss, gang.grade.isboss). Kora's native job
--- keeps them at the root, composed from the job definition by buildJob; they
--- are mirrored into the legacy grade view, falling back to the live registry
--- definition for rows persisted before they were composed. Values already
--- present on the grade are never overwritten.
 local function gradeDefinition(kind, record)
     local def = Core.registry and Core.registry.getShared and Core.registry.getShared(kind, record.name)
     local index = type(record.grade) == 'table' and tonumber(record.grade.level) or nil
@@ -343,14 +277,6 @@ local function toLegacyJobOrGang(record, kind)
     return view
 end
 
--- Stock CheckPlayerData metadata defaults (config.lua PlayerDefaults.metadata),
--- filled into the legacy VIEW only: existing values are never overwritten and
--- nothing here is persisted, so a native character gains `criminalrecord`,
--- `phonedata`, `inside`, ... for resources that index them unguarded.
--- Stock's random function defaults would differ on every read, so the ones a
--- script treats as an identity (bloodtype, fingerprint, walletid, phone serial,
--- bank account) are derived deterministically from the citizenid instead: stable
--- per character, never written back.
 local function citizenHash(citizenid, salt)
     local hash = 7
     local text = tostring(citizenid or '') .. ':' .. salt
@@ -417,9 +343,6 @@ local function fillTable(target, defaults, citizenid)
     return target
 end
 
--- Allocation-free probe: true when anything in `defaults` is missing from
--- `target`. Almost every read after the first finds a complete table, so the
--- common case skips building nested copies.
 local function needsFill(target, defaults)
     for key, default in pairs(defaults) do
         local current = target[key]
@@ -447,7 +370,6 @@ end
 local function fillMetadataDefaults(metadata, citizenid) return fillFromDefaults(metadata, 'metadata', citizenid) end
 local function fillCharinfoDefaults(charinfo, citizenid) return fillFromDefaults(charinfo, 'charinfo', citizenid) end
 
--- Kora stores the heading as `h`; stock's vector4 JSON uses `w`. Both are exposed.
 local function legacyPosition(position)
     if type(position) ~= 'table' then return position end
     local view = {}
@@ -457,15 +379,6 @@ local function legacyPosition(position)
     return view
 end
 
--- A legacy-shaped PlayerData table: every root key copied by reference
--- EXCEPT job/gang, which get a translated COPY. Must be a real, raw-keyed
--- table (not a metatable proxy) -- it crosses the export boundary to
--- third-party resources, and FXServer's msgpack marshaling walks a table's
--- own raw keys, never invoking __index. Kept incrementally in sync by
--- Core.compat.onPlayerDataChanged below, NOT rebuilt wholesale on every
--- read -- job/gang are wholesale-REPLACED (not field-mutated) by
--- Core.jobs.setJob/setGang, so a one-shot copy at login would go stale the
--- first time either changes.
 local function toLegacyPlayerData(playerData)
     if type(playerData) ~= 'table' then return playerData end
     local view = {}
@@ -495,7 +408,6 @@ local function fromLegacyPlayerData(playerData)
     return internal
 end
 
--- GetShared's namespace is case-sensitive (PascalCase) but legacy scripts call e.g. GetShared('items') (qb-recyclejob); a plain lookup returns nil and the error only surfaces much later, so both realms' GetShared fall back to this canonical-casing lookup.
 local SHARED_NAMESPACE_ALIASES = {
     items = 'Items', vehicles = 'Vehicles', jobs = 'Jobs', gangs = 'Gangs',
     weapons = 'Weapons', locations = 'Locations', vehiclehashes = 'VehicleHashes',
@@ -518,10 +430,6 @@ Core.compat.legacyPosition = legacyPosition
 Core.compat.fromLegacyPlayerData = fromLegacyPlayerData
 Core.compat.canonicalSharedNamespace = canonicalSharedNamespace
 
--- Materialise the complete public qb-core configuration shape in both realms.
--- Values that drive this framework use the local Config equivalents; display-
--- only/UI defaults match upstream so legacy resources never encounter a
--- missing intermediate table or field.
 function Core.compat.populateLegacyConfig()
     local defaultSpawn = vector4(-1035.71, -2731.87, 12.86, 0.0)
     local dontAllowMinus = {}

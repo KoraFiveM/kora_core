@@ -1,5 +1,3 @@
--- Core.jail smoke test -- jail/release/getRemaining, rejoin re-teleport, and
--- deference to an external prison resource when one is detected running.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 local realTime = os.time
@@ -59,9 +57,6 @@ h.test('jailPlayer teleports and sets a future release timestamp', function()
     h.assertEqual(#hits, 1, 'exactly one jailTeleport push should have been sent')
     h.assertEqual(hits[1].target, 1)
 
-    -- Legacy mirror: real qb-core's metadata key is `injail`, not `jailed` --
-    -- real qb-ambulancejob reads it directly (metadata['injail'] > 0) rather
-    -- than through any Core.jail accessor.
     local p = CoreInternal.player.handle(1)
     h.assertTrue(p.PlayerData.metadata.injail > 0, 'metadata.injail should mirror the release timestamp')
     h.assertEqual(p.PlayerData.metadata.injail, p.PlayerData.metadata.jailed, 'injail and jailed should always agree')

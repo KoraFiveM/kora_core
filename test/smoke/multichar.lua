@@ -12,8 +12,6 @@ local rows = {
 local stored = {
     OWN1 = { citizenid = 'OWN1', license = 'license:owner' },
     OTHER1 = { citizenid = 'OTHER1', license = 'license:someone-else' },
-    -- A soft-deleted row is represented exactly as persistence._load does:
-    -- absent, because its SQL query requires deleted_at IS NULL.
 }
 
 _G.Core = {

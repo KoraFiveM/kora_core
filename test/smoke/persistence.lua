@@ -1,10 +1,4 @@
--- Persistence smoke test -- the correctness core of the write path:
---   * mutating money marks exactly {money} dirty;
---   * mutating twice still produces one row;
---   * setting a value back to its original enqueues ZERO columns;
 --   * license/cid never appear in a write set;
---   * position below/above the epsilon behaves.
--- Server realm (registry + player + persistence + replication + money).
 
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
@@ -37,7 +31,7 @@ end
 
 h.test('mutating money marks exactly {money} dirty', function()
     local p = loginTestPlayer()
-    p._dirty = {}   -- clear any load-time dirt
+    p._dirty = {}
     Core.money.addMoney(1, 'cash', 100, 'test')
     local keys = {}
     for k in pairs(p._dirty) do keys[#keys + 1] = k end
@@ -52,9 +46,6 @@ h.test('legacy PlayerLoaded receives the Player wrapper expected by qb-inventory
 end)
 
 h.test('flushAll enqueues one row with ONLY the money column', function()
-    -- The FIRST flush also persists position (no baseline yet). Establish that
-    -- baseline, then a subsequent money-only change writes only money (the mock
-    -- ped coords are stable, so position stays below the epsilon thereafter).
     Core.persistence.flushAll()
     Core.money.addMoney(1, 'cash', 10, 'baseline')
     handle.sqlCalls.enqueueMany = {}
@@ -87,8 +78,6 @@ h.test('setting a value back to its original enqueues ZERO columns (byte-identic
     Core.money.setMoney(1, 'cash', before, 't')
     handle.sqlCalls.enqueueMany = {}
     local flushed = Core.persistence.flushAll()
-    -- The money column re-encodes identically to the last-saved value, so it is
-    -- dropped -> no row enqueued at all.
     h.assertEqual(flushed, 0, 'a reverted change must write nothing')
 end)
 
@@ -97,7 +86,7 @@ h.test('license and cid never appear in a write set', function()
     p._dirty['license'] = true
     p._dirty['cid'] = true
     p._dirty['money'] = true
-    p.PlayerData.money.cash = p.PlayerData.money.cash + 1   -- make money genuinely change
+    p.PlayerData.money.cash = p.PlayerData.money.cash + 1
     handle.sqlCalls.enqueueMany = {}
     Core.persistence.flushAll()
     local call = handle.sqlCalls.enqueueMany[1]
@@ -109,20 +98,12 @@ h.test('license and cid never appear in a write set', function()
     end
 end)
 
--- A sparse slot map serialises to a JSON OBJECT, so json.decode hands the slot
--- keys back as STRINGS. PlayerData.items is contractually a NUMERIC slot-keyed
--- map (modules/inventory/AGENTS.md), and every reader looks up items[slot] with
--- a number -- so before this was normalised, a character restored from the
--- database had an inventory that rendered correctly but could not be moved:
--- the first drag reported "invalid item amount" because items[1] was nil while
--- items['1'] held the item.
 h.test('_load re-keys JSON string slot keys back to numbers', function()
     local sql = 'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL'
     handle.sqlResponses.single[sql] = {
         citizenid = 'CID9', license = 'license:z', cid = 1, name = 'jay sixty',
         money = '{}', charinfo = '{"phone":"5551234"}', job = '{}', gang = '{}',
         position = '{}', metadata = '{}', phone_number = nil,
-        -- Exactly the shape the live players.inventory column holds.
         inventory = '{"1":{"slot":1,"name":"weapon_knife","amount":1,"weight":500},'
             .. '"29":{"slot":29,"name":"weapon_knife","amount":1,"weight":500}}',
     }
@@ -136,7 +117,6 @@ h.test('_load re-keys JSON string slot keys back to numbers', function()
     h.assertTrue(data.items['1'] == nil, 'the string key does not survive')
     h.assertEqual(data.phone, '5551234', 'legacy charinfo phone survives a NULL scalar column')
 
-    -- An empty inventory persists as '[]', which must stay an empty map.
     handle.sqlResponses.single[sql].inventory = '[]'
     local empty = Core.persistence._load('CID9')
     h.assertEqual(next(empty.items), nil, 'an empty inventory decodes to an empty map')

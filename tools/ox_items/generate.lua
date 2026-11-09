@@ -1,41 +1,20 @@
--- ox_inventory item generator: kora_core item registry -> data/items.lua.
--- Read-only and offline: plain Lua 5.4, no DB, no network, no FiveM natives.
--- Run from the repo root:
---
---   lua5.4 tools/ox_items/generate.lua [options]
---
--- See tools/ox_items/README.md for options, outputs and the collision policy.
--- The registry is built by loading kora_core's own shared seed files
--- (shared/items.lua, shared/upstream/items.lua, shared/upstream/merge.lua,
--- shared/weapons.lua) into a private environment, so the merge logic is the
--- shipped one rather than a reimplementation. The stock ox data/ files are only
--- read for NAMES (collision check, weapon/ammo target list); nothing is copied.
-
 local M = {}
 
 local scriptDir = debug.getinfo(1, 'S').source:match('^@(.*)/[^/]*$') or '.'
 local repoRoot = scriptDir .. '/../..'
 
--- QB item names that are the same thing as an ox item under a different name.
--- `cash` is kora_core's physical-cash item; stock ox keeps cash as the `money`
--- item (inventory:accounts '["money"]', Q-D10), so it is mapped, not emitted.
 M.ALIASES = { cash = 'money' }
 
--- Reserved names ox_inventory's own code depends on. Emitted minimally (label
--- only, same as stock) when kora does not define them, so the generated file
--- never drops them. Engine-referenced stock names must be defined in the kora registry
--- (shared/items.lua); the report warns if one is not.
 M.RESERVED = {
     money = { label = 'Money' },
     black_money = { label = 'Dirty Money' },
 }
 M.ENGINE_REFERENCED = {
     'armour', 'bandage', 'clothing', 'garbage', 'identification', 'mastercard',
-    'paperbag', 'parachute', 'phone',                      -- named in ox modules/
-    'burger', 'sprunk', 'mustard', 'panties',              -- named in ox init.lua loot tables
+    'paperbag', 'parachute', 'phone',
+    'burger', 'sprunk', 'mustard', 'panties',
 }
 
--- Fallback ammo mapping for ammo-looking items that carry no `ammoType`.
 M.AMMO_BY_NAME = {
     pistol_ammo = 'AMMO_PISTOL', smg_ammo = 'AMMO_SMG', shotgun_ammo = 'AMMO_SHOTGUN',
     rifle_ammo = 'AMMO_RIFLE', mg_ammo = 'AMMO_MG', snp_ammo = 'AMMO_SNIPER',
@@ -127,16 +106,13 @@ function M.loadRegistry(root)
     env.QBCoreUpstream = env.QBCoreUpstream or {}
     env.QBCoreSeed.items = env.QBCoreSeed.items or {}
     env.QBCoreUpstream.items = env.QBCoreUpstream.items or {}
-    -- merge.lua asserts jobs/gangs seeds exist; items-only trees get empty ones.
     for _, k in ipairs({ 'jobs', 'gangs' }) do
         env.QBCoreSeed[k] = env.QBCoreSeed[k] or {}
         env.QBCoreUpstream[k] = env.QBCoreUpstream[k] or {}
     end
-    -- Always the repo's own merge logic, even when --root is a fixture.
     assert(runIn(env, repoRoot .. '/shared/upstream/merge.lua'), 'shared/upstream/merge.lua not found')
     runIn(env, root .. '/shared/weapons.lua')
 
-    -- Core.registry.registerShared keys by name and the last record wins.
     local items, index = {}, {}
     for _, record in ipairs(env.QBCoreSeed.items) do
         local pos = index[record.name]
@@ -148,9 +124,6 @@ function M.loadRegistry(root)
     return items, env.QBCoreSeed.weapons or {}
 end
 
--- Globals a resource config.lua may use. Anything else it touches (lib, Kora,
--- GetConvar, locale helpers, vec3, ...) resolves to an inert stub so loading
--- cannot fail on code unrelated to Config.items. No io/os/require: read-only.
 local SAFE_GLOBALS = {}
 for _, k in ipairs({ 'assert', 'error', 'ipairs', 'next', 'pairs', 'pcall', 'select', 'tonumber', 'tostring',
     'type', 'math', 'string', 'table', 'utf8' }) do SAFE_GLOBALS[k] = true end
@@ -174,8 +147,6 @@ function M.loadResourceItems(path)
     local src = readFile(file)
     if not src then return nil, 'cannot read ' .. file end
     local stub = newStub()
-    -- `Config = Kora.config.adopt(Config)` would replace Config with the stub; keep the
-    -- first real table assigned to it as the fallback.
     local firstConfig
     local env = setmetatable({}, {
         __index = function(_, k)
@@ -213,7 +184,6 @@ local function loadOxTable(path)
     local src = readFile(path)
     if not src then return nil, 'cannot read ' .. path end
     local env = setmetatable({}, { __index = function() return function() end end })
-    -- FXServer's `hash` literal syntax is not plain Lua; names only matter here.
     src = src:gsub('`([^`\n]*)`', '"%1"')
     local fn, err = load(src, '@' .. path, 't', env)
     if not fn then return nil, err end
@@ -360,7 +330,6 @@ function M.scanText(text)
                 local s, e = code:find(fn .. '%s*%(', from)
                 if not s then break end
                 from = e + 1
-                -- call must not be the tail of a longer identifier (e.g. xAddItem)
                 local prev = s > 1 and code:sub(s - 1, s - 1) or ''
                 if not prev:match('[%w_]') then
                     local args = splitArgs(code, e + 1, 2)
@@ -408,8 +377,6 @@ function M.build(opts)
     local ox, err = M.loadOxNames(opts.oxDir)
     assert(ox, 'stock ox_inventory data not readable: ' .. tostring(err))
 
-    -- Runtime-registered items. Like the resources' own "register if absent", the
-    -- registry wins; reserved ox names keep ox semantics.
     local inRegistry = {}
     for _, rec in ipairs(items) do inRegistry[rec.name] = true end
     local registryCount = #items
@@ -489,7 +456,6 @@ function M.build(opts)
     table.sort(emitted)
     table.sort(unmapped.ammo)
 
-    -- Reserved names: only when kora does not define them.
     local reservedAdded = {}
     for name, def in pairs(M.RESERVED) do
         if not defs[name] then
@@ -726,7 +692,6 @@ end
 
 M.reportMarkdown = reportMarkdown
 
--- Run as a script, not when dofile'd by a test.
 if arg and arg[0] and arg[0]:match('generate%.lua$') then os.exit(M.main(arg)) end
 
 return M

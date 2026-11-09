@@ -1,11 +1,3 @@
--- Core.jail (client realm) -- receives the two pushes Core.jail's server
--- half fires and renders a minimal containment: teleport into the cell,
--- keep the player inside a radius for the sentence via a Kora.zones sphere
--- (leaving it teleports straight back), release the zone and notify on
--- jailRelease. No countdown UI/HUD of its own -- kora_core ships no NUI, same
--- as everywhere else; a job resource wanting a jail-time display reads
--- Core.jail.getRemaining(src) itself.
-
 local CONTAINMENT_RADIUS = 30.0
 
 local containmentZone = nil
@@ -26,7 +18,7 @@ RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds
         coords = coords,
         radius = CONTAINMENT_RADIUS,
         onExit = function()
-            if not containmentZone then return end -- already released between the exit tick and this callback
+            if not containmentZone then return end
             SetEntityCoords(PlayerPedId(), coords.x, coords.y, coords.z, false, false, false, false)
         end,
     })

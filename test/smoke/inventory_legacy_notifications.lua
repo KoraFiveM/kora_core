@@ -1,5 +1,3 @@
--- Timed client fixture: full legacy notifications are bounded, while delta
--- application, public reads, and modern subscribers retain their timing.
 local h = dofile('test/harness.lua')
 local handle = dofile('test/mocks.lua').install({ client = true })
 

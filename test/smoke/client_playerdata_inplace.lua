@@ -1,4 +1,3 @@
--- QBCore.PlayerData is updated in place so a reference captured at load stays current.
 _G.IsDuplicityVersion = function() return false end
 
 local h = dofile('test/harness.lua')

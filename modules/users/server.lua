@@ -1,10 +1,6 @@
 -- Core.users -- one row per identity (license), separate from a character (a
 -- single license owns several `players` rows via Core.multichar). Currently
--- the only thing tracked here is an optional per-user override for how many
 -- character slots that license gets, on top of the global
--- Config.identity.maxCharacters default -- e.g. a VIP allowance. It also
--- stores the account's Discord id (Config.identity.saveDiscord) so a server
--- can derive slots from Discord roles.
 
 local savedDiscord = {}
 
@@ -55,8 +51,6 @@ function Core.users.setMaxCharacters(license, maxCharacters)
     Kora.sql.execute(
         'INSERT INTO `users` (`license`, `max_characters`) VALUES (?, ?) '
             .. 'ON DUPLICATE KEY UPDATE `max_characters` = VALUES(`max_characters`)',
-        -- maxCharacters is nil when clearing the override; a trailing nil
-        -- would truncate this array to one element for two placeholders.
         { license, maxCharacters or Kora.sql.NULL }
     )
 end

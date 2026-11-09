@@ -1,6 +1,3 @@
--- Core.paycheck smoke test -- Core.paycheck._tick is exercised directly
--- (not through the CreateThread loop -- this mock's Wait() never yields, so
--- resuming that loop even once would hang the test process).
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -20,11 +17,11 @@ local function loginAs(src, cid)
     Core.player.login(src, cid, data)
 end
 
-loginAs(1, 'ONDUTY') -- on-duty police
-loginAs(2, 'OFFDUTY') -- off-duty police
-loginAs(3, 'CIV') -- unemployed, offDutyPay = false
+loginAs(1, 'ONDUTY')
+loginAs(2, 'OFFDUTY')
+loginAs(3, 'CIV')
 
-Core.jobs.setJob(1, 'police', 1) -- Cadet, payment = 50
+Core.jobs.setJob(1, 'police', 1)
 Core.jobs.setJobDuty(1, true)
 Core.jobs.setJob(2, 'police', 1)
 Core.jobs.setJobDuty(2, false)

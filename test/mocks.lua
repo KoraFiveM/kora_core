@@ -1,9 +1,3 @@
--- Mocks for smoke-testing kora_core modules under plain lua5.4 (no FiveM, no DB).
--- Installs the FiveM natives the server modules touch, a fake kora_lib `Kora` (with a
--- REAL working resources.serverRegistry, since the resource-stop sweep is under
--- test), and a fake `Kora.sql` recording enqueue/enqueueMany calls so persistence
--- tests can assert exact column sets without a database.
-
 local M = {}
 
 M.SOURCE = 1
@@ -15,12 +9,12 @@ function M.install(opts)
     local isClient = opts.client == true
     local eventHandlers = {}
     local netHandlers = {}
-    local clientEvents = {}     -- recorded TriggerClientEvent
-    local serverEvents = {}     -- recorded TriggerServerEvent
-    local playerStates = {}     -- source -> replicated Player() state bag values
-    local stateWrites = {}      -- ordered state bag writes for lifecycle tests
-    local lifecycleTrace = {}   -- interleaved client events and state writes
-    local timeouts = {}         -- pending SetTimeout callbacks
+    local clientEvents = {}
+    local serverEvents = {}
+    local playerStates = {}
+    local stateWrites = {}
+    local lifecycleTrace = {}
+    local timeouts = {}
     local threads = {}
     local cloneLocalNetPayloads = false
 
@@ -41,10 +35,6 @@ function M.install(opts)
 
     function _G.AddEventHandler(name, cb) eventHandlers[name] = eventHandlers[name] or {}; table.insert(eventHandlers[name], cb) end
     function _G.RegisterNetEvent(name, cb) if cb then netHandlers[name] = netHandlers[name] or {}; table.insert(netHandlers[name], cb) end end
-    -- RegisterServerEvent: client-fired
-    -- server events) use to mark an event name net-safe. Real semantics are just
-    -- a security registration -- the actual listening still goes through
-    -- AddEventHandler, which is already mocked above -- so this is a no-op here.
     function _G.RegisterServerEvent(_) end
     function _G.TriggerEvent(name, ...)
         for _, fn in ipairs(eventHandlers[name] or {}) do fn(...) end
@@ -75,28 +65,20 @@ function M.install(opts)
     function _G.GetCurrentResourceName() return 'kora_core' end
     local resourceStates = { kora_inventory = 'missing' }
     function _G.GetResourceState(name) return resourceStates[name] or 'missing' end
-    local executeCommandCalls = {}     -- recorded ExecuteCommand invocations, e.g. dependencySupervisor's restarts
+    local executeCommandCalls = {}
     function _G.ExecuteCommand(command) table.insert(executeCommandCalls, command) end
     function _G.GetConvar(_, d) return d end
     function _G.GetConvarInt(_, d) return d end
     function _G.vector4(x, y, z, w) return { x = x, y = y, z = z, w = w } end
 
-    -- CancelEvent -- recorder for the 'chatMessage' '/'-suppression handler
-    -- (compat/server/qb-core-events.lua). Reset per-install, exposed as a
-    -- counter accessor since the native itself takes/returns nothing.
     local cancelEventCount = 0
     function _G.CancelEvent() cancelEventCount = cancelEventCount + 1 end
 
-    -- IsPlayerAceAllowed -- QBCore:CallCommand's permission gate. Controllable
-    -- per (source, permission) pair via the returned handle's setAce, default
-    -- disallowed (matching a real server where a fresh player has no ACE grants).
     local aceGrants = {}
     function _G.IsPlayerAceAllowed(src, permission)
         return (aceGrants[src] or {})[permission] == true
     end
 
-    -- SetCanAttackFriendly / NetworkSetFriendlyFireOption -- recorders for
-    -- QBCore:Client:PvpHasToggled (compat/client/qb-core-events.lua).
     local pvpNativeCalls = {}
     function _G.SetCanAttackFriendly(ped, toggle, arg3)
         table.insert(pvpNativeCalls, { fn = 'SetCanAttackFriendly', ped = ped, toggle = toggle, arg3 = arg3 })
@@ -105,24 +87,10 @@ function M.install(opts)
         table.insert(pvpNativeCalls, { fn = 'NetworkSetFriendlyFireOption', toggle = toggle })
     end
 
-    -- Realm switch. coreobject.lua's client-only vehicle-extra helpers
-    -- (QBCore.Shared.ChangeVehicleExtra/SetDefaultVehicleExtras) are guarded
-    -- by `if not IsDuplicityVersion() then`, so this must exist for ANY test
-    -- that dofiles coreobject.lua, not just client-realm ones. Only set it when
-    -- the caller passed an explicit `opts.client`, OR nothing has defined it
-    -- yet -- some test files set `_G.IsDuplicityVersion` themselves BEFORE
-    -- calling mocks.install() (see test/smoke/player_updated_client.lua), and
-    -- unconditionally overwriting that here would silently flip their realm
-    -- back to the server default.
     if opts.client ~= nil or _G.IsDuplicityVersion == nil then
         function _G.IsDuplicityVersion() return not isClient end
     end
 
-    -- Client-only natives touched by compat/client/qb-core.lua and
-    -- coreobject.lua's vehicle-extra helpers. A simple, deterministic (not
-    -- CFX-accurate) hash is enough here -- tests only need the SAME string to
-    -- always produce the SAME hash, and different strings to (almost always)
-    -- differ.
     function _G.GetHashKey(str)
         str = tostring(str or '')
         local hash = 0
@@ -132,7 +100,7 @@ function M.install(opts)
         return hash
     end
     _G.joaat = _G.GetHashKey
-    local vehicleExtras = {}   -- [vehicle][extra] = enabled (boolean)
+    local vehicleExtras = {}
     function _G.DoesExtraExist(_, _) return true end
     function _G.SetVehicleExtra(vehicle, extra, disable)
         vehicleExtras[vehicle] = vehicleExtras[vehicle] or {}
@@ -145,9 +113,6 @@ function M.install(opts)
     function _G.GetEntityModel(_) return 0 end
     function _G.GetPedDrawableVariation(_, _) return 0 end
 
-    -- Server-side Player(source).state, including the colon form used by the
-    -- lifecycle module. This is deliberately small but records replication so
-    -- state-bag ordering can be smoke-tested without a CFX runtime.
     function _G.Player(src)
         playerStates[src] = playerStates[src] or {}
         local state = playerStates[src]
@@ -159,15 +124,12 @@ function M.install(opts)
         return { state = state }
     end
 
-    -- Ped/position natives for the persistence position sampler.
     function _G.GetPlayerPed(_) return 100 end
     function _G.GetEntityCoords(_) return { x = 0.0, y = 0.0, z = 0.0 } end
     function _G.GetEntityHeading(_) return 0.0 end
     function _G.GetPlayerRoutingBucket(_) return 0 end
     function _G.SetEntityRoutingBucket(_, _) end
 
-    -- json (FiveM provides a global json with encode/decode). Use a stable
-    -- key-sorted encoder so the persistence "byte-identical" gate is testable.
     _G.json = {
         encode = function(v) return M.stableEncode(v) end,
         decode = function(s) return M.simpleDecode(s) end,
@@ -200,14 +162,7 @@ function M.install(opts)
         end,
     }
 
-    -- resources.serverRegistry: a REAL implementation (the sweep is under test).
     Kora.resources = {
-        -- Mirrors kora_lib/local/resources/server.lua: track(resource, id) records
-        -- WHICH resource owns WHICH id, untrack(id) drops one id, and the stop
-        -- sweep disposes every id a resource owned -- onDispose receives the
-        -- ID, not the resource. The old mock took a single argument for both,
-        -- which is why it never caught Core.inventory.createUseable calling
-        -- track(owner) with the id missing (a nil table index at runtime).
         serverRegistry = function(onDispose)
             local byResource, ownerOf = {}, {}
             return {
@@ -256,9 +211,6 @@ function M.install(opts)
     Kora.drawing = { text3d = function() end }
     Kora.world = { getClosestEntity = function() end }
     Kora.progressbar = { start = function() end }
-    -- Small local-player cache facade for client compatibility tests. Tests
-    -- can drive an edge with setCache(key, value), which mirrors kora_lib's
-    -- onChange(newValue, oldValue) contract without loading another resource.
     local cacheValues = { vehicle = false, seat = false, enteringVehicle = false, enteringSeat = false }
     local cacheListeners = {}
     Kora.cache = {
@@ -271,11 +223,6 @@ function M.install(opts)
         enteringVehicle = function() return cacheValues.enteringVehicle end,
         enteringSeat = function() return cacheValues.enteringSeat end,
     }
-    -- Kora.commands -- a minimal but REAL implementation (previously all no-ops,
-    -- so QBCore.Commands.Add/List never actually populated anything under
-    -- test). Only tracks what QBCore:CallCommand's tests need: name, help,
-    -- permission out of list(), matching QBCore.commands/server.lua's own
-    -- {name, help, permission} shape.
     local cmdDefs = {}
     Kora.commands = {
         add = function(name, help, args, argsRequired, handler, opts)
@@ -292,11 +239,6 @@ function M.install(opts)
             return out
         end,
     }
-    -- Kora.permissions -- a minimal but REAL implementation over the ace mock
-    -- above, mirroring kora_lib/modules/permissions/server.lua's namespaces:
-    -- getLevel checks <prefix>.<level> and group.<level>, hasPermission also
-    -- honours command.<permission>, and 'user' is the unconditional floor.
-    -- Discord role grants are out of scope here (no Kora.discord under test).
     local function aceAllows(src, permission, prefix, includeCommand)
         return (prefix ~= nil and IsPlayerAceAllowed(src, prefix .. '.' .. permission))
             or IsPlayerAceAllowed(src, 'group.' .. permission)
@@ -318,10 +260,6 @@ function M.install(opts)
     Kora.status = { apply = function() return true end, remove = function() return true end }
     Kora.zones = { sphere = function() return { remove = function() end } end }
 
-    -- fake Kora.sql recording writes. query/single results are canned per exact
-    -- SQL string (sqlResponses.query[sql] / .single[sql]) -- unset means the
-    -- same nil/{} default every test relied on before this existed, so this
-    -- is purely additive for a test that needs a specific row back.
     local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {}, ensureTables = {}, migrate = {} }
     local sqlResponses = { query = {}, single = {} }
     Kora.sql = {
@@ -396,9 +334,6 @@ function M.install(opts)
     }
 end
 
--- A deterministic, key-sorted JSON-ish encoder so persistence's byte-identical
--- change gate is testable (real FiveM json.encode is not order-stable, but the
--- gate only needs SOME stable encoding to detect "unchanged").
 function M.stableEncode(v)
     local t = type(v)
     if t == 'nil' then return 'null'
@@ -424,14 +359,6 @@ function M.stableEncode(v)
     return 'null'
 end
 
--- A real (small) JSON decoder. This used to `return {}` unconditionally, which
--- made every test touching the decode path pass vacuously -- including the one
--- that should have caught PlayerData.items coming back from the database with
--- STRING slot keys. A mock that cannot fail is not a test.
---
--- Supports the subset the players table actually stores: objects, arrays,
--- strings (with the standard escapes), numbers, true/false/null. `null`
--- decodes to nil, matching FiveM's json.decode.
 function M.simpleDecode(text)
     if type(text) ~= 'string' then return nil end
     local pos = 1
@@ -478,8 +405,6 @@ function M.simpleDecode(text)
             skip()
             pos = pos + 1
             local v = parseValue()
-            -- A JSON object always has string keys; that is precisely the shape
-            -- the inventory column round-trips through.
             out[k] = v
             skip()
             local c = text:sub(pos, pos)

@@ -1,11 +1,3 @@
--- Applies kora_core's schema at boot: tables are declared in schema.lua and
--- created/extended through kora_sql's Kora.sql.ensureTables (additive only).
-
--- Legacy vehicle-column sync (see schema.lua and
--- docs/vehicles-compat.md). kora's columns win when both sides change in one
--- statement. Each trigger is ONE SET statement (no BEGIN/END, so it survives
--- kora_sql's multi-statement guard); MariaDB/MySQL evaluate the assignments
--- left to right, so later assignments read the already-resolved kora value.
 local function clamp16(expr)
     return ('GREATEST(0, LEAST(65535, ROUND(%s)))'):format(expr)
 end
@@ -98,7 +90,6 @@ local function applySchema()
     local reports, err = Kora.sql.ensureTables(KoraCoreSchema)
     if err then return false, err end
     logSchemaWarnings(reports)
-    -- Generated columns are opt-in.
     if Config.persistence.generatedColumns then
         local generated, generatedErr = Kora.sql.ensureTables(KoraCoreGeneratedSchema)
         if generatedErr then return false, generatedErr end
@@ -108,8 +99,6 @@ local function applySchema()
 end
 
 CreateThread(function()
-    -- MySQL may still be starting alongside FXServer; keep waiting so kora_sql's
-    -- reconnect can recover the whole stack without a resource/server restart.
     while not Kora.sql.ready(60000) do
         print('^3[qbcore:schema]^7 still waiting for qbsql; schema setup will resume automatically.')
     end
@@ -124,7 +113,6 @@ CreateThread(function()
         print(('^1[qbcore:schema]^7 vehicle sync trigger setup failed: %s'):format(tostring(triggerErr)))
     end
     print('^2[qbcore:schema]^7 schema up to date.')
-    -- Warm kora_sql's prepared cache with the hot player statements.
     exports.kora_sql:prepareWarm({
         'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL',
         'SELECT `citizenid`,`cid`,`name`,`charinfo`,`money`,`job`,`gang` FROM `players` WHERE `license` = ? AND `deleted_at` IS NULL ORDER BY `cid`',

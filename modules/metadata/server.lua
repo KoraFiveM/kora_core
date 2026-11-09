@@ -1,8 +1,3 @@
--- Core.metadata (server realm) -- metadata get/set/increment via the funnel.
--- These are the highest-churn writes (hunger/thirst/stress ticks), which is why
--- the funnel's per-column dirty tracking + byte-identical gate matter most here:
--- a hunger tick that lands on the same value writes nothing.
-
 local PI = CoreInternal.player
 
 ---@param src integer
@@ -47,8 +42,6 @@ function Core.metadata.incrementMetaData(src, key, delta, min, max)
     if max and newValue > max then newValue = max end
     local ok, err = Core.player.setPath(src, { 'metadata', key }, newValue)
     if not ok then return nil, err end
-    -- Fire the same legacy event setMetaData does, so a listener sees every
-    -- metadata mutation regardless of which entry point produced it.
     TriggerEvent('QBCore:Server:OnMetaDataChange', src, key, newValue)
     return newValue
 end

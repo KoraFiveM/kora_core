@@ -1,5 +1,3 @@
--- Initial asynchronous registry snapshots and later deltas must refresh maps
--- already captured by unchanged client resources during startup.
 local h = dofile('test/harness.lua')
 dofile('test/mocks.lua').install({ client = true })
 dofile('config.lua')

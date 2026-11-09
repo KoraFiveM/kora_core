@@ -17,7 +17,6 @@ local function loginAs(src, name)
     assert(Core.player.login(src, data.citizenid, data))
 end
 
--- Capture only the jobs timer; stepping all threads also runs persistence.
 loginAs(1, 'police')
 local verifyThread
 local createThread = CreateThread

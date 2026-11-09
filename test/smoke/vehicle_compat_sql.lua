@@ -1,6 +1,3 @@
--- Legacy player_vehicles compat: the schema declares every stock column, the
--- and the installed triggers map both directions.
--- The real-SQL behaviour is tested by test/sql/scratch/run.sh.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -64,7 +61,6 @@ h.test('update trigger lets kora win a same-statement conflict without touching 
         if call.sql:find('compat_update', 1, true) and call.sql:find('CREATE TRIGGER', 1, true) then update = call.sql end
     end
     h.assertTrue(update ~= nil, 'update trigger created')
-    -- engine/body are resolved from the kora column first, then kora is re-derived only on a stock-only change.
     local a = update:find('NEW.`engine` = CASE', 1, true)
     local b = update:find('NEW.`engine_health` = CASE', 1, true)
     h.assertTrue(a and b and a < b, 'stock column is resolved before the kora column')

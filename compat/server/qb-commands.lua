@@ -1,19 +1,3 @@
--- compat/server/qb-commands.lua -- the 20 stock qb-core default commands
--- (qb-core/server/commands.lua), registered through the compat
--- QBCore.Commands.Add path so they get the same owner tracking, chat
--- suggestions, `command.<name>` ACE, QBCore:Server:PreCommandExecution hook and
--- QBCore:CallCommand reachability as any other legacy command.
---
--- Kora stays authoritative: money goes through Core.money (cash stays
--- item-backed), job/gang through Core.jobs, permissions through the
--- Core.permissions principals, /car spawns a server-owned networked vehicle and
--- grants keys through kora_vehiclekeys. Every argument is validated here
--- because QBCore:CallCommand hands handlers client-supplied args. Every use of
--- a non-'user' command is written to Core.logging under category 'admin'.
---
--- Disable with Config.compat.defaultCommands = false. A name another resource
--- (or kora itself) already registered is left alone; see docs/default-commands.md.
-
 if Config.compat.defaultCommands == false then return end
 
 local F = QBCore.Functions
@@ -38,8 +22,6 @@ local function audit(src, name, data)
     if not ok then print(('^3[qbcore:commands]^7 audit log failed for /%s: %s'):format(name, tostring(err))) end
 end
 
--- Handler args can come from QBCore:CallCommand (any client), so never assume
--- strings: coerce, and bound what gets logged.
 local function str(value, max)
     if type(value) ~= 'string' and type(value) ~= 'number' then return nil end
     value = tostring(value)
@@ -103,8 +85,6 @@ local function register(name, help, params, argsRequired, permission, handler)
     end
     QBCore.Commands.Add(name, help, params, argsRequired, function(src, args, raw)
         args = type(args) == 'table' and args or {}
-        -- QBCore:CallCommand reaches the raw callback with only the per-command
-        -- ACE checked, so enforce the permission level here as well.
         if permission ~= 'user' and src ~= 0 and not F.HasPermission(src, permission) then
             audit(src, name, { args = loggable(args), denied = true })
             return reply(src, 'You do not have permission to use this command.', 'error')
@@ -163,7 +143,6 @@ register('togglepvp', 'Toggle PVP on the server (Admin Only)', {}, false, 'admin
     reply(src, QBCore.Config.Server.PVP and 'PVP enabled' or 'PVP disabled', 'success')
 end)
 
--- A player who joins while PVP is off must not default to on.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
     if QBCore.Config.Server.PVP == false then TriggerClientEvent('QBCore:Client:PvpHasToggled', src, false) end
 end)
@@ -228,8 +207,6 @@ register('closeserver', 'Close the server for people without permissions (Admin 
     reply(src, 'The server has been closed', 'success')
 end)
 
--- Stock qb-core refuses new connections while Closed (kora_core had the flag but
--- never enforced it).
 AddEventHandler('playerConnecting', function(_, setKickReason, deferrals)
     if not QBCore.Config.Server.Closed then return end
     if F.HasPermission(source, QBCore.Config.Server.WhitelistPermission) then return end
@@ -254,7 +231,6 @@ register('car', 'Spawn Vehicle (Admin Only)', { param('model', 'Model name of th
     if not ped or ped == 0 then return end
     local coords = GetEntityCoords(ped)
     local previous = playerVehicle(ped)
-    -- Server-owned networked entity: the spawn is authorized here, not trusted from a client event.
     local vehicle = F.SpawnVehicle(src, model, { x = coords.x, y = coords.y, z = coords.z, w = GetEntityHeading(ped) }, true)
     if not vehicle then return reply(src, 'Unable to spawn that vehicle', 'error') end
     if previous and previous ~= vehicle then DeleteEntity(previous) end
@@ -303,7 +279,6 @@ local function deleteAll(name, help, list, skip)
 end
 
 deleteAll('dvall', 'Delete All Vehicles (Admin Only)', function() return GetAllVehicles() end)
--- Stock also deletes player peds, which would delete the players themselves.
 deleteAll('dvp', 'Delete All Peds (Admin Only)', function() return GetAllPeds() end, function(ped) return IsPedAPlayer and IsPedAPlayer(ped) end)
 deleteAll('dvo', 'Delete All Objects (Admin Only)', function() return GetAllObjects() end)
 
@@ -327,7 +302,6 @@ local MONEY_PARAMS = {
 register('givemoney', 'Give A Player Money (Admin Only)', MONEY_PARAMS, true, 'admin', function(src, args)
     local id, account, amount = moneyArgs(src, args)
     if not id then return end
-    -- An admin grant is not a taxable transaction.
     local ok, err = Core.money.addMoney(id, account, amount, 'Admin give money', true)
     audit(src, 'givemoney', { target = id, account = account, amount = amount, ok = ok and true or false })
     if not ok then reply(src, 'Could not give money: ' .. tostring(err), 'error') end
@@ -371,7 +345,6 @@ local function roleCommand(name, help, kind, apply)
         if not grade or grade < 0 then
             return reply(src, 'Grade must be a whole number of 0 or more', 'error')
         end
-        -- Stock grades are zero-based; kora's are one-based.
         local ok, err = apply(id, role, Core.compat.fromLegacyGradeLevel(grade))
         audit(src, name, { target = id, [kind] = role, grade = grade, ok = ok and true or false })
         if not ok then reply(src, ('Could not set %s: %s'):format(kind, tostring(err)), 'error') end

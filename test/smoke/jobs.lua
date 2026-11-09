@@ -1,5 +1,3 @@
--- Core.jobs smoke test -- job/gang/duty mutation plus the two maintained
--- indexes (by job name, and by job TYPE) that dispatch and paycheck read.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -50,7 +48,6 @@ h.test('buildJob copies the registry job type onto PlayerData.job', function()
 end)
 
 h.test('an unknown job type falls back to none rather than nil', function()
-    -- Registered without a `type`, which is legal -- the field is optional.
     Core.registry.registerShared('jobs', 'untyped', {
         name = 'untyped', label = 'Untyped', grades = { { name = 'Worker', payment = 10 } },
     })
@@ -118,9 +115,6 @@ h.test('getJobTypeCounts omits types with nobody in them', function()
     h.assertEqual(counts.leo, 2, 'two on-duty leo')
     h.assertEqual(counts.ems, 1, 'one on-duty ems')
     h.assertEqual(counts.recovery, 1, 'one on-duty recovery')
-    -- CIV1 is still `untyped` from the earlier test, and `unemployed`'s
-    -- defaultDuty is true -- so there is a civ-ish member on duty, just not
-    -- under a type any of the assertions above name.
     h.assertEqual(counts.leo + counts.ems + counts.recovery, 4, 'the emergency services total four')
     h.assertEqual(counts.nonexistent, nil, 'a type nobody holds must be absent, not zero')
 end)
@@ -168,9 +162,6 @@ h.test('getOnDutyRoster can include off-duty players when asked', function()
 end)
 
 h.test('a direct setPath duty write is reconciled back into both indexes', function()
-    -- This is what the legacy SetJobData('onduty', ...) used to do: flip duty
-    -- underneath the index, leaving that player silently uncontactable by
-    -- dispatch. The onChange reconciler exists to catch exactly this.
     Core.player.setPath(1, { 'job', 'onduty' }, false)
 
     equalSets(Core.jobs.getPlayersByJob('police', true), { 2 },

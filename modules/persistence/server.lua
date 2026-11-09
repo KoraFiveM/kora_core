@@ -1,29 +1,15 @@
--- Core.persistence (server realm) -- dirty-column tracking, the two-gate
--- collectRows, position throttling, and the coalescing flush that feeds
--- kora_sql's enqueueMany. Loaded BEFORE player.lua because player.login/create call
--- adopt()/seedEncoded()/insertNew() at runtime.
---
--- The JSON columns (money, charinfo, job, gang, position, metadata, inventory)
--- are encoded ONCE per flush and ONLY when dirty AND changed -- the two gates
--- that make a save write the minimum. Legacy qb-core re-encodes all seven on
--- every save regardless of what changed.
-
 local PI = CoreInternal.player
 local COLUMN_FOR = PI.COLUMN_FOR
 
--- Which PlayerData root key backs each DB column (inverse of COLUMN_FOR, but
--- position/name/phone need custom encoders below).
 local COLUMN_SOURCE = {
     money = 'money', charinfo = 'charinfo', job = 'job', gang = 'gang',
     metadata = 'metadata', inventory = 'items',
 }
 
-local dirty = {}   -- citizenid -> true
+local dirty = {}
 
-local posState = {}   -- citizenid -> { x, y, z, at }
+local posState = {}
 
--- Encode one column's current value to the string that will hit the wire.
--- position/name/phone are scalar-ish and handled specially.
 local function encodeColumn(player, column)
     if column == 'position' then
         local p = player.PlayerData.position or {}
@@ -46,14 +32,11 @@ function Core.persistence._markDirty(player, column)
     dirty[player.citizenid] = true
 end
 
--- Adopt a loaded player: seed _encoded from the CURRENT PlayerData so a login
--- that changes nothing writes nothing (the second gate needs a baseline).
 function Core.persistence._adopt(player)
     Core.persistence._seedEncoded(player)
     posState[player.citizenid] = nil
 end
 
--- Seed/refresh the _encoded baseline for every persisted column.
 function Core.persistence._seedEncoded(player)
     for _, column in pairs(COLUMN_FOR) do
         player._encoded[column] = encodeColumn(player, column)
@@ -65,9 +48,6 @@ function Core.persistence._forget(player)
     posState[player.citizenid] = nil
 end
 
--- Sample a player's position at flush time (server-side, OneSync). Marks the
--- position column dirty only if the player moved past the epsilon or the max
--- age elapsed -- so a parked player never re-writes position.
 local function samplePosition(player, logoutSample)
     if player._loggingOut and not logoutSample then return end
     local src = player.source
@@ -101,15 +81,10 @@ local function collectRows()
         if player then
             local cols, remaining = nil, {}
             for column in pairs(player._dirty) do
-                -- Never persist license/cid (immutable; the two-unique-key
-                -- corruption hazard). They are not in COLUMN_FOR, so a mutation
-                -- can't mark them dirty -- this is a belt-and-braces skip.
                 if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(cid, column) then
                     remaining[column] = true
                 elseif column ~= 'license' and column ~= 'cid' then
                     local encoded = encodeColumn(player, column)
-                    -- Gate 2: byte-identical JSON means nothing actually
-                    -- changed -> drop it, never reaches the wire.
                     if encoded ~= player._encoded[column] then
                         cols = cols or {}
                         cols[column] = encoded
@@ -131,22 +106,16 @@ local function collectRows()
     return rows
 end
 
--- Flush all dirty players in one enqueueMany (one boundary crossing).
 ---@return integer players flushed
 function Core.persistence.flushAll()
     for _, player in pairs(PI.bySource) do samplePosition(player) end
     local rows = collectRows()
     if #rows > 0 then
-        -- The row already exists (from _load/_insertNew). A partial INSERT ... ON DUPLICATE KEY
-        -- UPDATE is unsafe: MariaDB validates required immutable columns (license/cid) first.
         Kora.sql.enqueueMany('players', 'citizenid', rows, { mode = 'assign', writeMode = 'update' })
     end
     return #rows
 end
 
--- Immediate save of one player (drop/logout path). Marks everything the player
--- has changed dirty (already tracked), samples position, then enqueues at
--- immediate priority so kora_sql flushes it out of band.
 ---@param player table
 function Core.persistence.saveNow(player)
     samplePosition(player)
@@ -172,14 +141,9 @@ function Core.persistence.saveNow(player)
     end
 end
 
--- Logout keeps its live handle until the asynchronous SQL queue confirms the
--- final write. Ped sampling must not replace a validated housing exterior.
 function Core.persistence._saveForLogout(player, positionOverride)
     local called, saved, err = pcall(function()
         if not positionOverride then samplePosition(player, true) end
-        -- The normal baseline records enqueue, not commit. An earlier queued
-        -- save may already have exhausted retries, so logout must publish a
-        -- fresh complete mutable snapshot before asking for acknowledgement.
         for _, column in pairs(COLUMN_FOR) do
             player._encoded[column] = nil
             Core.persistence._markDirty(player, column)
@@ -188,9 +152,6 @@ function Core.persistence._saveForLogout(player, positionOverride)
         return Kora.sql.flush('players')
     end)
     if called and saved == true then return true end
-    -- saveNow advances its enqueue baseline before SQL finishes. A rejected or
-    -- thrown flush must leave every mutable column retryable, even if the SQL
-    -- queue discarded a failed row; immutable account keys remain excluded.
     for _, column in pairs(COLUMN_FOR) do
         player._encoded[column] = nil
         Core.persistence._markDirty(player, column)
@@ -198,8 +159,6 @@ function Core.persistence._saveForLogout(player, positionOverride)
     return false, tostring(err or saved or 'player save failed')
 end
 
--- genuine (license,cid) or citizenid collision raises rather than silently
--- overwriting a different row. Yields.
 ---@return boolean, string|nil
 function Core.persistence._insertNew(citizenid, license, cid, data)
     local ok, err = Kora.sql.execute(
@@ -232,9 +191,6 @@ function Core.persistence._load(citizenid)
     local function dec(s, fallback) local ok, v = pcall(json.decode, s or ''); return ok and v or fallback end
     local charinfo = dec(row.charinfo, {})
 
-    -- PlayerData.items is a NUMERIC slot-keyed map, but a sparse map serialises to a JSON
-    -- object and json.decode returns the keys as STRINGS. Re-key on load, preferring the
-    -- slot recorded inside the item, or slot lookups miss after a relog.
     local function decodeItems(s)
         local raw = dec(s, {})
         if type(raw) ~= 'table' then return {} end
@@ -250,8 +206,6 @@ function Core.persistence._load(citizenid)
         end
         return out
     end
-    -- Rows written before buildJob added `job.type` lack it and the job blob is restored
-    -- verbatim, so backfill from the registry. A job no longer registered falls back to 'none'.
     local function decodeJob(s)
         local job = dec(s, {})
         if type(job) ~= 'table' then return {} end
@@ -274,9 +228,6 @@ function Core.persistence._load(citizenid)
         position = dec(row.position, { x = 0, y = 0, z = 70, h = 0 }),
         metadata = dec(row.metadata, {}),
         items = decodeItems(row.inventory),
-        -- Legacy qb-core stored the phone only inside charinfo. Migration v6
-        -- adds the scalar column without rewriting existing character rows,
-        -- so retain their number until a later normal player update persists it.
         phone = row.phone_number or charinfo.phone,
     }
 end
@@ -357,13 +308,11 @@ CreateThread(function()
         Wait(wait)
         local flushed = Core.persistence.flushAll()
         if flushed > 0 then
-            -- Nudge kora_sql to drain promptly rather than waiting its own interval.
             Kora.sql.flush('players')
         end
     end
 end)
 
--- txAdmin shutdown / scheduled restart: flush everyone immediately.
 local function flushEveryoneNow()
     for _, player in pairs(PI.bySource) do Core.persistence.saveNow(player) end
     Kora.sql.flush('players')
@@ -376,9 +325,6 @@ AddEventHandler('txAdmin:events:scheduledRestart', function(payload)
     end
 end)
 
--- Resource stop: best-effort final drain with a hard deadline. FXServer gives no
--- guarantee this yield completes, so this BOUNDS worst-case loss to one interval
--- rather than eliminating it (documented in AGENTS.md).
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
     for _, player in pairs(PI.bySource) do Core.persistence.saveNow(player) end

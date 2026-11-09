@@ -1,6 +1,3 @@
--- Compatibility snapshot from qbcore-framework/qb-core main at
--- 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf. The legacy force-duty flag is
--- already exposed by compat/shared/coreobject.lua; this file contains data only.
 QBCoreUpstream = QBCoreUpstream or {}
 
 QBCoreUpstream.jobs = {

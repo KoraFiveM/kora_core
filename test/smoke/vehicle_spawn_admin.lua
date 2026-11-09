@@ -1,4 +1,3 @@
--- QBCore:Server:SpawnVehicle / CreateVehicle in 'admin' mode: only kora admins.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')

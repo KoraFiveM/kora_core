@@ -1,19 +1,7 @@
--- Core.paycheck (server realm) -- the paycheck loop legacy qb-core's own
--- Config.jobs.paycheckInterval was always a stub for (compat/server/qb-core.lua's
--- F.PaycheckInterval reads it, but nothing in the original engine ever ticked
--- against it). Pays every employed player once per Config.jobs.paycheckInterval:
--- job.payment while on duty, job.offDutyPay (a flat number, or false to skip)
--- while off duty. Uses Core.jobs.getPlayersByJob's O(1) index, once per
--- distinct job currently held by any online player -- not a per-player scan.
-
 local running = false
 local threadGeneration = 0
 
--- Underscore-prefixed: not exported, but callable from tests -- the mock Wait() never
--- yields, so the CreateThread loop below can't be run there.
 function Core.paycheck._tick()
-    -- Group online players by job first so each job's roster is fetched via
-    -- the index once, not once per player.
     local playersByJob = {}
     for _, src in ipairs(Core.player.getPlayers()) do
         local job = Core.jobs.getJob(src)

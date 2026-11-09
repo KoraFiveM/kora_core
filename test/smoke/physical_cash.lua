@@ -1,5 +1,3 @@
--- qbinventory-backed physical-cash coverage using a tiny provider fake. The
--- normal money smoke tests continue to cover the default ledger path.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -94,8 +92,6 @@ h.test('money APIs delegate add remove set and transfer', function()
     end
 end)
 
--- Same carve-out rules as the ledger path, but every leg goes through the
--- provider, so the tax leg and the net leg are separate provider calls.
 local bank = { accounts = {}, ok = true }
 exports['qb-banking'] = {
     GetAccount = function(_, name) return bank.accounts[name] end,
@@ -113,9 +109,6 @@ handle.resourceStates['qb-banking'] = 'started'
 Config.money.tax.enabled = true
 Config.money.tax.accounts.cash = true
 
--- Capture only the threads created from here on: handle.step() would also
--- resume persistence's flush loop, which never terminates under a Wait() that
--- does not yield (see modules/paycheck/server.lua's note).
 local pendingThreads = {}
 _G.CreateThread = function(fn) pendingThreads[#pendingThreads + 1] = fn end
 local function settle()
@@ -150,8 +143,6 @@ h.test('physical transferMoney costs the sender the gross and pays the net', fun
     h.assertEqual(govBalance(), before + 10)
 end)
 h.test('a physical transfer that fails mid-way returns the tax leg to the sender', function()
-    -- 200 is affordable but the provider refuses the 190 move: the 10 already
-    -- taken for tax must come back, leaving the sender exactly where they were.
     physical[1] = 200; physical[2] = 0
     local realTransfer = exports.kora_inventory.physicalCashTransfer
     exports.kora_inventory.physicalCashTransfer = function() return false, 'provider said no' end

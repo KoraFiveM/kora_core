@@ -1,8 +1,3 @@
--- Core.multichar (server realm) -- the character-select lifecycle. No NUI is
--- shipped; a character-select UI resource (or the qb-multicharacter compat
--- events) drives this via net events / exports. On a bare server the client
--- module auto-selects slot 1 so a player still spawns.
-
 local PI = CoreInternal.player
 
 ---List a source's characters (by their primary identifier). Yields.
@@ -42,7 +37,6 @@ end
 ---@param citizenid string
 ---@return boolean, string|nil
 function Core.multichar.selectCharacter(src, citizenid)
-    -- Reached straight from client net events; never hand a table to the loader.
     if type(citizenid) ~= 'string' or citizenid == '' then return false, 'invalid citizenid' end
     local license = Core.identity.primary(src)
     local data, err = Core.persistence._load(citizenid)
@@ -56,8 +50,6 @@ end
 ---@param charinfo table
 ---@param cid integer|nil
 ---@return string|nil, string|nil
--- (multichar.createCharacter removed: use Core.player.createCharacter, the
--- single public creator, to avoid a flat-export name collision.)
 
 ---Delete a character (soft-delete). Yields.
 ---@param src integer
@@ -77,7 +69,6 @@ function Core.multichar.deleteCharacter(src, citizenid)
     return Core.persistence._deleteCharacterRow(citizenid)
 end
 
--- Net-event surface for a character-select UI.
 RegisterNetEvent('qbcore:server:requestCharacters', function()
     local src = source
     TriggerClientEvent('qbcore:client:receiveCharacters', src, Core.multichar.getCharacters(src))

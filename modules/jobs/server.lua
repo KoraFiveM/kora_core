@@ -1,26 +1,11 @@
--- Core.jobs (server realm) -- job/gang/duty changes via the funnel, plus a
--- MAINTAINED job index (jobName -> {src set}) so getPlayersByJob is O(1) lookup
--- rather than the O(n) scan legacy qb-core does on every dispatch/paycheck tick.
---
--- On top of the index this file keeps live on-duty COUNTERS (+1 when a player
--- enters an on-duty set, -1 when they leave it) and publishes them as
--- GlobalState.OnDuty = { police = 1, leo = 2, ... }. Every 5 minutes the whole
--- index and the counters are rebuilt from PlayerData and any drift is logged.
-
 local PI = CoreInternal.player
 
--- jobName -> { [src] = true }   and   jobName -> { [src] = true } for on-duty only
 local byJob = {}
 local byJobOnDuty = {}
 
--- jobType -> the same two shapes. Separate from byJob because a type spans several jobs
--- ('leo' = police + sheriff + ...); the type is read off the player's own job sub-table,
--- so the index path never touches the registry.
 local byType = {}
 local byTypeOnDuty = {}
 
--- src -> the jobType it was last indexed under, so a setJob can remove the stale entry
--- without sweeping every type set.
 local typeOfSrc = {}
 
 local jobCounts, typeCounts = {}, {}
@@ -30,8 +15,6 @@ GlobalState.OnDuty = {}
 local publishQueued = false
 local function publish()
     publishQueued = false
-    -- One table, e.g. { police = 1, leo = 2 }. Types first, jobs second, so a
-    -- registered job name always reports that job's count, including zero.
     local merged = {}
     for name, count in pairs(typeCounts) do
         if Core.registry.getShared('jobs', name) then
@@ -41,12 +24,9 @@ local function publish()
         end
     end
     for k, v in pairs(jobCounts) do merged[k] = v end
-    -- Must assign a whole new table; mutating GlobalState.OnDuty in place
-    -- does not replicate.
     GlobalState.OnDuty = merged
 end
 
--- Coalesce bursts (setJob = remove + add) into a single replication.
 local function queuePublish()
     if publishQueued then return end
     publishQueued = true
@@ -59,7 +39,6 @@ local function bump(counts, key, delta)
     queuePublish()
 end
 
--- Only counts on a real membership change, so it is safe to call repeatedly.
 local function setDuty(set, counts, key, src, onDuty)
     local had = set[src] == true
     if onDuty and not had then
@@ -162,17 +141,11 @@ function Core.jobs.setJob(src, name, grade)
 
     local previousJob = p.PlayerData.job and p.PlayerData.job.name
     local job = CoreInternal.player.buildJob(name, grade)
-    -- Whole `job` root replaced in one funnel write (one dirty column, one
-    -- delta op carrying the whole sub-table).
     local changed, err = Core.player.setPath(src, { 'job' }, job)
     if not changed then return false, err end
     indexRemove(src, previousJob)
     indexAdd(src, name, job.onduty, job.type)
 
-    -- OnJobUpdate/OnGangUpdate are not stock qb-core events; stock funnels every job/gang/duty
-    -- change through Player:UpdateClient -> OnPlayerUpdated, which legacy scripts listen for.
-    -- Both are fired. Payload must be legacy-shaped (zero-based grade.level). Guarded on the
-    -- specific FUNCTION because Core is an auto-vivifying proxy (`Core.compat` is always truthy).
     local legacyJob = Core.compat.toLegacyJobOrGang and Core.compat.toLegacyJobOrGang(job, 'jobs') or job
     TriggerEvent('QBCore:Server:OnJobUpdate', src, legacyJob)
     TriggerEvent('QBCore:Server:OnPlayerUpdated', src, 'job', legacyJob)
@@ -310,7 +283,6 @@ function Core.jobs.getOnDutyRoster(filter)
     local onDutyOnly = filter.onDutyOnly
     if onDutyOnly == nil then onDutyOnly = true end
 
-    -- Pick the narrowest index available so the common cases never scan.
     local sources
     if filter.job then
         sources = Core.jobs.getPlayersByJob(filter.job, onDutyOnly)
@@ -327,9 +299,6 @@ function Core.jobs.getOnDutyRoster(filter)
     for _, src in ipairs(sources) do
         local p = PI.handle(src)
         local job = p and p.PlayerData.job
-        -- A source can survive in the index for a frame after the handle is
-        -- gone (drop ordering), so a missing handle is skipped rather than
-        -- treated as an error.
         if job then
             local matchesJob = not filter.job or job.name == filter.job
             local matchesType = not filter.jobType or (job.type or 'none') == filter.jobType
@@ -355,9 +324,6 @@ function Core.jobs.getOnDutyRoster(filter)
     return out
 end
 
--- Keep the index seeded as players load / unload. onChange on the 'job' prefix
--- would double-handle setJob's own writes, so instead we hook the load/unload/drop
--- lifecycle events.
 AddEventHandler('qbcore:server:playerLoaded', function(src)
     local p = PI.handle(src)
     if p and p.PlayerData.job then
@@ -366,17 +332,11 @@ AddEventHandler('qbcore:server:playerLoaded', function(src)
 end)
 
 AddEventHandler('qbcore:server:playerDropped', function(src)
-    -- The handle may already be gone; sweep the src from every set defensively.
-    -- indexForget also decrements the on-duty counters.
     indexForget(src)
 end)
 
 AddEventHandler('QBCore:Server:OnPlayerUnload', indexForget)
 
--- Reconciler for job writes that DIDN'T come through setJob/setJobDuty (legacy
--- SetJobData writes setPath directly, which would leave the index stale). Subscribes to the
--- whole 'job' prefix and does nothing when the index already agrees, so setJob/setJobDuty,
--- which maintain the index inline, are not double-handled.
 Core.player.onChange({ 'job' }, function(src)
     local p = PI.handle(src)
     local job = p and p.PlayerData.job
@@ -391,20 +351,15 @@ Core.player.onChange({ 'job' }, function(src)
 
     if indexedMember and indexedType == jobType and indexedDuty == onDuty then return end
 
-    -- Membership or type drifted: rebuild this source's entries from scratch.
     if not indexedMember or indexedType ~= jobType then
         indexForget(src)
         indexAdd(src, job.name, onDuty, jobType)
         return
     end
 
-    -- Only duty drifted (the SetJobData('onduty', ...) case).
     indexSetDuty(src, job.name, onDuty)
 end)
 
--- Every 5 minutes: throw the index and counters away and rebuild them from
--- what players' PlayerData actually says right now. Anything that drifted
--- (missed drop, direct SetJobData write, etc.) is corrected and logged.
 local function snapshot(t)
     local keys = {}
     for k, v in pairs(t) do keys[#keys + 1] = ('%s=%d'):format(k, v) end
@@ -428,7 +383,7 @@ local function verifyCounts()
         end
     end
 
-    queuePublish() -- also publish empty results, without a second queued write
+    queuePublish()
 
     local after = snapshot(jobCounts) .. '|' .. snapshot(typeCounts)
     if before ~= after then
@@ -438,7 +393,7 @@ end
 
 CreateThread(function()
     Wait(2000)
-    verifyCounts() -- covers a resource restart with players already online
+    verifyCounts()
     while true do
         Wait(5 * 60 * 1000)
         verifyCounts()

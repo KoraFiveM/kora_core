@@ -1,9 +1,3 @@
--- Default job definitions with graded pay scales. The server registers them
--- through the runtime registry; `grades` is a one-based array internally.
--- `offDutyPay` is either `false` (no off-duty paycheck) or a flat number paid
--- to an employed-but-off-duty player each paycheck tick -- see Core.paycheck.
--- `type` groups jobs into a service ('leo', 'ems', ...), copied onto PlayerData.job and indexed by Core.jobs.
--- `blip` is NOT copied onto PlayerData.job; read it from the registry record via getShared('jobs', name).
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.jobs = {

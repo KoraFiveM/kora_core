@@ -1,6 +1,3 @@
--- Core.development (client realm) -- applies the server-authoritative mode to
--- the local player ped and restores every owned native override on disable.
-
 local active = false
 local generation = 0
 local walkSpeed = tonumber(Config.development.walkSpeed)
@@ -19,8 +16,6 @@ local function restorePed(ped)
     SetPedMoveRateOverride(ped, 1.0)
 end
 
--- Underscore-prefixed so build/finalise.lua does not export a frame-level
--- implementation detail. Kept directly callable for the plain-Lua smoke test.
 function Core.development._tick()
     if not active then return end
 
@@ -30,14 +25,9 @@ function Core.development._tick()
     if lastPed and lastPed ~= ped then restorePed(lastPed) end
     lastPed = ped
 
-    -- The move-rate native is frame-scoped. Reasserting invincibility in this
-    -- same loop also makes the mode survive respawns and momentary interference
-    -- from another client script.
     SetEntityInvincible(ped, true)
     SetPedMoveRateOverride(ped, walkSpeed)
 
-    -- Refilling every frame keeps stamina pinned at full; there is nothing to
-    -- restore on disable because normal drain resumes as soon as this stops.
     RestorePlayerStamina(Kora.cache.playerId(), 1.0)
 end
 

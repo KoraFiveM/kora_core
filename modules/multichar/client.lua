@@ -1,9 +1,3 @@
--- Core.multichar (client realm) -- a MINIMAL default flow so a bare server (no
--- character-select UI) still spawns the player. It requests the character list
--- and auto-selects slot 1, creating a default character if none exist. A real
--- UI resource overrides this by handling the same events itself and calling the
--- exports below instead.
-
 local selecting = false
 local uiClaimed = false
 
@@ -38,8 +32,6 @@ function Core.multichar.create(charinfo, cid)
     TriggerServerEvent('qbcore:server:createCharacter', charinfo, cid)
 end
 
--- Default auto-flow: if no UI resource claims the slot within a moment, pick or
--- create slot 1. A UI resource calls Core.multichar.claimUI() to suppress this.
 RegisterNetEvent('qbcore:client:receiveCharacters', function(characters)
     if uiClaimed or selecting then return end
     selecting = true
@@ -60,7 +52,6 @@ RegisterNetEvent('qbcore:client:characterSelected', function(ok, err)
     end
 end)
 
--- Kick off the default flow shortly after load unless a UI took over.
 CreateThread(function()
     Wait(500)
     if not uiClaimed then

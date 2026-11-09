@@ -1,13 +1,7 @@
--- Core.inventory (shared realm) -- weight/slot math and stacking helpers used by
--- both the server model and any client-side prediction. Pure functions over a
--- slot-keyed items table (the legacy shape items[slot] = {slot,name,amount,...}).
-
 CoreInternal = CoreInternal or {}
 CoreInternal.inventory = CoreInternal.inventory or {}
 local II = CoreInternal.inventory
 
--- Total weight (grams) of a slot-keyed items table, using the registry's item
--- weights (falling back to a record's own `weight`).
 ---@param items table
 ---@return number
 function II.totalWeight(items)
@@ -32,8 +26,6 @@ function II.isUnique(name)
     return false
 end
 
--- Find the lowest slot holding a stackable match for `name` (and matching info
--- when Config.inventory.matchInfoOnStack). Returns slot or nil.
 ---@param items table
 ---@param name string
 ---@param info table|nil
@@ -53,8 +45,6 @@ function II.findStackSlot(items, name, info)
     return best
 end
 
--- Shallow-ish equality for item `info` tables (one level; good enough for
--- stacking decisions).
 function II.infoEquals(a, b)
     if a == b then return true end
     if type(a) ~= 'table' or type(b) ~= 'table' then return false end

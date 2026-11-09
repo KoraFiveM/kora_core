@@ -1,11 +1,3 @@
--- Smoke tests for the smaller inbound legacy net events in
--- compat/server/qb-core-events.lua that aren't already covered by
--- update_player.lua (QBCore:UpdatePlayer's own cooldown/leak tests):
---   * 'chatMessage' '/'-suppression (CancelEvent)
---   * QBCore:DebugSomething rate limiting
---   * QBCore:CallCommand's args-required + ACE-permission gate, calling the
---     command callback DIRECTLY (never ExecuteCommand)
---   * Config.compat.fireSharedUpdateAtLogin opt-in
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -171,8 +163,6 @@ h.test('qbcore:server:playerDropped clears the debug cooldown entry too (no leak
     local realDebug = QBCore.Debug
     QBCore.Debug = function(...) calls = calls + 1 end
 
-    -- Clear whatever cooldown the previous test left behind (same mock clock
-    -- across the whole file) before priming a fresh one.
     for _ = 1, 70 do GetGameTimer() end
 
     handle.fireEvent('QBCore:DebugSomething', 1, {})
@@ -196,7 +186,6 @@ h.test('QBCore:CallCommand denies a caller without the command.<name> ACE', func
     local ran = false
     QBCore.Commands.Add('secret', 'help', {}, false, function(src, args) ran = true end, 'admin')
 
-    -- src 1 is NOT granted command.secret.
     handle.fireEvent('QBCore:CallCommand', 1, 'secret', {})
     h.assertFalse(ran, 'callback must not run without the ACE permission')
 end)
@@ -235,12 +224,6 @@ h.test('QBCore:CallCommand without argsrequired runs even with zero args', funct
     handle.fireEvent('QBCore:CallCommand', 1, 'noargs', {})
     h.assertTrue(ran, 'a command with no argsrequired must run regardless of arg count')
 end)
-
--- The opt-in AddEventHandler('qbcore:server:playerLoaded', ...) is registered
--- once at load time based on Config.compat.fireSharedUpdateAtLogin, so this
--- exercises the DEFAULT (false) behaviour here; the opt-in-true behaviour is
--- proven in a fresh process below (registration is a load-time decision, not
--- re-checked per fire).
 
 h.test('fireSharedUpdateAtLogin defaults to false: qbcore:server:playerLoaded does not fire QBCore:Client:SharedUpdate', function()
     h.assertEqual(Config.compat.fireSharedUpdateAtLogin, false, 'default must be false')

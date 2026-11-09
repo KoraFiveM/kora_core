@@ -1,4 +1,3 @@
--- Transaction smoke test using the real reward generator and inventory fallback.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 mocks.install()
@@ -180,7 +179,6 @@ h.test('a later grant failure compensates ordinary additions, winning bonuses an
     reset()
     local before = json.encode(player.PlayerData)
     local calls = 0
-    -- Each item fits alone, but their combined weight exceeds capacity during the grants.
     local ok, err = transact({
         money = { remove = { { account = 'bank', amount = 100 } }, add = { { account = 'bank', amount = 250 } } },
         items = { add = { { item = 'water_bottle', amount = 1 } } },

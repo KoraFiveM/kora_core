@@ -1,5 +1,3 @@
--- Server-side player transaction: validate every leg before changing state.
-
 local function entries(value)
     return type(value) == 'table' and value or {}
 end
@@ -50,7 +48,6 @@ function Core.transaction(src, transaction)
             end
         end
         if next(random) ~= nil then
-            -- Allow all bonuses to miss rather than forcing a fallback reward.
             local ok, rewards = pcall(Kora.rewards.generate, random, { mode = 'percent', allowNone = true })
             if not ok then return false, tostring(rewards) end
             local combined = {}

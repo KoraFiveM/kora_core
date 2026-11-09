@@ -1,7 +1,3 @@
--- The 20 stock qb-core default commands (compat/server/qb-commands.lua): stock
--- names/permissions registered through QBCore.Commands.Add, server-authoritative
--- argument validation, kora APIs for money/job, audit logging, the
--- PreCommandExecution hook, the command.<name> ACE and QBCore:CallCommand.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -19,7 +15,6 @@ dofile('modules/multichar/server.lua'); dofile('modules/permissions/server.lua')
 dofile('modules/commands/server.lua')
 dofile('compat/shared/coreobject.lua')
 
--- Capture the dispatchable handler the compat registers with Kora.commands.
 local handlers, permissions = {}, {}
 local realAdd = Kora.commands.add
 Kora.commands.add = function(name, help, args, argsRequired, handler, opts)
@@ -33,7 +28,6 @@ handle.resourceStates.kora_vehiclekeys = 'started'
 
 dofile('compat/server/qb-core.lua')
 dofile('compat/server/qb-core-events.lua')
--- A kora/other-resource command registered BEFORE the defaults must win.
 Core.commands.addCommand('dvo', 'custom dvo', {}, false, function() end, 'admin')
 local calls = {}
 local function stub(name, fn) _G[name] = function(...) calls[#calls + 1] = { name, ... }; return fn and fn(...) end end
@@ -46,7 +40,6 @@ assert(Core.player.login(1, 'CMD1', data))
 local data2 = CoreInternal.player.freshData('CMD2', 'license:cmd2', 1, { firstname = 'C', lastname = 'D' })
 assert(Core.player.login(2, 'CMD2', data2))
 handle.setPlayers({ 1, 2 })
--- Player 1 is a full admin/god; player 2 stays an ordinary player.
 handle.setAce(1, 'qbcore.admin', true)
 handle.setAce(1, 'qbcore.god', true)
 
@@ -153,7 +146,7 @@ h.test('addpermission / removepermission only accept configured levels', functio
     handle.executeCommandCalls[#handle.executeCommandCalls + 1] = '--marker'
     local mark = #handle.executeCommandCalls
     run('addpermission', 1, '2', 'admin')
-    handle.setAce(2, 'admin', true)   -- stock RemovePermission only strips a level the player holds
+    handle.setAce(2, 'admin', true)
     h.assertEqual(handle.executeCommandCalls[mark + 1], 'add_principal identifier.license:abc qbcore.admin')
     run('removepermission', 1, '2', 'admin')
     h.assertEqual(handle.executeCommandCalls[mark + 2], 'remove_principal identifier.license:abc qbcore.admin')

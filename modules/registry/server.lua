@@ -1,11 +1,4 @@
--- Core.registry (server realm) -- the AUTHORITATIVE side. Registration mutates
--- the structures, dispatches subscribers, and broadcasts a delta on two
--- channels: a plain local TriggerEvent (reaches every OTHER server resource's
 -- @kora_core/init.lua mirror) and TriggerClientEvent(-1) (reaches every client).
---
--- Subscriptions and registered records are OWNER-TRACKED via
--- Kora.resources.serverRegistry so a resource that registered items and then
--- restarts neither leaks nor double-registers.
 
 local RI = CoreInternal.registry
 
@@ -16,8 +9,8 @@ RI.create('gangs', 'name')
 RI.create('weapons', 'name')
 RI.create('locations', 'key')
 
-local ownedRecords = {}   -- resource -> { [name] = { key = true } }
-local recordOwners = {}   -- name -> { [key] = resource }
+local ownedRecords = {}
+local recordOwners = {}
 
 local function clearOwnership(name, key)
     local owners = recordOwners[name]
@@ -27,16 +20,10 @@ local function clearOwnership(name, key)
     owners[key] = nil
 end
 
--- Jobs and gangs use one-based grade arrays internally.  Resources written for
--- legacy QBCore commonly supply an equivalent map keyed by "0", "1", …;
--- convert that boundary format once so every modern consumer sees the same
--- shape (and setJob/buildJob can resolve the selected grade).
 ---@param record table
 local function normaliseRoleGrades(record)
     local grades = record.grades
     if type(grades) ~= 'table' then return end
-    -- A numeric zero key makes #grades non-zero once grade 1 is also present,
-    -- so check it explicitly before treating the table as a modern array.
     if #grades > 0 and grades[0] == nil and grades['0'] == nil then return end
 
     local indexed = {}
@@ -97,10 +84,8 @@ function Core.registry.registerShared(name, key, record)
     local action = RI.apply(name, key, record)
 
     local owner = GetInvokingResource() or GetCurrentResourceName()
-    -- A replacement belongs to its latest owner, even if it reuses the table.
     clearOwnership(name, key)
     if owner then
-        -- subRegistry needs one dispose per resource, so the resource name doubles as the tracking id.
         subRegistry.track(owner, owner)
         ownedRecords[owner] = ownedRecords[owner] or {}
         ownedRecords[owner][name] = ownedRecords[owner][name] or {}
@@ -179,11 +164,6 @@ do
     end
 end
 
--- Every resource that includes @kora_core/init.lua asks for a snapshot when it
--- starts, so one join sends the whole catalogue 20+ times, and any client can
--- spam the event. Requests from one client inside the window share a single
--- trailing answer, sent after the last of them, so every requester still gets
--- a snapshot newer than its request. 0 answers every request immediately.
 local snapshotWindows = {}
 
 local function sendSnapshot(src)

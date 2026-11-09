@@ -1,6 +1,4 @@
--- Core.identity -- identifier extraction and citizenid generation. Server only.
 -- The primary identifier (Config.identity.primaryIdentifier, default 'license')
--- keys a player across characters; a citizenid keys a single character.
 
 local RI_PREFIX = Config.identity.citizenIdPrefix or ''
 
@@ -13,12 +11,10 @@ function Core.identity.getIdentifiers(src)
         if id then
             local kind, value = id:match('^(%w+):(.+)$')
             if kind then
-                -- 'license' and 'license2' are distinct; keep the first of each.
                 out[kind] = out[kind] or value
             end
         end
     end
-    -- Endpoint / IP is not an identifier entry; fetch it separately.
     out.ip = out.ip or GetPlayerEndpoint(src)
     return out
 end
@@ -31,9 +27,6 @@ function Core.identity.primary(src)
     return ids[Config.identity.primaryIdentifier]
 end
 
--- Generate a candidate citizenid. Uniqueness is enforced by the DB UNIQUE index;
--- this is a retry loop the persistence layer uses on an insert collision, not a
--- guarantee on its own.
 ---@return string
 function Core.identity.generateCitizenId()
     return RI_PREFIX .. Core.util.randomAlnum(Config.identity.citizenIdLength)
@@ -56,8 +49,6 @@ function Core.identity.recordIdentifiers(citizenid, ids)
     end
 end
 
--- Look up citizenids that have ever used a given identifier (for ban/alt
--- detection). Yields.
 ---@param kind string
 ---@param value string
 ---@return string[]

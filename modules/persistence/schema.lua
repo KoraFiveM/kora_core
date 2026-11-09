@@ -1,9 +1,3 @@
--- Declarative schema for kora_core's tables, applied by boot.lua through
--- Kora.sql.ensureTables.
--- `players` and `player_vehicles` also carry the columns that used to be
--- ALTERed onto legacy qb-core tables, so an imported table gains them too.
--- player_vehicles.model is nullable (the `vehicle` <-> `model` triggers fill it).
-
 local NULL = Kora.sql.NULL
 local NOW = { raw = 'CURRENT_TIMESTAMP' }
 local UNICODE = 'utf8mb4_unicode_ci'
@@ -127,12 +121,10 @@ KoraCoreSchema = {
             { name = 'created_at', type = 'timestamp', default = NOW },
             { name = 'last_updated', type = 'timestamp', default = NOW, on_update = 'CURRENT_TIMESTAMP' },
             { name = 'deleted_at', type = 'timestamp', null = true, default = NULL },
-            -- qb-vehicleshop financing
             { name = 'balance', type = 'int', default = 0 },
             { name = 'paymentamount', type = 'int', default = 0 },
             { name = 'paymentsleft', type = 'int', default = 0 },
             { name = 'financetime', type = 'int', default = 0 },
-            -- stock qb-garages / qb-vehicleshop pass-through (see docs/vehicles-compat.md)
             { name = 'license', type = 'varchar(50)', null = true, default = NULL },
             { name = 'hash', type = 'varchar(50)', null = true, default = NULL },
             { name = 'fakeplate', type = 'varchar(50)', null = true, default = NULL },
@@ -166,8 +158,6 @@ KoraCoreSchema = {
     },
 }
 
--- Opt-in (Config.persistence.generatedColumns): VIRTUAL columns are free on
--- write, their indexes are not, so they are added together or not at all.
 KoraCoreGeneratedSchema = {
     {
         name = 'players',

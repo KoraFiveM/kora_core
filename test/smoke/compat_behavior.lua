@@ -1,8 +1,3 @@
--- Compat shape test -- asserts every documented legacy field of the QBCore
--- object exists and is callable, and that the per-player Player.Functions.*
--- table is complete. This is what keeps compat honest: an internal rename that
--- drops a legacy method fails HERE at CI, not in someone's production server.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -544,7 +539,6 @@ h.test('legacy command tuple arguments adapt without changing native or public c
     h.assertEqual(captured.args[1].help, 'ID of a person')
     h.assertEqual(captured.args[2].name, 'reason')
     h.assertEqual(captured.required, true)
-    -- The native layer gets the PreCommandExecution-guarded wrapper; it must delegate to the caller's callback.
     captured.callback(5, { 'a' }, 'raw')
     h.assertEqual(invoked[1], 5)
     h.assertEqual(invoked[3], 'raw')

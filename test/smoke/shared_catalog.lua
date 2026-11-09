@@ -1,8 +1,5 @@
--- Pinned catalog/legacy views, through the real authoritative registry.
 local h = dofile('test/harness.lua')
 dofile('test/mocks.lua').install()
--- Use GTA's Jenkins hash, not the generic mock's string hash. A known native
--- numeric constant below catches accidentally exposing names instead of hashes.
 function joaat(name)
     local hash = 0
     for i = 1, #name do

@@ -1,5 +1,3 @@
--- Core.development smoke test -- server export authority plus client ped
--- effects, ped replacement, disable, and resource-stop cleanup.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -48,8 +46,6 @@ h.test('server export disables the mode and disconnect forgets it', function()
     h.assertFalse(Core.development.isDevMode(1))
 end)
 
--- Exercise the client realm with a fresh Core namespace. The mock event bus is
--- retained so the real registered net event drives activation/deactivation.
 _G.Core = setmetatable({}, { __index = function(self, key)
     local module = {}
     rawset(self, key, module)

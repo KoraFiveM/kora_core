@@ -1,7 +1,3 @@
--- Core.inventory (client realm) -- minimal client glue. The server owns the
--- model; the client only surfaces the item-pickup box and reads the local
--- inventory from the mirror. No NUI is shipped (see AGENTS.md).
-
 RegisterNetEvent('qbcore:client:itemBox', function(itemDef, action, amount)
     local label = (itemDef and itemDef.label) or (itemDef and itemDef.name) or 'item'
     local verb = action == 'remove' and 'Removed' or 'Received'

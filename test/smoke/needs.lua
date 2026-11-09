@@ -1,5 +1,3 @@
--- Core.needs smoke test -- Core.needs._tick is exercised directly, same
--- reasoning test/smoke/paycheck.lua documents for Core.paycheck._tick.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -102,8 +100,6 @@ h.test('startNeedsDecay/stopNeedsDecay do not error', function()
     h.assertTrue(true, 'reaching this line means neither call errored')
 end)
 
--- Exercise the CLIENT realm in a fresh Core table: server/client needs modules
--- share the same module namespace in production but load in separate VMs.
 _G.Core = setmetatable({}, { __index = function(self, key)
     local module = {}
     rawset(self, key, module)

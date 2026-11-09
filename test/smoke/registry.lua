@@ -1,7 +1,3 @@
--- Registry smoke test: runtime default registration, register/update/unregister,
--- indexed getter sync (including after a swap-remove), onChange dispatch, the
--- resource-stop sweep, and epoch-bump reseed. Server realm only.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
@@ -133,13 +129,11 @@ h.test('unregister swap-removes and keeps list/index/getter consistent', functio
     Core.registry.unregisterShared('items', 'itemA')
     h.assertEqual(Core.registry.countShared('items'), before - 1)
     h.assertTrue(Core.registry.getShared('items', 'itemA') == nil, 'itemA should be gone')
-    -- itemB still resolvable and its index points at a valid list slot.
     local idx = RI.registries.items.index.itemB
     h.assertEqual(RI.registries.items.list[idx].name, 'itemB')
 end)
 
 h.test('onChange fires with add/remove and the resource-stop sweep removes records', function()
-    -- Simulate a foreign resource owning a registration.
     _G.GetInvokingResource = function() return 'some-plugin' end
     Core.registry.registerShared('items', 'plugin_item', { name = 'plugin_item', label = 'P' })
     h.assertTrue(Core.registry.getShared('items', 'plugin_item') ~= nil)

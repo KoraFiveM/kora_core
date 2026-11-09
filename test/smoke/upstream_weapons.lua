@@ -1,6 +1,3 @@
--- The qb-core upstream item snapshot lists inventory weapons too. They must
--- not land in the `items` registry, where they would shadow the native weapon
--- records (weapontype, damageModifier, ammoItem) for every consumer.
 local h = dofile('test/harness.lua')
 dofile('test/mocks.lua').install()
 

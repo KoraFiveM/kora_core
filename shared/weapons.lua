@@ -1,15 +1,5 @@
--- Vanilla GTA/FiveM weapon catalogue. These are registry records rather than
--- inventory slots: kora_core and kora_inventory both resolve an item's definition
--- through this list, and weapons are consequently always non-stackable.
---
--- `ammotype` intentionally keeps GTA's native ammo hash name. Inventory ammo
--- packs expose the matching value in shared/items.lua, so a weapon system can
--- map packs to natives without inventing another taxonomy.
 QBCoreSeed = QBCoreSeed or {}
 
--- Inventory applies these only while the corresponding weapon is actually in
--- a player's hand. Everything omitted here deliberately retains native damage
--- and critical-hit behaviour.
 local damageSettings = {
     weapon_unarmed = { modifier = 0.2, disableCriticalHits = true },
     weapon_dagger = { modifier = 0.6, disableCriticalHits = true },
@@ -181,8 +171,6 @@ QBCoreSeed.weapons = {
     weapon('weapon_railgunxm3', 'Railgun XM3', 'AMMO_RAILGUN', 9500, 'Heavy'),
     weapon('weapon_emplauncher', 'EMP Launcher', 'AMMO_EMPLAUNCHER', 7000, 'Heavy'),
 
-    -- Throwables / utility. They are unique weapon records because the native
-    -- treats the object as a weapon; individual packs are managed as item count.
     weapon('weapon_grenade', 'Grenade', 'AMMO_GRENADE', 400, 'Throwable'),
     weapon('weapon_bzgas', 'BZ Gas', 'AMMO_BZGAS', 350, 'Throwable'),
     weapon('weapon_molotov', 'Molotov Cocktail', 'AMMO_MOLOTOV', 600, 'Throwable'),
@@ -195,15 +183,12 @@ QBCoreSeed.weapons = {
     weapon('weapon_flare', 'Flare', 'AMMO_FLARE', 150, 'Throwable'),
     weapon('weapon_acidpackage', 'Acid Package', 'AMMO_ACIDPACKAGE', 500, 'Throwable'),
 
-    -- Equipment that GTA exposes through the same weapon native family.
     weapon('weapon_petrolcan', 'Jerry Can', 'AMMO_PETROLCAN', 1800, 'Equipment'),
     weapon('weapon_fireextinguisher', 'Fire Extinguisher', 'AMMO_FIREEXTINGUISHER', 6000, 'Equipment'),
     weapon('weapon_hazardcan', 'Hazardous Jerry Can', 'AMMO_HAZARDCAN', 1800, 'Equipment'),
     weapon('weapon_fertilizercan', 'Fertilizer Can', 'AMMO_FERTILIZERCAN', 1800, 'Equipment'),
     weapon('weapon_parachute', 'Parachute', nil, 1000, 'Equipment'),
 
-    -- Missing inventory defaults from qb-core 9b3cddcce93e5e12cbcf6b47b866b687d32ac7bf.
-    -- Existing native definitions above retain their configured values.
     { name = 'weapon_bread', label = 'Baguette', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_bread.png', unique = true, useable = false, description = 'Bread...?' },
     { name = 'weapon_briefcase', label = 'Briefcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase.png', unique = true, useable = false, description = 'A briefcase for storing important documents' },
     { name = 'weapon_briefcase_02', label = 'Suitcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase_02.png', unique = true, useable = false, description = 'Wonderfull for nice vacation to Liberty City' },
@@ -212,10 +197,6 @@ QBCoreSeed.weapons = {
     { name = 'weapon_remotesniper', label = 'Remote Sniper', weight = 1000, type = 'weapon', ammotype = 'AMMO_SNIPER_REMOTE', image = 'weapon_remotesniper.png', unique = true, useable = false, description = 'A portable high-precision, long-range rifle' },
 }
 
--- qb-core's inventory copies of these weapons (held aside by
--- shared/upstream/merge.lua) only fill fields a native record leaves empty,
--- in practice the item `description`. A weapon that exists only upstream is
--- still added so no legacy inventory name stops resolving.
 do
     local upstream = QBCoreSeed.upstreamWeapons
     if type(upstream) == 'table' then
@@ -242,9 +223,6 @@ do
     QBCoreSeed.upstreamWeapons = nil
 end
 
--- Pinned qb-core damage descriptions for the hash-indexed compatibility view.
--- These do not override native inventory/gameplay definitions. Environmental
--- causes are exposed only as damage metadata, never registered as items.
 QBCoreSeed.legacyWeaponMetadata = {
     gadget_parachute = { name = 'gadget_parachute', label = 'Parachute', weapontype = 'Miscellaneous', ammotype = nil, damagereason = 'Died' },
     weapon_advancedrifle = { name = 'weapon_advancedrifle', label = 'Advanced Rifle', weapontype = 'Assault Rifle', ammotype = 'AMMO_RIFLE', damagereason = 'Ended / Rifled / Shot down / Floored' },

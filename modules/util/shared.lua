@@ -1,8 +1,3 @@
--- Core.util -- the QBCore.Shared.* primitives (round/Trim/SplitStr/RandomStr/
--- RandomInt) plus the small helpers the player funnel needs (pathGet/pathSet,
--- deepClone). Shared realm: identical on client and server.
---
-
 local charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 local digits = '0123456789'
 

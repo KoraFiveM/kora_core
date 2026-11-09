@@ -28,8 +28,6 @@ function Core.locales.openSelector()
         }
     end
 
-    -- kora_lib resolves NUI requests before returning them across a resource
-    -- export boundary; kora_core therefore receives the result directly here.
     local ok, result = pcall(Kora.nui.openMenu, items, 'Language')
     selectorOpen = false
     if not ok then return end
@@ -47,8 +45,6 @@ RegisterCommand('language', function()
     Core.locales.openSelector()
 end, false)
 
--- Key presses use a +/- pair so only the press opens the menu; releases and
--- focus-regain events after alt-tab are ignored.
 RegisterCommand('+language', function()
     Core.locales.openSelector()
 end, false)

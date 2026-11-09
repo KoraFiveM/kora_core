@@ -1,4 +1,3 @@
--- Run from qbcore: lua test/progressbar_integration.lua /path/to/kora_lib
 local kora_lib = assert(arg[1], 'pass the kora_lib resource directory')
 local h = dofile('test/harness.lua')
 local handle = dofile('test/mocks.lua').install({ client = true })

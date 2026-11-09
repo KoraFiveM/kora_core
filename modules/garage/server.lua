@@ -1,15 +1,3 @@
--- Core.garage (server realm) -- SQL-persisted vehicle ownership: civilian
--- garage (store/retrieve) and job duty-fleet vehicles share one
--- `player_vehicles` table (see modules/persistence/schema.lua), distinguished by
--- whether `citizenid` or `job` is set on a row (by convention, not enforced
--- at the SQL level -- a row is expected to have exactly one of the two).
---
--- spawnVehicle uses the raw CreateVehicle native, NEVER Kora.entities (local/non-networked):
--- a duty or owned vehicle must be visible to every player.
---
--- Vehicle `mods` are stored/returned as opaque JSON and NOT auto-applied (that is
--- presentation-layer work for the garage UI); fuel/engine/body health are applied on spawn.
-
 local function decodeJson(s, fallback)
     if not s then return fallback end
     local ok, v = pcall(json.decode, s)
@@ -38,7 +26,6 @@ local function deleteSpawnedVehicle(vehicle)
 end
 
 local vehiclesReady
--- On a blank database kora_core creates player_vehicles a few seconds after start; boot-time callers wait here.
 local function awaitVehicles()
     if vehiclesReady then return true end
     local ok, err = Kora.sql.awaitTables({ 'player_vehicles' }, 60000)
@@ -77,8 +64,6 @@ function Core.garage.createVehicle(citizenid, model, plate, job, extra)
         'INSERT INTO `player_vehicles` (`plate`,`model`,`vehicle`,`citizenid`,`job`,`fuel`,`engine_health`,`body_health`) '
         .. 'VALUES (?,?,?,?,?,?,?,?)',
         {
-            -- Exactly one of citizenid/job is set; the other must be a real SQL NULL (a bare nil
-            -- would leave a hole in this array and the driver rejects the statement).
             plate, modelName, modelName, citizenid or Kora.sql.NULL, job or Kora.sql.NULL,
             extra.fuel or Config.garage.defaultFuel,
             extra.engineHealth or Config.garage.defaultEngineHealth,
@@ -264,7 +249,6 @@ function Core.garage.retrieveImpound(src, plate)
     if not row then return false, 'unknown vehicle' end
     if row.state ~= 'impounded' then return false, 'vehicle is not impounded' end
 
-    -- Civilian rows are owner-only; job-fleet rows (citizenid unset) are a job-resource policy.
     if row.citizenid then
         local requesterCitizenid = Core.player.getPlayerData(src, { 'citizenid' })
         if requesterCitizenid ~= row.citizenid then
@@ -298,7 +282,6 @@ function Core.garage.updateState(plate, patch)
         .. '`body_health` = COALESCE(?, `body_health`), `mods` = COALESCE(?, `mods`), '
         .. '`last_position` = COALESCE(?, `last_position`) WHERE `plate` = ?',
         {
-            -- Patch fields are COALESCE'd in SQL: absent ones must bind as NULL, not leave a hole.
             patch.fuel or Kora.sql.NULL,
             patch.engineHealth or Kora.sql.NULL,
             patch.bodyHealth or Kora.sql.NULL,
@@ -322,7 +305,6 @@ function Core.garage.saveVehicleProperties(plate, properties)
 
     local storedProperties = {}
     for key, value in pairs(properties) do
-        -- plate/model identify the row; condition values live in dedicated columns.
         if key ~= 'plate' and key ~= 'model'
             and key ~= 'fuelLevel' and key ~= 'engineHealth' and key ~= 'bodyHealth' then
             storedProperties[key] = value

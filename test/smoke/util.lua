@@ -1,4 +1,3 @@
--- Core.util smoke test -- the QBCore.Shared.* primitives + pathGet/pathSet.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); mocks.install()
 dofile('config.lua')

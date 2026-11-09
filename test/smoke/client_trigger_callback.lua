@@ -1,6 +1,3 @@
--- Client QBCore.Functions.TriggerCallback: qb-core 1.3.0 signature
--- (name, [cb], ...). With a cb the old behaviour holds; without one the call
--- awaits the reply and returns it; arguments are forwarded either way.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install({ client = true })
@@ -14,7 +11,6 @@ dofile('modules/player/shared.lua'); dofile('modules/player/client.lua')
 dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core.lua')
 
--- Minimal promise + Await: Await "lets the server answer" via replyOnAwait.
 local replyOnAwait
 _G.promise = { new = function()
     local p = { resolved = false }
@@ -85,7 +81,7 @@ h.test('await times out with nil when no reply arrives, and a late reply is igno
     h.assertEqual(QBCore.Functions.TriggerCallback('t:slow'), nil)
     h.assertEqual(QBCore.ServerCallbacks['t:slow'], nil)
     replyOnAwait = nil
-    handle.fireEvent('QBCore:Client:TriggerCallback', nil, 't:slow', 'late')   -- must not error
+    handle.fireEvent('QBCore:Client:TriggerCallback', nil, 't:slow', 'late')
 end) end)
 
 h.test('concurrent same-name calls are answered in order, each with its own entry', function()

@@ -1,4 +1,3 @@
--- Durable providers fence the same columns that ordinary saves would overwrite.
 local PI = CoreInternal.player
 local operations, locks, ordinary, epochs = {}, {}, {}, {}
 local roots = { money = 'money', inventory = 'items', metadata = 'metadata' }
@@ -9,7 +8,6 @@ local function provider()
 end
 
 local schemaReady
--- On a blank database kora_core creates its tables a few seconds after start; boot-time callers wait here.
 function Core.persistence.awaitSchema()
     if schemaReady then return true end
     local ok, err = Kora.sql.awaitTables({ 'players', 'player_vehicles', 'kora_core_player_column_operations' }, 60000)

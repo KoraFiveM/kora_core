@@ -1,9 +1,3 @@
--- Client-realm compat shape test -- mirrors test/smoke/compat.lua (server) but
--- for compat/client/qb-core.lua: QBCore.Config population (previously only
--- built server-side, leaving it an empty `{}` client-side), the client-only
--- vehicle-extra Shared helpers (guarded on IsDuplicityVersion() == false), the
--- glove-check data tables, and the GetShared* exports registered client-side.
-
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install({ client = true })
@@ -18,11 +12,6 @@ dofile('modules/player/client.lua')
 dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core.lua')
 
--- The real client only gets registry data via an async 'qbcore:registry:
--- snapshotAll' net event (modules/registry/client.lua); nothing in this test
--- environment ever fires it. Reseed directly, the same shape that net event
--- handler applies, then fire the local 'qbcore:registry:synced' event
--- coreobject.lua's Jobs/Gangs/VehicleHashes views listen for to re-fill.
 local RI = CoreInternal.registry
 RI.reseed('items', QBCoreSeed.items, 1)
 RI.reseed('vehicles', QBCoreSeed.vehicles, 1)
@@ -78,15 +67,12 @@ h.test('SetDefaultVehicleExtras turns everything off then applies the config ove
 end)
 
 h.test('QBCore.Shared.MaleNoGloves/FemaleNoGloves activate the existing F.IsWearingGloves check', function()
-    -- Before this task these tables were nil, so `(QBCore.Shared.MaleNoGloves or {})[armIndex]`
-    -- always no-op'd to `nil` and IsWearingGloves always returned true. Wire the
-    -- mocked model/drawable natives so the real branch executes.
     _G.GetEntityModel = function(_) return GetHashKey('mp_m_freemode_01') end
-    _G.GetPedDrawableVariation = function(_, _) return 0 end -- index 0 is a known no-glove index (upstream data)
+    _G.GetPedDrawableVariation = function(_, _) return 0 end
     h.assertTrue(QBCore.Functions.IsWearingGloves() == false,
         'a male ped with drawable 0 (a MaleNoGloves index) must report NOT wearing gloves')
 
-    _G.GetPedDrawableVariation = function(_, _) return 999 end -- not a no-glove index
+    _G.GetPedDrawableVariation = function(_, _) return 999 end
     h.assertTrue(QBCore.Functions.IsWearingGloves() == true,
         'a drawable index absent from MaleNoGloves must report wearing gloves')
 end)

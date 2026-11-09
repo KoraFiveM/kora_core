@@ -1,4 +1,3 @@
--- Core.dispatch smoke test -- job-filtered fan-out + legacy compat events.
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua'); local handle = mocks.install()
 dofile('config.lua')
@@ -25,7 +24,7 @@ loginAs(4, 'CIV1')
 Core.jobs.setJob(1, 'police', 1)
 Core.jobs.setJobDuty(1, true)
 Core.jobs.setJob(2, 'police', 1)
-Core.jobs.setJobDuty(2, false) -- off duty, should NOT receive the alert
+Core.jobs.setJobDuty(2, false)
 Core.jobs.setJob(3, 'ambulance', 1)
 Core.jobs.setJobDuty(3, true)
 
@@ -81,9 +80,6 @@ h.test('legacy events are suppressed when Config.dispatch.legacyEvents is false'
 end)
 
 h.test('a server-side mirror event fires exactly once per alert', function()
-    -- A dispatch UI resource records calls off this event. Firing it per
-    -- recipient (as the client push does) would log the same incident once for
-    -- every officer on duty.
     local seen = {}
     handle.eventHandlers['qbcore:server:dispatchAlert'] = handle.eventHandlers['qbcore:server:dispatchAlert'] or {}
     table.insert(handle.eventHandlers['qbcore:server:dispatchAlert'], function(payload, count)

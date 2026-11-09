@@ -1,16 +1,4 @@
--- Core.money (server realm) -- thin wrappers over the funnel. Every balance
--- change is Core.player.setPath(src, {'money', account}, newValue), so money
--- gets dirty-tracking + delta replication for free. Emits the legacy
--- QBCore:Server:OnMoneyChange event for compat.
---
--- Also owns the optional transaction tax (Config.money.tax): a percentage of
--- every taxable transaction is diverted to a banking account. See the "Transaction
--- tax" block below for the model.
-
 local PI = CoreInternal.player
--- account -> kora_inventory resource. A registration survives an unexpected
--- provider stop so cash mutations fail closed instead of silently falling back
--- to a second ledger balance.
 local physicalAccounts = {}
 local MONEY_STATE_PREFIX = 'qbcore:money:'
 
@@ -19,8 +7,6 @@ local function validAccount(account)
     return false
 end
 
--- NaN passes every `<= 0` guard and +/-inf survives arithmetic, so either would
--- corrupt a balance for good. Same rule as addOfflineMoney below.
 local function finiteAmount(value)
     value = tonumber(value)
     if not value or value ~= value or value == math.huge or value == -math.huge then return nil end
@@ -41,35 +27,11 @@ local function providerFor(account)
     return provider
 end
 
--- Transaction tax
--- A slice of every taxable transaction is deposited into the banking account
--- named by Config.money.tax.account (the "government"), held by whatever
--- resource Config.money.tax.provider names -- qb-banking by default, but the
--- three export names it is reached through are configurable so any bank works.
---
--- The tax is always carved OUT of the transaction amount, never added on top:
---   remove    the player pays exactly `amount`, as they would untaxed, and the
---             government takes its cut off the top instead of the whole sum
---             simply vanishing;
---   add       the player receives `amount - tax`;
---   transfer  the sender pays `amount`, the recipient receives `amount - tax`.
--- Charging on top could make an existing call fail for insufficient funds; carving out
--- keeps the payer's side of every call site identical.
---
--- setMoney is NEVER taxed: it is an absolute assignment (admin edits, resets,
--- migrations), not a transaction.
---
--- Availability is failure-open by design. If the banking resource is down the
--- transaction goes through UNTAXED rather than failing or quietly destroying the
--- slice -- a bank outage must never cost a player money or block the economy.
 local TAX_ACTIONS = { add = true, remove = true, transfer = true }
 local TAX_REFUND_REASON = 'tax-refund'
--- Set once the government account is known to exist; cleared whenever a deposit
--- is rejected or the provider stops, so a restarted bank is re-checked.
 local taxAccountReady = false
 local taxWarnedAt = 0
 
--- Rate-limited: a bank that is down would otherwise print once per transaction.
 local function taxWarn(message)
     local now = os.time()
     if now - taxWarnedAt < 60 then return end
@@ -83,8 +45,6 @@ local function taxConfig()
     return cfg
 end
 
--- An `accounts`/`actions` table is an explicit allow-list: a key that is absent
--- (or not `true`) is not taxed. Omitting the table entirely means "everything".
 local function taxableAccount(cfg, account)
     if type(cfg.accounts) ~= 'table' then return true end
     return cfg.accounts[account] == true
@@ -179,7 +139,6 @@ function Core.money.collectTax(amount, reason)
 
     local ok, deposited = pcall(function() return exports[resource][addFn](exports[resource], cfg.account, amount, reason or 'tax') end)
     if not ok or not deposited then
-        -- A restarted or mid-failure bank invalidates the cached account marker.
         taxAccountReady = false
         return false, ('banking provider %s rejected the tax deposit'):format(resource)
     end
@@ -241,16 +200,7 @@ AddEventHandler('onResourceStop', function(resource)
     if type(cfg) == 'table' and resource == cfg.provider then taxAccountReady = false end
 end)
 
--- Physical-cash mirror
--- While kora_inventory owns an account, the PlayerData.money ledger for it is a
--- constant 0 and the real balance is the item stack. Stock qb-* scripts read
--- PlayerData.money.cash directly, so the REAL balance is mirrored into the
--- legacy-shaped server view and into the replicated client PlayerData. The
--- ledger (and therefore persistence) is never touched: the mirror is overlaid
--- onto the compat view and onto the outgoing replication ops/snapshot only.
--- Refreshes are event-driven (every Core.money change and every
--- qbcore:server:inventoryChanged); nothing polls.
-local mirrors = setmetatable({}, { __mode = 'k' })   -- player -> { real = {account=n}, sent = {account=n} }
+local mirrors = setmetatable({}, { __mode = 'k' })
 
 local function mirrorState(player)
     local st = mirrors[player]
@@ -360,10 +310,8 @@ local function emitMoneyChange(src, account, amount, action, reason)
     if balance ~= nil then Player(src).state:set(MONEY_STATE_PREFIX .. account, balance, true) end
     TriggerEvent('QBCore:Server:OnMoneyChange', src, account, amount, action, reason)
     TriggerClientEvent('QBCore:Client:OnMoneyChange', src, account, amount, action, reason)
-    -- Legacy hook: stock qb-hud's money popup listens ONLY to this event (kora_hud uses the statebag).
     local isRemove = action == 'remove'
     TriggerClientEvent('hud:client:OnMoneyChange', src, account, amount, isRemove)
-    -- Legacy qb-phone hook: fired specifically on a bank-account removal.
     if account == 'bank' and isRemove then
         TriggerClientEvent('qb-phone:client:RemoveBankMoney', src, amount)
     end
@@ -388,9 +336,6 @@ function Core.money.registerPhysicalCash(account)
     if not validAccount(account) or account ~= Config.money.cashType then return false, 'only the configured cash account may be physical' end
     if physicalAccounts[account] and physicalAccounts[account] ~= caller then return false, 'physical cash provider already registered' end
 
-    -- Preflight every online legacy balance before activation. A full
-    -- inventory therefore refuses the switch rather than losing, duplicating,
-    -- or silently hiding money.
     for src, player in pairs(PI.bySource) do
         local balance = math.floor(tonumber((player.PlayerData.money or {})[account]) or 0)
         if balance < 0 then return false, 'cash account cannot be negative' end
@@ -404,8 +349,6 @@ function Core.money.registerPhysicalCash(account)
     for src in pairs(PI.bySource) do
         local imported, err = Core.money.migratePhysicalCash(src)
         if not imported then
-            -- This should be unreachable after preflight; retain the provider
-            -- marker to fail closed and make intervention visible.
             print(('^1[qbcore:money]^7 physical cash import failed for %s: %s'):format(src, tostring(err)))
             return false, err or 'physical cash import failed'
         end
@@ -418,7 +361,6 @@ function Core.money.unregisterPhysicalCash(account)
     local caller = GetInvokingResource()
     if physicalAccounts[account] ~= caller then return false, 'physical cash provider mismatch' end
     physicalAccounts[account] = nil
-    -- Hand the legacy view and the client mirror back to the ledger value.
     for src, player in pairs(PI.bySource) do
         mirrors[player] = nil
         local ledger = (player.PlayerData.money or {})[account]
@@ -432,10 +374,6 @@ function Core.money.isPhysicalCash(account)
     return physicalAccounts[account] ~= nil
 end
 
--- Called during provider activation and before a newly adopted player's first
--- snapshot. It converts a legacy money-column balance exactly once by setting
--- that column to zero only after kora_inventory has accepted the matching item
--- stack. A full inventory rejects login/activation rather than losing money.
 function Core.money.migratePhysicalCash(src)
     local player = PI.handle(src)
     if not player then return false, 'no such player' end
@@ -516,12 +454,10 @@ function Core.money.addMoney(src, account, amount, reason, ignoreTax)
 
     local tax = taxFor(account, amount, 'add', ignoreTax)
     local net = amount - tax
-    -- The tax was withheld from THIS player, so a failed deposit goes back here.
     local refund = taxRefund(src, account, tax)
 
     if provider then
         if amount ~= math.floor(amount) then return false, 'physical cash amount must be whole' end
-        -- net is 0 only at a 100% rate: nothing reaches the player, tax takes it all.
         if net > 0 then
             local ok, added, err = pcall(function() return exports[provider]:physicalCashAdd(src, account, net, reason) end)
             if not ok then return false, 'physical cash provider failed' end
@@ -559,8 +495,6 @@ function Core.money.removeMoney(src, account, amount, reason, ignoreTax)
     local provider, providerErr = providerFor(account)
     if provider == false then return false, providerErr end
 
-    -- No refund closure on a removal: the money left the player either way, so a
-    -- failed deposit just destroys the slice exactly as an untaxed remove would.
     local tax = taxFor(account, amount, 'remove', ignoreTax)
 
     if provider then
@@ -637,15 +571,10 @@ local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
 
     local tax = taxFor(account, amount, 'transfer', ignoreTax)
     local net = amount - tax
-    -- The tax is charged to the SENDER (they paid `amount` while the recipient
-    -- received `net`), so a failed deposit refunds them -- leaving exactly an
-    -- untaxed transfer of `net`, with no money created or destroyed.
     local refund = taxRefund(fromSrc, account, tax)
 
     if provider then
         if amount ~= math.floor(amount) then return false, 'physical cash amount must be whole' end
-        -- Tax off the sender first, then move the net: costs the sender what an untaxed
-        -- transfer of `amount` would, and a failed move has one thing to compensate.
         if tax > 0 then
             local ok, removed, err = pcall(function() return exports[provider]:physicalCashRemove(fromSrc, account, tax, reason) end)
             if not ok then return false, 'physical cash provider failed' end
@@ -663,14 +592,11 @@ local function transferMoney(fromSrc, toSrc, account, amount, reason, ignoreTax)
         dispatchTax(tax, reason, refund)
         return true
     end
-    -- Tax is settled once here, so both legs run exempt.
     local ok, err = Core.money.removeMoney(fromSrc, account, amount, reason, true)
     if not ok then return false, err end
     if net > 0 then
         local ok2, err2 = Core.money.addMoney(toSrc, account, net, reason, true)
         if not ok2 then
-            -- Refund on failure to add -- the full amount, tax included, since
-            -- nothing has been banked yet.
             Core.money.addMoney(fromSrc, account, amount, 'transfer-refund', true)
             return false, err2
         end

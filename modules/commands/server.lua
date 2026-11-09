@@ -1,9 +1,3 @@
--- Core.commands (server realm) -- wraps kora_lib's generic Kora.commands with
--- kora_core's own permission model and legacy 'QBCore:Notify' messaging. The
--- registration mechanics (RegisterCommand, owner-tracking, chat suggestions)
--- live in kora_lib (modules/commands) so any resource can use them, not just
--- kora_core.
-
 ---Register a command. handler(source, args, rawCommand).
 ---@param name string
 ---@param help string

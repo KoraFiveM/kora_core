@@ -7,8 +7,6 @@ local H = require('harness')
 local mocks = require('mocks')
 mocks.install({ client = true })
 
--- modules/locales/client.lua reads Config.locales at load; in game config.lua is
--- the first shared_script, so load it the same way here.
 dofile(repoRoot .. 'config.lua')
 
 local commands, notices, keyMappings = {}, {}, {}

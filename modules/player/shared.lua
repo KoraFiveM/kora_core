@@ -1,15 +1,6 @@
--- Core.player (shared realm) -- the PlayerData shape helpers and the root-key ->
--- DB-column map used by the funnel. Kept in the shared realm so both the server
--- funnel and any client-side shape checks agree on the mapping.
-
 CoreInternal = CoreInternal or {}
 CoreInternal.player = CoreInternal.player or {}
 
--- Root key of PlayerData -> the DB column that persists it. The funnel marks a
--- column dirty from path[1]; a root key absent here does not persist (and the
--- compat SetPlayerData shim warns when that happens). `license`/`cid` are
--- intentionally ABSENT: they are immutable after character creation and must
--- never appear in a save write-set (see the schema's two-unique-key hazard).
 CoreInternal.player.COLUMN_FOR = {
     charinfo = 'charinfo',
     job = 'job',
@@ -47,11 +38,9 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
         metadata = {
             hunger = 100, thirst = 100, stress = 0, armor = 0,
             isdead = false, inlaststand = false, ishandcuffed = false,
-            jailed = 0, injail = 0, -- injail mirrors jailed for legacy readers, see modules/jail/server.lua
+            jailed = 0, injail = 0,
             licences = { driver = true, weapon = false },
             phone = {}, bloodtype = 'O+',
-            -- Seeded as in stock qb-core. Plain random candidates, no uniqueness pre-check:
-            -- a JSON metadata field has no DB unique index to collide with.
             fingerprint = ('%s%s%s%s%s%s'):format(
                 Core.util.randomStr(2), Core.util.randomInt(3), Core.util.randomStr(1),
                 Core.util.randomInt(2), Core.util.randomStr(3), Core.util.randomInt(4)),
@@ -62,11 +51,6 @@ function CoreInternal.player.freshData(citizenid, license, cid, charinfo)
     }
 end
 
--- Compose a job sub-table from the registry definition + a grade.
---
--- `type` IS copied (default 'none'): stock police/ambulance flows gate on
--- `PlayerData.job.type == 'leo'/'ems'`, and Core.jobs' type index keys off it.
--- `blip` stays registry-only: copying it would just widen the persisted job blob.
 ---@param name string
 ---@param grade integer
 ---@return table

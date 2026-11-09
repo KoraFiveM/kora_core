@@ -64,7 +64,7 @@ h.test('housing logout confirms flush before unloading and preserves exterior ov
         h.assertEqual(PI.handle(src), live)
         h.assertTrue(Player(src).state['qbcore:loggedIn'])
         h.assertEqual(unloadCount(src), 0)
-        Core.persistence.flushAll() -- must not replace the exterior with shell coordinates
+        Core.persistence.flushAll()
         local row = handle.sqlCalls.enqueue[#handle.sqlCalls.enqueue].row
         h.assertEqual(json.decode(row.cols.position).x, exterior.x)
         h.assertEqual(json.decode(row.cols.money).bank, 345)
@@ -120,8 +120,6 @@ h.test('logout rewrites the final snapshot after an earlier queued save was lost
     Core.persistence.saveNow(live)
     h.assertEqual(live._dirty.money, nil)
     h.assertTrue(live._encoded.money ~= nil)
-    -- Earlier immediate work may exhaust retries and leave an empty queue.
-    -- A true flush of that empty queue cannot prove the current snapshot saved.
     local before = #handle.sqlCalls.enqueue
     flushHook = function()
         h.assertEqual(#handle.sqlCalls.enqueue, before + 1)

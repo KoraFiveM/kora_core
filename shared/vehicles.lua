@@ -1,5 +1,3 @@
--- Default vehicle definitions (spawn model + display + price). The
--- server registry registers them at runtime, keyed by `model`/spawn name.
 QBCoreSeed = QBCoreSeed or {}
 
 QBCoreSeed.vehicles = {

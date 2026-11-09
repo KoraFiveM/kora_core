@@ -1,16 +1,9 @@
 -- Core.player.createCharacter smoke test: per-license character-slot limit
--- enforcement (Core.users.getMaxCharacters) and authoritative slot
--- assignment -- a client-supplied cid must never bypass the limit or collide
--- with an existing slot. Server realm (identity + users + player).
 
 local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 local handle = mocks.install()
 
--- Core.identity.primary needs real identifier natives; no existing smoke
--- test exercises identity, so these are defined locally here rather than in
--- the shared mocks (every source resolves to the same fixed license, which
--- is all this test needs).
 _G.GetNumPlayerIdentifiers = function() return 1 end
 _G.GetPlayerIdentifier = function() return 'license:test-license' end
 _G.GetPlayerEndpoint = function() return '127.0.0.1' end
@@ -196,7 +189,7 @@ end)
 
 h.test('a per-license users.max_characters override raises the limit', function()
     handle.sqlResponses.single[MAXCHAR_SQL] = { max_characters = Config.identity.maxCharacters + 1 }
-    withExistingCount(Config.identity.maxCharacters) -- at the GLOBAL default, but under the override
+    withExistingCount(Config.identity.maxCharacters)
     local citizenid, err = Core.player.createCharacter(4, { firstname = 'A', lastname = 'B' })
     h.assertTrue(citizenid ~= nil, err)
     h.assertEqual(lastInsertParams()[3], Config.identity.maxCharacters + 1)
@@ -259,11 +252,6 @@ h.test('recordDiscord does nothing when Config.identity.saveDiscord is off', fun
 end)
 
 h.test('freshData seeds metadata.fingerprint and metadata.walletid, matching real qb-core\'s PlayerDefaults', function()
-    -- Real qb-core's config.lua seeds both on every new character
-    -- (fingerprint = QBCore.Player.CreateFingerId(), walletid =
-    -- QBCore.Player.CreateWalletId()) -- confirmed missing entirely from
-    -- this rebuild while auditing real qb-policejob's fingerprint-scan
-    -- feature, which reads metadata.fingerprint directly.
     local data = CoreInternal.player.freshData('CID-finger', LICENSE, 1, { firstname = 'Finger', lastname = 'Print' })
 
     h.assertTrue(type(data.metadata.fingerprint) == 'string' and #data.metadata.fingerprint > 0,
@@ -291,11 +279,6 @@ h.test('the replicated login state bag follows the initial player snapshot and c
     h.assertTrue(loginStateIndex ~= nil, 'login should replicate qbcore:loggedIn=true')
     h.assertTrue(loginStateIndex > snapshotIndex, 'login state must follow the initial snapshot')
     h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], true, 'Player state should expose logged-in status')
-    -- Legacy mirror: real qb-core sets a bare 'isLoggedIn' key, and legacy
-    -- consumers (real qb-doorlock's client.lua gates its entire main loop on
-    -- it) read LocalPlayer.state['isLoggedIn'] directly rather than the
-    -- namespaced key above. Without this alias they permanently read nil and
-    -- behave as though the player never logged in.
     h.assertEqual(handle.playerStates[42]['isLoggedIn'], true, 'login should also replicate the legacy bare isLoggedIn key')
 
     h.assertTrue(Core.player.logout(42))

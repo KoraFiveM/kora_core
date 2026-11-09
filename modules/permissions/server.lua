@@ -1,10 +1,4 @@
--- Core.permissions (server realm) -- the legacy QBCore permission vocabulary
--- ('user'/'mod'/'admin'/'god') mapped onto ace principals under the
--- 'qbcore.' namespace. The generic ACE lookup lives in kora_lib
--- (modules/permissions) so other resources can share it under their own
--- namespace; addPermission stays here because it needs Core.identity.
-
-local LEVELS = { 'god', 'admin', 'mod', 'user' }   -- most-privileged first
+local LEVELS = { 'god', 'admin', 'mod', 'user' }
 local PREFIX = 'qbcore'
 
 ---@param src integer
@@ -43,7 +37,6 @@ end
 ---@param src integer
 ---@return boolean  -- whether the player opted into admin/dev features (a privileged level; PlayerData.optin == false opts out)
 function Core.permissions.isOptin(src)
-    -- Opt-in only makes sense for privileged players; default to their perm.
     if Core.permissions.getPermission(src) == 'user' then return false end
     local player = CoreInternal.player and CoreInternal.player.handle and CoreInternal.player.handle(src)
     return not (player and player.PlayerData.optin == false)

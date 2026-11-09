@@ -1,24 +1,9 @@
--- compat/server/qb-core.lua -- the server half of the QBCore object, exposed via
--- exports['qb-core']:GetCoreObject(). Every function here calls the internal
--- Core.* implementation DIRECTLY (never exports.kora_core:fn()), so
--- GetInvokingResource() inside those resolves to the original external consumer
--- rather than to kora_core -- load-bearing for the owner-tracked registrations
--- (commands, useables, registry entries, onChange).
-
 local PI = CoreInternal.player
 
--- CFX export-boundary callbacks may arrive as callable tables/funcrefs.
--- Current qb-core uses this check for player extension hooks in both live and
--- offline objects.
 local isCallable = Kora.util.isCallable
 
--- `provide 'qb-core'` alone doesn't make exports['qb-core']:GetCoreObject()
--- resolve here; registering the __cfx_export event does (same identity hijack as
--- kora_target/client/compat/ox-target.lua).
 local provideExport = Kora.compat.provideExport
 
--- Built-ins accept modern colon calls and the direct dot calls used by older
--- resources. A receiver may be a msgpack copy after crossing a CFX export.
 local function exposePlayerMethods(player, handle)
     for name, fn in pairs(player.Functions) do
         if handle then
@@ -50,9 +35,6 @@ local function sameValue(a, b)
     return true
 end
 
--- Legacy-shaped copy of a handle's PlayerData whose physical-cash accounts carry
--- the REAL item balance (the ledger value is a constant 0). See the cash mirror
--- in modules/money/server.lua.
 local function legacyView(src, playerData)
     local view = Core.compat.toLegacyPlayerData(Core.util.deepClone(playerData))
     if view.items == nil then view.items = {} end
@@ -64,15 +46,6 @@ local immutableRoots = { source = true, citizenid = true, license = true, cid = 
 
 local SETPLAYERDATA_REASON = 'qb-compat-setplayerdata'
 
--- A legacy `money` root write. Non-cash accounts replace the ledger as before.
--- A physical-cash account (kora_inventory owns it as an item stack, so its
--- ledger value is a constant 0; the compat PlayerData.money.cash mirrors the
--- real balance) is never written: the DELTA between the written value and the
--- mirrored balance (what the script saw) is applied through the money funnel, so item
--- stacks stay the only authority. A write that leaves cash equal to the view
--- (the common "write the table back" case) is a no-op for cash. A removal
--- larger than the real balance refuses the WHOLE write (nothing is applied)
--- and logs, so a script can neither overdraw nor get a partial update.
 local function writeLegacyMoney(src, handle, value)
     if type(value) ~= 'table' then return false, 'money must be a table' end
     local ledger = handle.PlayerData.money or {}
@@ -83,10 +56,6 @@ local function writeLegacyMoney(src, handle, value)
             if not number or number ~= number or number == math.huge or number == -math.huge then
                 return false, 'physical cash amount must be a number'
             end
-            -- Baseline is the MIRRORED balance the script saw (the compat
-            -- view), not a live item query: if the stack moved after the read,
-            -- the script's intended change still lands on top of the live
-            -- balance. The live balance only gates insufficient funds below.
             local seen = Core.money._mirroredBalance(src, account)
             if seen == nil then seen = Core.money.getMoney(src, account) end
             if seen == nil then return false, 'physical cash balance unavailable' end
@@ -150,19 +119,10 @@ local function writeLegacyRoot(src, key, value)
     return Core.player.setPath(src, { key }, data[key])
 end
 
--- The legacy view stays current through the funnel hook. Its nested tables
--- are detached so direct edits must be reconciled before entering authority.
 local function buildQBPlayer(src)
     local handle = PI.handle(src)
     if not handle then return nil end
 
-    -- PlayerData is a legacy-shaped VIEW (job/gang grade.level translated to
-    -- real qb-core's zero-based numbering), NOT `handle.PlayerData` itself --
-    -- see Core.compat.toLegacyPlayerData's comment for why a live metatable
-    -- proxy can't be used here. Kept in sync incrementally by
-    -- Core.compat.onPlayerDataChanged (registered below), which
-    -- Core.player.setPath calls on every write, so this never goes stale --
-    -- including root-level replacements like SetJob/SetGang/SetInventory.
     local self = { PlayerData = legacyView(src, handle.PlayerData), Offline = false }
     local F = {}
     self.Functions = F
@@ -181,19 +141,10 @@ local function buildQBPlayer(src)
     end
     function F.GetPlayerData() return legacyView(src, handle.PlayerData) end
 
-    -- Stock lower-cases the name (`job = job:lower()`).
     local function lowered(name) return type(name) == 'string' and name:lower() or name end
     function F.SetJob(name, grade) return Core.jobs.setJob(src, lowered(name), Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetGang(name, grade) return Core.jobs.setGang(src, lowered(name), Core.compat.fromLegacyGradeLevel(grade)) end
     function F.SetJobDuty(onDuty) return Core.jobs.setJobDuty(src, onDuty) end
-    -- 'onduty' is routed through Core.jobs.setJobDuty rather than written
-    -- straight to the path: duty is indexed (byJobOnDuty / byTypeOnDuty), and a
-    -- raw setPath flips the value while leaving the index stale -- that player
-    -- then silently receives no dispatch alerts and counts as off duty
-    -- everywhere. Core.jobs also has an onChange reconciler covering direct
-    -- writes, but going through the real function keeps the duty EVENTS
-    -- (QBCore:Server:SetDuty / QBCore:Client:SetDuty) firing too, which the
-    -- reconciler cannot retrofit.
     local function setRoleData(kind, key, value)
         if type(key) ~= 'string' then return false end
         local role = Core.compat.toLegacyJobOrGang(Core.util.deepClone(handle.PlayerData[kind]), kind == 'job' and 'jobs' or 'gangs')
@@ -207,10 +158,6 @@ local function buildQBPlayer(src)
     end
     function F.SetGangData(k, v) return setRoleData('gang', k, v) end
 
-    -- `ignoreTax` is a kora_core addition past stock qb-core's 3-arg signature, so
-    -- an unported resource simply passes nil and is taxed like any other
-    -- transaction. SetMoney has no such param: it is never taxed.
-    -- Stock rejects only negative amounts, so a zero-cost purchase succeeds.
     local function moneyOp(op, t, amount, reason, ignoreTax)
         t = lowered(t)
         local n = tonumber(amount)
@@ -248,7 +195,6 @@ local function buildQBPlayer(src)
     end
     function F.SetCreditCard(number) return F.SetCharInfo('card', number) end
 
-    -- Legacy full-data writers. SetPlayerData(key, value) targets a root key.
     function F.SetPlayerData(key, value)
         local column = PI.COLUMN_FOR[key]
         if not column and key ~= 'optin' and Config.compat.warnOnUnknownRoot then
@@ -259,8 +205,6 @@ local function buildQBPlayer(src)
         return publishWrite(ok, err, key)
     end
 
-    -- Reconcile legacy direct edits only when explicitly requested. Detached
-    -- views keep uncommitted edits behind the authoritative funnel's fences.
     local function reconcilePlayerData(key, ...)
         if PI.handle(src) ~= handle then return false, 'player is no longer loaded' end
         if key == 'all' then key = nil end
@@ -279,9 +223,6 @@ local function buildQBPlayer(src)
                     self.PlayerData[root] = Core.util.deepClone(current[root])
                     return false, err
                 end
-                -- A physical-cash edit was applied as an item delta; the ledger
-                -- view of that account did not move, so re-baseline the detached
-                -- copy or the next reconcile would apply the same delta again.
                 if root == 'money' then
                     self.PlayerData.money = legacyView(src, handle.PlayerData).money
                 end
@@ -299,8 +240,6 @@ local function buildQBPlayer(src)
         if key then value = data[key] end
         if not key then TriggerEvent('QBCore:Player:SetPlayerData', data) end
         TriggerEvent('QBCore:Server:OnPlayerUpdated', src, eventKey, value)
-        -- The funnel's queued delta must reach the client before this legacy
-        -- notification reads the authoritative mirror there.
         local derivedFromDelta = false
         if (key == 'job' or key == 'gang') and Config.compat.jobUpdateEventSource ~= 'server' then
             for _, op in pairs(handle._pendingOps) do
@@ -325,12 +264,9 @@ local function buildQBPlayer(src)
     end
     function F.Logout() return Core.player.logout(src) end
 
-    -- Methods from CURRENT qb-core's player object that classic-era compat lacked; this object is the UNION of both eras.
     function F.Notify(text, type_, length) TriggerClientEvent('QBCore:Notify', src, text, type_, length) end
     function F.HasItem(items, amount) return Core.inventory.hasItem(src, items, amount) end
 
-    -- Older job scripts use a separate jobrep map keyed by the CURRENT job,
-    -- including signed increments. Keep it distinct from modern metadata.rep.
     function F.AddJobReputation(amount)
         amount = tonumber(amount)
         if not amount or amount ~= amount or math.abs(amount) == math.huge then return end
@@ -343,7 +279,6 @@ local function buildQBPlayer(src)
     end
     F.AddJobRep = F.AddJobReputation
 
-    -- Reputation lives in metadata.rep (a name->number map), matching qb-core.
     function F.GetRep(rep)
         local reps = Core.metadata.getMetaData(src, 'rep') or {}
         return reps[rep] or 0
@@ -365,9 +300,6 @@ local function buildQBPlayer(src)
         if not ok then return false, err end
     end
 
-    -- Extension hooks: qb-core lets a resource bolt a custom method/field onto a
-    -- player object at runtime. AddMethod adds to THIS player's Functions table;
-    -- AddField adds a field to the player object itself.
     function F.AddMethod(name, method)
         if type(name) ~= 'string' or not isCallable(method) then return false end
         self[name], F[name] = method, method
@@ -384,10 +316,6 @@ local function buildQBPlayer(src)
     return self
 end
 
--- Offline lookups in current qb-core return a real Player object, not a bare
--- `{PlayerData, Offline}` record. Keep a legacy-shaped local snapshot with the
--- same method table; Save writes it back after translating grade levels to
--- kora_core's internal one-based representation.
 local function buildOfflinePlayer(data)
     local self = { PlayerData = Core.compat.toLegacyPlayerData(Core.util.deepClone(data)), Offline = true }
     local F = {}
@@ -565,8 +493,6 @@ local function forgetPlayer(src)
     QBCore.Players[src] = nil
 end
 
--- Keep QBCore.Players in sync as players load / unload. Core.player.adopt calls
--- buildLoadedPlayer so QBCore:Server:PlayerLoaded carries this same Player wrapper.
 function Core.compat.buildLoadedPlayer(src)
     forgetPlayer(src)
     local player = buildQBPlayer(src)
@@ -584,15 +510,6 @@ end)
 AddEventHandler('qbcore:server:playerDropped', forgetPlayer)
 AddEventHandler('QBCore:Server:OnPlayerUnload', forgetPlayer)
 
--- Keeps QBCore.Players[src].PlayerData incrementally in sync with EVERY write
--- Core.player.setPath makes (it calls this on every successful write -- see
--- modules/player/server.lua). Mirrors the exact same setPath operation onto
--- the legacy view, translating job/gang grade.level on the way through --
--- this is what lets a wholesale root replacement (SetJob/SetGang/
--- SetInventory/ClearInventory) AND a single-field patch (SetJobDuty's
--- onduty, F.SetJobData/SetGangData below) both stay correct without
--- enumerating call sites: every one of them routes through setPath, and this
--- hook covers setPath itself.
 Core.compat.onPlayerDataChanged = function(src, path, value)
     local player = QBCore.Players[src]
     if not player then return end
@@ -620,7 +537,6 @@ Core.compat.onPlayerDataChanged = function(src, path, value)
         end
     end
     Core.util.pathSet(player.PlayerData, path, value)
-    -- A ledger write must not clobber the mirrored real cash balance.
     if root == 'money' and type(player.PlayerData.money) == 'table' and Core.money._mirrorOverlay then
         Core.money._mirrorOverlay(src, player.PlayerData.money)
     end
@@ -651,10 +567,7 @@ function F.GetPlayer(src)
     local player = QBCore.Players[src]
     if player and player.PlayerData.citizenid == handle.citizenid then return player end
     forgetPlayer(src)
-    -- Build lazily if the load hook hasn't fired yet.
     local p = buildQBPlayer(src)
-    -- Logout clears the state flag before unload callbacks, but retains the
-    -- handle until they finish. Allow those reads without rebuilding the cache.
     if p and Player(src).state.isLoggedIn ~= false then QBCore.Players[src] = p end
     return p
 end
@@ -705,30 +618,8 @@ function F.GetSource(identifier)
     return 0
 end
 
--- Callbacks -> kora_lib's Kora.callback, PLUS real qb-core's raw net-event wire
--- protocol (QBCore:Server:TriggerCallback / QBCore:Client:TriggerCallback).
--- Some legacy scripts skip QBCore.Functions.TriggerCallback entirely and
--- fire the raw event themselves, so a handler registered via CreateCallback
--- must be reachable through BOTH transports without ever running twice for
--- one incoming request.
---
--- legacyCallbacks is the single source of truth: CreateCallback stores the
--- handler here (keyed by name), and BOTH the kora_lib-registered wrapper below
--- and the raw net event handler look the current handler up from this table
--- at dispatch time rather than closing over it -- so a later CreateCallback
--- call for the same name (a legitimate resource restart) updates what both
--- transports invoke, without re-registering either transport.
 local legacyCallbacks = {}
 
--- Real QBCore hands the legacy handler a RESPONDER function as its second
--- argument -- function(source, cb, ...) ... cb(result) end -- and the handler
--- is expected to call that responder, not `return` its result. kora_lib's
--- Kora.callback.register instead ships back whatever the registered function
--- RETURNS. Bridging one onto the other means giving the legacy handler a
--- `cb` that resolves a promise, then awaiting that promise for the actual
--- return. A handler that never calls `cb` (a legitimate early-return, e.g.
--- qb-banking's card-missing checks) would otherwise leak the awaiting
--- coroutine and kora_lib's pending request forever -- the timeout guards that.
 function F.CreateCallback(name, handler)
     legacyCallbacks[name] = handler
     Kora.callback.register(name, function(src, ...)
@@ -741,9 +632,6 @@ function F.CreateCallback(name, handler)
             p:resolve(table.pack(...))
         end
 
-        -- Dispatch through legacyCallbacks[name], NOT the `handler` upvalue
-        -- above -- see the table's comment: this is what makes a later
-        -- re-registration for the same name take effect here too.
         legacyCallbacks[name](src, respond, ...)
 
         CreateThread(function()
@@ -755,13 +643,8 @@ function F.CreateCallback(name, handler)
         return table.unpack(results, 1, results.n)
     end)
 end
--- Retain the public callback wire for consumers while allowing native callers.
 Core.compat.createCallback = F.CreateCallback
 
--- Real QBCore's TriggerCallback forwards EVERY value the client handler
--- returned to `cb`, not just the first -- kora_lib's Kora.callback.trigger (called
--- here cross-resource, kora_core -> kora_lib) now supports that end to end, so
--- table.pack/unpack is all that's needed to match it faithfully.
 function F.TriggerCallback(name, src, cb, ...)
     local args = { ... }
     CreateThread(function()
@@ -770,10 +653,6 @@ function F.TriggerCallback(name, src, cb, ...)
     end)
 end
 
--- Raw wire, client->server leg: a legacy script that skips
--- QBCore.Functions.TriggerCallback and fires the event directly. `name` gets
--- no validation in upstream either, but upstream also never crashes on
--- garbage input from the network -- guard the type instead of erroring.
 RegisterNetEvent('QBCore:Server:TriggerCallback', function(name, ...)
     local src = source
     if type(name) ~= 'string' then return end
@@ -810,8 +689,6 @@ AddEventHandler('onResourceStop', function(resource)
 end)
 function F.UseItem(src, item) return Core.inventory.useItem(src, type(item) == 'table' and item.name or item) end
 
--- Upstream HasPermission takes a permission name *or* an array of them (any
--- match passes); our native one is single-permission only.
 function F.HasPermission(src, perm)
     if type(perm) == 'table' then
         for _, v in pairs(perm) do
@@ -822,10 +699,6 @@ function F.HasPermission(src, perm)
     return Core.permissions.hasPermission(src, perm)
 end
 
--- Upstream GetPermission returns a SET of every configured permission group the
--- player holds ({ god = true, admin = true }), which callers index by name --
--- not the single highest level our native Core.permissions.getPermission
--- reports. Built from HasPermission so perms[x] and HasPermission(x) agree.
 function F.GetPermission(src)
     local perms = {}
     for _, v in pairs(QBCore.Config.Server.Permissions) do
@@ -843,8 +716,6 @@ function F.IsOptin(src)
     local player = F.GetPlayer(src)
     return player ~= nil and player.PlayerData.optin == true
 end
--- Full upstream signature: supports the connect-phase setKickReason/deferrals
--- path so a script kicking during playerConnecting behaves the same.
 function F.Kick(source, reason, setKickReason, deferrals)
     reason = '\n' .. (reason or 'Kicked') .. '\n🔸 Check our Discord for further information: ' .. (QBCore.Config.Server.Discord or '')
     if setKickReason then setKickReason(reason) end
@@ -871,8 +742,6 @@ end
 
 function F.PaycheckInterval() return Config.jobs.paycheckInterval or 300000 end
 
--- Parity block: the rest of real qb-core's QBCore.Functions.* surface plus server/exports.lua registry mutators, also reachable as exports['qb-core']:Fn(...). Native-heavy helpers are ported nearly verbatim from upstream.
-
 function F.GetCoords(entity)
     local coords = GetEntityCoords(entity, false)
     return vector4(coords.x, coords.y, coords.z, GetEntityHeading(entity))
@@ -896,7 +765,6 @@ function F.GetOfflinePlayerByLicense(license)
     return row and F.GetOfflinePlayerByCitizenId(row.citizenid) or nil
 end
 
--- Stock falls back to the offline lookup when nobody online holds the license.
 function F.GetPlayerByLicense(license)
     if type(license) ~= 'string' then return nil end
     return onlinePlayerByLicense(license) or F.GetOfflinePlayerByLicense(license)
@@ -919,16 +787,6 @@ function F.GetPlayerByCharInfo(property, value)
     return nil
 end
 
--- Job/duty helpers -- iterate the live QBCore.Players map exactly as upstream,
--- so the (players, count) return shape and the job.name/job.type match are
--- byte-for-byte compatible.
---
--- The `jd.type == job` arm is live: CoreInternal.player.buildJob copies the
--- registry's job type onto PlayerData.job, and toLegacyJobOrGang shallow-copies
--- it into this legacy view. The modern equivalent
--- with an O(1) index is Core.jobs.getPlayersByJobType; this scan is kept
--- because upstream's shape allows a caller to pass either a name or a type in
--- the same argument and the two can't be told apart here.
 function F.GetPlayersByJob(job, checkOnDuty)
     local players, count = {}, 0
     for src, Player in pairs(QBCore.Players) do
@@ -945,10 +803,6 @@ end
 function F.GetPlayersOnDuty(job) return F.GetPlayersByJob(job, true) end
 function F.GetDutyCount(job) local _, count = F.GetPlayersByJob(job, true); return count end
 
--- Server-side closest-entity helpers -- thin forwards to Kora.world.getClosestEntity
--- (see AGENTS.md's "thin forwards to Kora.*, not reimplementations"). GetClosestPlayer
--- additionally maps the ped Kora.world returns back to a player id via Kora.closest.player,
--- matching real qb-core's (playerId, distance) signature.
 function F.GetClosestPlayer(source, coords)
     coords = coords and (type(coords) == 'table' and vector3(coords.x, coords.y, coords.z) or coords) or nil
     local result = Kora.closest.player(source, coords)
@@ -966,7 +820,6 @@ function F.GetClosestObject(source, coords) return closestFromPool(source, coord
 function F.GetClosestVehicle(source, coords) return closestFromPool(source, coords, 'vehicle', false) end
 function F.GetClosestPed(source, coords) return closestFromPool(source, coords, 'ped', true) end
 
--- Routing buckets. QBCore tracks its own maps so GetPlayersInBucket/etc work.
 QBCore.Player_Buckets = QBCore.Player_Buckets or {}
 QBCore.Entity_Buckets = QBCore.Entity_Buckets or {}
 function F.GetBucketObjects() return QBCore.Player_Buckets, QBCore.Entity_Buckets end
@@ -990,10 +843,6 @@ function F.GetEntitiesInBucket(bucket)
     return pool
 end
 
--- Server-side vehicle creation. Legacy qb-core used frame-count loops here,
--- which made the real timeout depend on server tick rate and could still
--- return an invalid handle. Keep both compatibility entry points on the same
--- millisecond-bounded kora_lib lifecycle.
 local function discardEntity(entity)
     if entity and entity ~= 0 and DoesEntityExist(entity) then DeleteEntity(entity) end
     return false
@@ -1029,10 +878,6 @@ function F.SpawnVehicle(source, model, coords, warp)
     if warp and not awaitVehicleWarp(ped, vehicle) then return discardEntity(vehicle) end
     return vehicle
 end
--- Upstream's CreateAutomobile uses the experimental CREATE_AUTOMOBILE native
--- (documented there as "doesn't work for all vehicles"). We delegate to the
--- reliable CreateVehicleServerSetter path with the 'automobile' type instead --
--- same result, and it avoids a CFX hash-literal the toolchain can't parse.
 function F.CreateAutomobile(source, model, coords, warp)
     return F.CreateVehicle(source, model, 'automobile', coords, warp)
 end
@@ -1046,7 +891,6 @@ function F.CreateVehicle(source, model, vehtype, coords, warp)
     return vehicle
 end
 
--- Uses the raw wire exclusively (as real qb-core does): CreateClientCallback is reachable over both kora_lib and the raw event, so also routing this through kora_lib would invoke the client handler twice per request.
 QBCore.ClientCallbacks = QBCore.ClientCallbacks or {}
 
 function F.TriggerClientCallback(name, source, ...)
@@ -1059,8 +903,6 @@ function F.TriggerClientCallback(name, source, ...)
         QBCore.ClientCallbacks[name .. source] = cb
         TriggerClientEvent('QBCore:Client:TriggerClientCallback', source, name, table.unpack(args))
     else
-        -- Sync form (no cb passed): store the awaiting promise instead, same
-        -- shape server/qb-core.lua's CreateCallback bridge uses.
         local p = promise.new()
         QBCore.ClientCallbacks[name .. source] = p
         TriggerClientEvent('QBCore:Client:TriggerClientCallback', source, name, table.unpack(args))
@@ -1069,11 +911,6 @@ function F.TriggerClientCallback(name, source, ...)
     end
 end
 
--- Raw wire, client->server REPLY leg for the above: the client's handler
--- (registered via CreateClientCallback, invoked through its own raw
--- QBCore:Client:TriggerClientCallback listener) calls its responder, which
--- sends this event back. Clear the entry after use so a stray duplicate
--- reply can't resolve/call it a second time.
 RegisterNetEvent('QBCore:Server:TriggerClientCallback', function(name, ...)
     local src = source
     if type(name) ~= 'string' then return end
@@ -1087,8 +924,6 @@ RegisterNetEvent('QBCore:Server:TriggerClientCallback', function(name, ...)
     end
 end)
 
--- Permissions: add the Remove counterpart (upstream ExecuteCommand form; the
--- no-arg case strips every configured permission group).
 function F.RemovePermission(src, permission)
     if permission then
         if IsPlayerAceAllowed(src, permission) then
@@ -1235,7 +1070,6 @@ function F.AddPlayerField(ids, fieldName, data)
     return true
 end
 
--- Runtime object extension (server/exports.lua's SetMethod/SetField).
 function F.SetMethod(methodName, handler)
     if type(methodName) ~= 'string' then return false, 'invalid_method_name' end
     if QBCore.Functions[methodName] ~= nil then return false, 'method_exists' end
@@ -1252,18 +1086,9 @@ function F.SetField(fieldName, data)
     return true, 'success'
 end
 
--- Shared-registry mutators (server/exports.lua). These route through
--- Core.registry so the change materialises into QBCore.Shared.*, fires our
--- subscribers, AND replicates to clients -- strictly more correct than
--- upstream's raw table write, while returning upstream's (ok, reason) shape.
--- The legacy QBCore:Client:OnSharedUpdate event is fired too, for scripts that
--- listen for it directly.
 local REGISTRY_FOR = { item = 'items', job = 'jobs', gang = 'gangs' }
 local SHARED_KEY = { item = 'Items', job = 'Jobs', gang = 'Gangs' }
 
--- The legacy Items view includes both native registries. Resolve the same
--- items-first definition for writes, rather than admitting duplicate names or
--- reporting an existing weapon missing. Registration keeps caller ownership.
 local function sharedRecord(kind, key)
     local registry = REGISTRY_FOR[kind]
     local record = Core.registry.getShared(registry, key)
@@ -1289,10 +1114,6 @@ local function sharedUpdate(kind, key, record)
     local existing, registry = sharedRecord(kind, key)
     if not existing then return false, kind .. '_not_exists' end
     record = Core.util.deepClone(record)
-    -- A legacy UpdateItem on a native weapon sends a qb-shaped item record with
-    -- no weapontype/damageModifier/ammoItem. Replacing the record outright
-    -- breaks throwables, carry tiers and damage the same way the upstream
-    -- merge once did, so fields the update leaves out keep their native value.
     if registry == 'weapons' and type(record) == 'table' then
         for field, value in pairs(existing) do
             if record[field] == nil then record[field] = Core.util.deepClone(value) end
@@ -1308,8 +1129,6 @@ end
 local function sharedRemove(kind, key)
     if type(key) ~= 'string' then return false, 'invalid_' .. kind .. '_name' end
     if not sharedRecord(kind, key) then return false, kind .. '_not_exists' end
-    -- Removing the visible legacy item also removes its shadowed weapon
-    -- definition; otherwise a successful removal immediately exposes it again.
     local registries = kind == 'item' and { 'items', 'weapons' } or { REGISTRY_FOR[kind] }
     for _, registry in ipairs(registries) do
         if Core.registry.getShared(registry, key) then
@@ -1317,8 +1136,6 @@ local function sharedRemove(kind, key)
             if not ok then return false, err or kind .. '_remove_failed' end
         end
     end
-    -- Subscribers can synchronously change the registry. Never announce a
-    -- successful removal while a replacement remains visible.
     if sharedRecord(kind, key) then return false, kind .. '_remove_failed' end
     TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, SHARED_KEY[kind], key, nil)
     TriggerEvent('QBCore:Server:UpdateObject')
@@ -1353,12 +1170,6 @@ function F.AddGangs(gangs) return sharedAddMany('gang', gangs) end
 function F.UpdateGang(name, gang) return sharedUpdate('gang', name, gang) end
 function F.RemoveGang(name) return sharedRemove('gang', name) end
 
--- GetShared is a top-level export in real qb-core (shared/main.lua), not a
--- Functions entry. It reads QBCore.Shared[namespace], which our coreobject.lua
--- metatable resolves to a live compatibility view -- so this body is
--- identical to upstream's, except for the canonical-casing fallback (see
--- Core.compat.canonicalSharedNamespace's comment -- real-world legacy scripts
--- don't reliably call this with PascalCase, e.g. qb-recyclejob's GetShared('items')).
 local function GetShared(namespace, item)
     local ns = QBCore.Shared[namespace]
     if not ns and Core.compat.canonicalSharedNamespace then
@@ -1406,9 +1217,6 @@ local function validateLegacyRole(data, key)
     end
 end
 
--- Login accepts real qb-core's (source, citizenid, newData). A citizenid login
--- must belong to the source license; this is the anti-character-hijack check
--- current qb-core performs before constructing the Player object.
 function P.Login(src, citizenid, newData)
     if not src or src == '' then
         QBCore.ShowError(GetCurrentResourceName(), 'ERROR QBCORE.PLAYER.LOGIN - NO SOURCE GIVEN!')
@@ -1440,9 +1248,6 @@ function P.SaveOffline(playerData)
         { 'name', 'money', 'charinfo', 'job', 'gang', 'position', 'metadata', 'items', 'phone' })
     if ok or err ~= 'player not found' then return ok, err end
 
-    -- Legacy CheckPlayerData/CreatePlayer can save a NEW offline character.
-    -- A plain insert preserves that contract without an upsert ever rewriting
-    -- another character's immutable license/cid or an active player's data.
     if PI.byCitizenId[data.citizenid] then return false, 'player is online' end
     if Core.persistence._persistentColumnsAvailable then
         local available, reason = Core.persistence._persistentColumnsAvailable(data.citizenid)
@@ -1501,8 +1306,6 @@ function P.GetOfflinePlayer(citizenid) return F.GetOfflinePlayerByCitizenId(citi
 function P.GetPlayerByLicense(license) return F.GetPlayerByLicense(license) end
 function P.GetOfflinePlayerByLicense(license) return F.GetOfflinePlayerByLicense(license) end
 
--- Id generators (server/player.lua). CitizenId routes to our identity module;
--- the rest are self-contained random generators matching qb-core's formats.
 local function randomId(len, alpha)
     local chars = alpha and 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' or '0123456789'
     local t = {}
@@ -1517,26 +1320,9 @@ end
 function P.CreateWalletId() return 'QB-' .. tostring(math.random(10000000, 99999999)) end
 function P.CreateSerialNumber() return randomId(9, false) end
 
--- Real qb-core's QBCore.Commands.List is a TABLE keyed by command name, not a
--- function -- scripts read List[name] and iterate pairs(List). We keep a keyed
--- table rebuilt whenever a command is added/refreshed through the compat.
--- (Commands another resource registers straight through Kora.commands aren't
--- reflected until the next Add/Refresh -- documented in AGENTS.md.)
---
--- Real qb-core's List entries also carry `params`/`argsrequired`/`callback`
--- (not just name/help/permission) -- QBCore:CallCommand (qb-core-events.lua)
--- invokes .callback directly, and checks .argsrequired/.params before doing
--- so. Core.commands.listCommands() (Kora.commands.list()) only ever returns
--- {name, help, permission} -- it has no reason to leak a raw handler function
--- to every caller -- so those three extra fields are captured HERE, at
--- QBCore.Commands.Add time, in a side table keyed by name and merged into the
--- List entry on rebuild. Same "only reflects Add/Refresh" limitation as the
--- rest of this table.
 local commandExtras = {}
 QBCore.Commands.List = {}
 local function rebuildCommandList()
-    -- Defensive: in production commands/server.lua loads before this file (see
-    -- fxmanifest), but guard the call so a partial load order can't crash us.
     if not (Core.commands and Core.commands.listCommands) then return end
     for k in pairs(QBCore.Commands.List) do QBCore.Commands.List[k] = nil end
     for _, c in ipairs(Core.commands.listCommands()) do
@@ -1552,14 +1338,9 @@ local function rebuildCommandList()
         }
     end
 end
--- Permission levels that need no per-command ACE: god is allowed every command
--- and user is builtin.everyone (same as stock qb-core).
 QBCore.Commands.IgnoreList = QBCore.Commands.IgnoreList or { god = true, user = true }
 
 QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission, ...)
-    -- Stock resources also use { { 'id', 'description' } } suggestions. Adapt
-    -- that legacy shape here, leaving the native command contract strict and
-    -- retaining the caller's original params in the public legacy command list.
     local nativeArgs = args
     if type(args) == 'table' then
         nativeArgs = Core.util.deepClone(args)
@@ -1570,18 +1351,12 @@ QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission, .
             end
         end
     end
-    -- Stock fires QBCore:Server:PreCommandExecution (cancellable) before the
-    -- callback of every command run from chat/console. QBCore:CallCommand
-    -- invokes the stored raw callback directly, as stock does.
     local function guarded(source, commandArgs, rawCommand)
         TriggerEvent('QBCore:Server:PreCommandExecution', source, name, commandArgs, rawCommand)
         if WasEventCanceled and WasEventCanceled() then return end
         return cb(source, commandArgs, rawCommand)
     end
 
-    -- Stock accepts extra permission levels after `permission` (every level gets
-    -- the command ACE; List[name].permission becomes the array). The native
-    -- check uses the least privileged level of the set, matching that union.
     local levels = { type(permission) == 'string' and permission:lower() or 'user' }
     local listPermission = levels[1]
     local extra = select('#', ...)
@@ -1598,8 +1373,6 @@ QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission, .
         if (rank[level] or 0) < (rank[nativePermission] or 0) then nativePermission = level end
     end
     Core.commands.addCommand(name, help, nativeArgs, argsRequired, guarded, nativePermission)
-    -- Stock grants the permission group the `command.<name>` ACE, which is
-    -- what QBCore:CallCommand and Commands.Refresh check.
     for _, level in ipairs(levels) do
         if level:match('^[%w_]+$') and type(name) == 'string' and name:match('^[%w_:%.%-]+$')
             and not QBCore.Commands.IgnoreList[level] then
@@ -1614,23 +1387,10 @@ rebuildCommandList()
 
 Core.compat.populateLegacyConfig()
 
--- Force the lazy QBCore.Shared data views to materialise as REAL keys now.
--- A consumer's GetCoreObject() result crosses the export boundary as a
--- msgpack copy: the metatable (and therefore coreobject.lua's lazy __index)
--- does not survive the crossing, so any key not rawset by this point simply
--- does not exist in the consumer's copy of Shared -- which is how
--- `for job in pairs(QBCore.Shared.Jobs)` in an external resource ends up
--- iterating nil even though the same read works fine inside this VM. The
--- registries are guaranteed created AND seed-ingested here: both happen
--- synchronously in modules/registry/server.lua, which loads before this file.
 for _, k in ipairs({ 'Items', 'Vehicles', 'Jobs', 'Gangs', 'Weapons' }) do
     local _ = QBCore.Shared[k]
 end
 
--- GetCoreObject supports upstream's optional `filters` array (return a subset of
--- the object). Beyond it, real qb-core exposes GetShared plus EVERY
--- QBCore.Functions.* as a direct exports['qb-core']:Fn(...) -- mirror that with
--- one provideExport loop so `exports['qb-core']:GetPlayer(src)` etc. resolve.
 local function getCoreObject(filters)
     if not filters then return QBCore end
     local results = {}
@@ -1641,11 +1401,6 @@ end
 if Config.compat.coreObjectExport then
     provideExport('qb-core', 'GetCoreObject', getCoreObject)
     provideExport('qb-core', 'GetShared', GetShared)
-    -- Thin per-namespace wrappers around GetShared -- real qb-core exposes
-    -- these as their own top-level exports too. GetSharedJobs/Gangs go through
-    -- the SAME GetShared('Jobs'/'Gangs') call, so they resolve to the
-    -- legacy zero-based grade view (QBCore.Shared.Jobs/Gangs), not the raw
-    -- internal registry.
     provideExport('qb-core', 'GetSharedItems', function() return GetShared('Items') end)
     provideExport('qb-core', 'GetSharedVehicles', function() return GetShared('Vehicles') end)
     provideExport('qb-core', 'GetSharedJobs', function() return GetShared('Jobs') end)
