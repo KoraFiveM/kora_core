@@ -35,7 +35,7 @@ dofile('compat/server/qb-core.lua')
 local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
 Core.player.login(1, 'CID1', data)
 
-h.test('delegates a public operation to a started qbinventory without mutating qbcore directly', function()
+h.test('delegates a public operation to a started kora_inventory without mutating kora_core directly', function()
     handle.resourceStates.kora_inventory = 'started'
     local ok = Core.inventory.addItem(1, 'water_bottle', 2, 7, { source = 'test' })
     h.assertTrue(ok)
@@ -72,7 +72,7 @@ h.test('returns a clear error instead of silently splitting authority when fallb
     Config.inventory.allowLegacyFallback = false
     local value, err = Core.inventory.addItem(1, 'water_bottle', 1)
     h.assertTrue(value == nil)
-    h.assertTrue(type(err) == 'string' and err:find('qbinventory is not started', 1, true) ~= nil)
+    h.assertTrue(type(err) == 'string' and err:find('kora_inventory is not started', 1, true) ~= nil)
 end)
 
 h.test('does not fall back when a started provider is incomplete', function()
@@ -80,7 +80,7 @@ h.test('does not fall back when a started provider is incomplete', function()
     _G.exports.kora_inventory = {}
     local value, err = Core.inventory.addItem(1, 'water_bottle', 1)
     h.assertTrue(value == nil)
-    h.assertTrue(type(err) == 'string' and err:find("missing required qbcore gateway export 'addItem'", 1, true) ~= nil)
+    h.assertTrue(type(err) == 'string' and err:find("missing required kora_core gateway export 'addItem'", 1, true) ~= nil)
 end)
 
 h.test('move delegates original arguments and provider returns before fallback validation', function()

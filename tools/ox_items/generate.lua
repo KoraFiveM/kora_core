@@ -102,26 +102,26 @@ function M.loadRegistry(root)
     assert(loaded['shared/items.lua'] or loaded['shared/upstream/items.lua'],
         'no shared/items.lua or shared/upstream/items.lua under ' .. root)
 
-    env.QBCoreSeed = env.QBCoreSeed or {}
+    env.KoraCoreSeed = env.KoraCoreSeed or {}
     env.QBCoreUpstream = env.QBCoreUpstream or {}
-    env.QBCoreSeed.items = env.QBCoreSeed.items or {}
+    env.KoraCoreSeed.items = env.KoraCoreSeed.items or {}
     env.QBCoreUpstream.items = env.QBCoreUpstream.items or {}
     for _, k in ipairs({ 'jobs', 'gangs' }) do
-        env.QBCoreSeed[k] = env.QBCoreSeed[k] or {}
+        env.KoraCoreSeed[k] = env.KoraCoreSeed[k] or {}
         env.QBCoreUpstream[k] = env.QBCoreUpstream[k] or {}
     end
     assert(runIn(env, repoRoot .. '/shared/upstream/merge.lua'), 'shared/upstream/merge.lua not found')
     runIn(env, root .. '/shared/weapons.lua')
 
     local items, index = {}, {}
-    for _, record in ipairs(env.QBCoreSeed.items) do
+    for _, record in ipairs(env.KoraCoreSeed.items) do
         local pos = index[record.name]
         if pos then items[pos] = record else
             items[#items + 1] = record
             index[record.name] = #items
         end
     end
-    return items, env.QBCoreSeed.weapons or {}
+    return items, env.KoraCoreSeed.weapons or {}
 end
 
 local SAFE_GLOBALS = {}

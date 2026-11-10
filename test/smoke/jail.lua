@@ -12,7 +12,7 @@ SetTimeout = function(delay, callback)
 end
 
 local releases = {}
-AddEventHandler('qbcore:server:playerReleased', function(src)
+AddEventHandler('kora_core:server:playerReleased', function(src)
     releases[src] = (releases[src] or 0) + 1
 end)
 
@@ -53,7 +53,7 @@ h.test('jailPlayer teleports and sets a future release timestamp', function()
     h.assertTrue(Core.jail.isJailed(1))
     h.assertTrue(Core.jail.getRemaining(1) > 0 and Core.jail.getRemaining(1) <= 600)
 
-    local hits = eventsFor('qbcore:client:jailTeleport')
+    local hits = eventsFor('kora_core:client:jailTeleport')
     h.assertEqual(#hits, 1, 'exactly one jailTeleport push should have been sent')
     h.assertEqual(hits[1].target, 1)
 
@@ -67,7 +67,7 @@ h.test('release clears jailed state and notifies the client', function()
     h.assertTrue(ok)
     h.assertFalse(Core.jail.isJailed(1))
     h.assertEqual(Core.jail.getRemaining(1), 0)
-    h.assertTrue(#eventsFor('qbcore:client:jailRelease') >= 1)
+    h.assertTrue(#eventsFor('kora_core:client:jailRelease') >= 1)
 
     local p = CoreInternal.player.handle(1)
     h.assertEqual(p.PlayerData.metadata.injail, 0, 'release should also clear the legacy injail mirror')
@@ -87,18 +87,18 @@ h.test('defers to an external prison resource when one is running, applying noth
     handle.resourceStates['xt-prison'] = 'started'
 
     local requested = false
-    handle.eventHandlers['qbcore:server:onJailRequest'] = { function(src, minutes, reason, resourceName)
+    handle.eventHandlers['kora_core:server:onJailRequest'] = { function(src, minutes, reason, resourceName)
         requested = true
         h.assertEqual(src, 1)
         h.assertEqual(resourceName, 'xt-prison')
     end }
 
-    local before = #eventsFor('qbcore:client:jailTeleport')
+    local before = #eventsFor('kora_core:client:jailTeleport')
     local timersBefore = #scheduled
     local ok = Core.jail.jailPlayer(1, 15)
     h.assertTrue(ok, 'jailPlayer still reports success -- the external resource is expected to have handled it')
     h.assertTrue(requested, 'onJailRequest should have fired for the external resource')
-    h.assertEqual(#eventsFor('qbcore:client:jailTeleport'), before, 'Core.jail must not apply its own teleport when deferring')
+    h.assertEqual(#eventsFor('kora_core:client:jailTeleport'), before, 'Core.jail must not apply its own teleport when deferring')
     h.assertFalse(Core.jail.isJailed(1), 'Core.jail must not set its own metadata.jailed when deferring')
     h.assertEqual(#scheduled, timersBefore, 'external prison owns the release timer')
 
@@ -107,15 +107,15 @@ end)
 
 h.test('rejoin re-applies the teleport if still jailed, but not once released', function()
     Core.jail.jailPlayer(1, 10)
-    local before = #eventsFor('qbcore:client:jailTeleport')
+    local before = #eventsFor('kora_core:client:jailTeleport')
 
-    handle.fireEvent('qbcore:server:playerLoaded', 1, 1)
-    h.assertTrue(#eventsFor('qbcore:client:jailTeleport') > before, 'still jailed -- should re-teleport on rejoin')
+    handle.fireEvent('kora_core:server:playerLoaded', 1, 1)
+    h.assertTrue(#eventsFor('kora_core:client:jailTeleport') > before, 'still jailed -- should re-teleport on rejoin')
 
     Core.jail.release(1)
-    local afterRelease = #eventsFor('qbcore:client:jailTeleport')
-    handle.fireEvent('qbcore:server:playerLoaded', 1, 1)
-    h.assertEqual(#eventsFor('qbcore:client:jailTeleport'), afterRelease, 'no longer jailed -- rejoin should not re-teleport')
+    local afterRelease = #eventsFor('kora_core:client:jailTeleport')
+    handle.fireEvent('kora_core:server:playerLoaded', 1, 1)
+    h.assertEqual(#eventsFor('kora_core:client:jailTeleport'), afterRelease, 'no longer jailed -- rejoin should not re-teleport')
 end)
 
 h.test('sentence expiry clears both metadata fields and releases once', function()
@@ -128,7 +128,7 @@ h.test('sentence expiry clears both metadata fields and releases once', function
     timer.callback()
     h.assertEqual(p.PlayerData.metadata.jailed, 0)
     h.assertEqual(p.PlayerData.metadata.injail, 0)
-    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 2), 1)
+    h.assertEqual(#eventsFor('kora_core:client:jailRelease', 2), 1)
     h.assertEqual(releases[2], 1)
     timer.callback()
     h.assertEqual(releases[2], 1, 'an already-released sentence cannot release again')
@@ -178,7 +178,7 @@ h.test('manual release makes the pending sentence timer a no-op', function()
     now = now + 60
     timer.callback()
     h.assertEqual(releases[5], 1, 'manual release emits the only release event')
-    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 5), 1)
+    h.assertEqual(#eventsFor('kora_core:client:jailRelease', 5), 1)
 end)
 
 h.test('a restored sentence receives its own timer after character relog', function()
@@ -190,7 +190,7 @@ h.test('a restored sentence receives its own timer after character relog', funct
     local restored = loginAs(6, 'JAIL-RELOG', releaseAt)
     local timer = scheduled[#scheduled]
     h.assertEqual(timer.delay, 120000)
-    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 6), 2)
+    h.assertEqual(#eventsFor('kora_core:client:jailTeleport', 6), 2)
 
     now = now + 120
     oldTimer.callback()
@@ -227,8 +227,8 @@ h.test('an already-expired built-in sentence is cleared when loaded', function()
     local p = loginAs(8, 'JAIL-EXPIRED', now - 1)
     h.assertEqual(p.PlayerData.metadata.jailed, 0)
     h.assertEqual(p.PlayerData.metadata.injail, 0)
-    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 8), 0)
-    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 8), 1)
+    h.assertEqual(#eventsFor('kora_core:client:jailTeleport', 8), 0)
+    h.assertEqual(#eventsFor('kora_core:client:jailRelease', 8), 1)
     h.assertEqual(releases[8], 1)
     h.assertEqual(#scheduled, timersBefore, 'an expired sentence needs no timer')
 end)
@@ -242,8 +242,8 @@ h.test('external prison ownership skips restored and expired sentence handling',
     h.assertEqual(expired.PlayerData.metadata.jailed, now - 60)
     h.assertEqual(expired.PlayerData.metadata.injail, now - 60, 'external metadata is left untouched')
     h.assertEqual(#scheduled, timersBefore)
-    h.assertEqual(#eventsFor('qbcore:client:jailTeleport', 9), 0)
-    h.assertEqual(#eventsFor('qbcore:client:jailRelease', 10), 0)
+    h.assertEqual(#eventsFor('kora_core:client:jailTeleport', 9), 0)
+    h.assertEqual(#eventsFor('kora_core:client:jailRelease', 10), 0)
     handle.resourceStates['xt-prison'] = 'missing'
 end)
 

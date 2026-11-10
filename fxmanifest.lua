@@ -3,11 +3,9 @@ game 'gta5'
 lua54 'yes'
 
 name 'kora_core'
--- Keep the legacy resource name resolvable for exports['qbcore'] callers.
-provide 'qbcore'
 author 'Jamie'
 version '1.0.0'
-description 'Player/framework core built on kora_lib, persisted through qbsql'
+description 'Player/framework core built on kora_lib, persisted through kora_sql'
 
 dependency 'kora_lib'
 dependency 'kora_sql'
@@ -42,7 +40,7 @@ files {
 -- 'jobs' before 'player' -- both wrong. Order rationale:
 --   config.lua          everything below reads Config.*
 --   build/initiate.lua  creates the `Core` table the modules attach to
---   shared/*.lua        plain QBCoreSeed.* data, no Core dependency
+--   shared/*.lua        plain KoraCoreSeed.* data, no Core dependency
 --   modules/util        registry/player/inventory all call Core.util.*
 --   modules/registry    runtime-registers defaults + owns indexed getter storage
 --   ...rest             player/inventory shared shapes

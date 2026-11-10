@@ -24,7 +24,7 @@ Core.player.login(1, 'CID1', data)
 
 h.test('fireSharedUpdateAtLogin = true fires QBCore:Client:SharedUpdate with the current QBCore.Shared table', function()
     local before = #handle.clientEvents
-    TriggerEvent('qbcore:server:playerLoaded', 1, 'CID1')
+    TriggerEvent('kora_core:server:playerLoaded', 1, 'CID1')
 
     local found
     for i = before + 1, #handle.clientEvents do

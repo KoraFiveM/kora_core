@@ -183,7 +183,7 @@ end)
 
 h.test('dropping a player clears them from every index', function()
     local dutyBefore = Core.jobs.getDutyCountByType('leo')
-    TriggerEvent('qbcore:server:playerDropped', 2, 'COP2', 'quit')
+    TriggerEvent('kora_core:server:playerDropped', 2, 'COP2', 'quit')
 
     h.assertEqual(Core.jobs.getDutyCountByType('leo'), dutyBefore - 1, 'the type duty count should drop')
     equalSets(Core.jobs.getPlayersByJob('police'), { 1 }, 'and the name index should forget them')

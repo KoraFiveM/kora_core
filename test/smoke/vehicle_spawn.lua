@@ -146,7 +146,7 @@ end)
 h.test('leaving the server deletes the player\'s compat-spawned vehicles', function()
     step(); call('QBCore:Server:SpawnVehicle', 1, vehicleName, nil, false)
     local entity = created[#created].entity
-    TriggerEvent('qbcore:server:playerDropped', 1, 'VEH1')
+    TriggerEvent('kora_core:server:playerDropped', 1, 'VEH1')
     h.assertFalse(alive[entity])
 end)
 

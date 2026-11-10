@@ -48,13 +48,13 @@ local function setLocalMode(enabled)
 
     if not active then
         restoreOwnedState()
-        TriggerEvent('qbcore:client:devModeChanged', false)
+        TriggerEvent('kora_core:client:devModeChanged', false)
         return
     end
 
     local myGeneration = generation
     Core.development._tick()
-    TriggerEvent('qbcore:client:devModeChanged', true)
+    TriggerEvent('kora_core:client:devModeChanged', true)
     CreateThread(function()
         while active and generation == myGeneration do
             Core.development._tick()
@@ -68,7 +68,7 @@ function Core.development.isDevMode()
     return active
 end
 
-RegisterNetEvent('qbcore:client:setDevMode', setLocalMode)
+RegisterNetEvent('kora_core:client:setDevMode', setLocalMode)
 
 AddEventHandler('onClientResourceStop', function(resourceName)
     if resourceName ~= GetCurrentResourceName() or not active then return end

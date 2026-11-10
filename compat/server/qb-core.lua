@@ -75,7 +75,7 @@ local function writeLegacyMoney(src, handle, value)
         local available = Core.money.getMoney(src, change.account)
         if available == nil then return false, 'physical cash balance unavailable' end
         if change.delta < 0 and -change.delta > available then
-            print(('^3[qbcore:qb-core-bridge]^7 refused SetPlayerData money write for %s: removes %d %s but only %d is available'):format(
+            print(('^3[kora_core:qb-core-bridge]^7 refused SetPlayerData money write for %s: removes %d %s but only %d is available'):format(
                 tostring(src), -change.delta, change.account, available))
             return false, 'insufficient funds'
         end
@@ -198,7 +198,7 @@ local function buildQBPlayer(src)
     function F.SetPlayerData(key, value)
         local column = PI.COLUMN_FOR[key]
         if not column and key ~= 'optin' and Config.compat.warnOnUnknownRoot then
-            print(("^3[qbcore:qb-core-bridge]^7 SetPlayerData('%s', ...) targets an unknown root key with no DB "
+            print(("^3[kora_core:qb-core-bridge]^7 SetPlayerData('%s', ...) targets an unknown root key with no DB "
                 .. "column mapping; it will not persist."):format(tostring(key)))
         end
         local ok, err = writeLegacyRoot(src, key, value)
@@ -502,12 +502,12 @@ function Core.compat.buildLoadedPlayer(src)
     end
     return player
 end
-AddEventHandler('qbcore:server:playerLoaded', function(src)
+AddEventHandler('kora_core:server:playerLoaded', function(src)
     local existing, handle = QBCore.Players[src], PI.handle(src)
     if existing and handle and existing.PlayerData.citizenid == handle.citizenid then return end
     Core.compat.buildLoadedPlayer(src)
 end)
-AddEventHandler('qbcore:server:playerDropped', forgetPlayer)
+AddEventHandler('kora_core:server:playerDropped', forgetPlayer)
 AddEventHandler('QBCore:Server:OnPlayerUnload', forgetPlayer)
 
 Core.compat.onPlayerDataChanged = function(src, path, value)
@@ -665,7 +665,7 @@ RegisterNetEvent('QBCore:Server:TriggerCallback', function(name, ...)
 
     local ok, err = pcall(handler, src, respond, ...)
     if not ok then
-        print(('^1[qbcore:qb-core-bridge]^7 legacy callback %q raised an error: %s'):format(tostring(name), tostring(err)))
+        print(('^1[kora_core:qb-core-bridge]^7 legacy callback %q raised an error: %s'):format(tostring(name), tostring(err)))
     end
 end)
 
@@ -732,7 +732,7 @@ end
 function F.HasItem(src, items, amount) return Core.inventory.hasItem(src, items, amount) end
 
 function F.ExecuteSql(_, query, cb)
-    print('^3[qbcore:qb-core-bridge]^7 ExecuteSql is deprecated and its `wait` argument is ignored; use '
+    print('^3[kora_core:qb-core-bridge]^7 ExecuteSql is deprecated and its `wait` argument is ignored; use '
         .. 'Kora.sql.query or exports.kora_sql:query.')
     CreateThread(function()
         local rows = Kora.sql.query(query, {})
@@ -1002,7 +1002,7 @@ end
 function F.GetCoreVersion(invokingResource)
     local version = GetResourceMetadata(GetCurrentResourceName(), 'version', 0)
     if invokingResource and invokingResource ~= '' then
-        print(('%s called qbcore version check: %s'):format(invokingResource, version))
+        print(('%s called kora_core version check: %s'):format(invokingResource, version))
     end
     return version
 end
@@ -1376,7 +1376,7 @@ QBCore.Commands.Add = function(name, help, args, argsRequired, cb, permission, .
     for _, level in ipairs(levels) do
         if level:match('^[%w_]+$') and type(name) == 'string' and name:match('^[%w_:%.%-]+$')
             and not QBCore.Commands.IgnoreList[level] then
-            ExecuteCommand(('add_ace qbcore.%s command.%s allow'):format(level, name))
+            ExecuteCommand(('add_ace kora_core.%s command.%s allow'):format(level, name))
         end
     end
     commandExtras[name] = { params = args, argsrequired = argsRequired, callback = cb, permission = listPermission }

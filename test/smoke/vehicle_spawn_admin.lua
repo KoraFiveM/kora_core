@@ -66,7 +66,7 @@ handle.setPlayers({ 1 })
 
 handle.setPlayers({ 1 })
 assert(Core.player.login(2, 'VEH2', CoreInternal.player.freshData('VEH2', 'license:veh2', 1, { firstname = 'C', lastname = 'D' })))
-handle.setAce(1, 'qbcore.admin', true)
+handle.setAce(1, 'kora_core.admin', true)
 local function call(name, src, ...)
     local before = #handle.clientEvents
     handle.fireEvent('QBCore:Server:TriggerCallback', src, name, ...)

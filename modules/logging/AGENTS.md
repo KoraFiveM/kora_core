@@ -10,7 +10,7 @@ A minimal server-side event log: a fixed-size in-memory ring buffer, cumulative 
 ## Implementation notes
 - **Fixed 500-entry ring.** `RING = 500`; while under capacity it appends, then wraps using `head` as the write cursor (`ring[head+1] = entry; head = (head+1) % RING`). It's a live tail for diagnostics, not durable audit storage — old events are overwritten and nothing is persisted to the DB.
 - **Cumulative counters.** `counts[category]` only ever increments over the session; `getStats` surfaces them (plus `#ring`) for HUDs/tooling.
-- **Webhook is convar-gated and non-blocking.** Only fires when `GetConvar('qbcore_log_webhook', '')` is non-empty; `PerformHttpRequest` is called with an empty callback so the caller never waits on the network.
+- **Webhook is convar-gated and non-blocking.** Only fires when `GetConvar('kora_core_log_webhook', '')` is non-empty; `PerformHttpRequest` is called with an empty callback so the caller never waits on the network.
 - **Deliberately not wired into every module.** It exposes `event` for callers to log through; it does not auto-subscribe to money/job/etc. changes. Keeping it decoupled is intentional — a server can log exactly what it wants.
 - **No `CoreInternal.logging` table.** `RING`/`ring`/`head`/`counts` are file-local; both functions are public. Internals elsewhere use `CoreInternal.<module>`; `build/finalise.lua` walks only `Core.<module>` and skips `_`-prefixed functions.
 

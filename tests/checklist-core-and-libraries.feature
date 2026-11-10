@@ -201,7 +201,7 @@ Feature: kora_core — Core & Libraries
     When I manually: repeat the jump with a bike, a boat and an aircraft
     Then I confirm: bikes, boats and aircraft keep control in the air
 
-  @kora_core @checklist @checklist:kora_core:qbcore-compat @cat:core-and-libraries @manual
+  @kora_core @checklist @checklist:kora_core:kora_core-compat @cat:core-and-libraries @manual
   Scenario: Legacy qb-core compat layer
     """
     Checklist test: Run an unmodified qb-core based resource: GetCoreObject, callbacks, PlayerData events and stress events (hud:server:GainStress) work.

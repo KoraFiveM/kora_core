@@ -173,7 +173,7 @@ h.test('spawnVehicle creates a networked entity and marks the row out', function
     local networkId, err = Core.garage.spawnVehicle(1, 'EMS001', { x = 0, y = 0, z = 0 }, 0.0)
     h.assertTrue(networkId ~= false, 'expected a network id, got error: ' .. tostring(err))
     h.assertEqual(Core.garage.getByPlate('EMS001').state, 'out')
-    local condition = handle.lastClient('qbcore:client:vehicleCondition')
+    local condition = handle.lastClient('kora_core:client:vehicleCondition')
     h.assertEqual(condition.target, 1)
     h.assertEqual(condition.args[1], networkId)
     h.assertEqual(condition.args[2], Config.garage.defaultFuel)

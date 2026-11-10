@@ -42,8 +42,8 @@ h.test('QBCore:UpdatePlayer saves again once the cooldown has elapsed', function
     h.assertEqual(#handle.sqlCalls.enqueue, before + 1, 'call after the cooldown window should save again')
 end)
 
-h.test('qbcore:server:playerDropped clears the cooldown entry (no leak)', function()
-    TriggerEvent('qbcore:server:playerDropped', 1, 'CID1', 'test')
+h.test('kora_core:server:playerDropped clears the cooldown entry (no leak)', function()
+    TriggerEvent('kora_core:server:playerDropped', 1, 'CID1', 'test')
 
     Core.metadata.setMetaData(1, 'hunger', 11)
     local before = #handle.sqlCalls.enqueue

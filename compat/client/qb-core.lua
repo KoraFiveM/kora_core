@@ -15,7 +15,7 @@ local NOTIFY_TYPE_MAP = {
 }
 
 local function resolveLocalizedText(value)
-    if type(value) ~= 'table' or value.__qb_locale ~= true then return value end
+    if type(value) ~= 'table' or value.__kora_locale ~= true then return value end
     if type(value.resource) ~= 'string' or type(value.key) ~= 'string' then return 'Invalid locale reference.' end
 
     local ok, translated = pcall(function()
@@ -282,7 +282,7 @@ function F.Notify(text, texttype, length, icon)
         duration = length or 5000,
         icon = icon,
     }
-    if type(text) == 'table' and text.__qb_locale == true then
+    if type(text) == 'table' and text.__kora_locale == true then
         payload.message = resolveLocalizedText(text)
     elseif type(text) == 'table' then
         payload.message = resolveLocalizedText(text.text or 'Placeholder')

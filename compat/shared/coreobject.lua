@@ -131,7 +131,7 @@ local function buildLegacyView(regName, transform)
     if Core.registry.onSharedChange then
         Core.registry.onSharedChange(regName, refresh)
     end
-    AddEventHandler('qbcore:registry:synced', refresh)
+    AddEventHandler('kora_core:registry:synced', refresh)
 
     return view
 end
@@ -154,7 +154,7 @@ local function buildVehicleHashesView()
     if Core.registry.onSharedChange then
         Core.registry.onSharedChange('vehicles', refresh)
     end
-    AddEventHandler('qbcore:registry:synced', refresh)
+    AddEventHandler('kora_core:registry:synced', refresh)
 
     return view
 end
@@ -174,13 +174,13 @@ local function buildLegacyItemsView()
         Core.registry.onSharedChange('items', refresh)
         Core.registry.onSharedChange('weapons', refresh)
     end
-    AddEventHandler('qbcore:registry:synced', refresh)
+    AddEventHandler('kora_core:registry:synced', refresh)
     return view
 end
 
 local function buildLegacyWeaponsView()
     local view = {}
-    local metadata = QBCoreSeed.legacyWeaponMetadata or {}
+    local metadata = KoraCoreSeed.legacyWeaponMetadata or {}
     local function refresh()
         for key in pairs(view) do view[key] = nil end
         for name, record in pairs(metadata) do
@@ -200,7 +200,7 @@ local function buildLegacyWeaponsView()
     if Core.registry.onSharedChange then
         Core.registry.onSharedChange('weapons', refresh)
     end
-    AddEventHandler('qbcore:registry:synced', refresh)
+    AddEventHandler('kora_core:registry:synced', refresh)
     return view
 end
 
@@ -497,7 +497,7 @@ function Core.compat.populateLegacyConfig()
 
     QBCore.Config.Server = {
         Closed = false, ClosedReason = 'Server Closed', Uptime = 0, Whitelist = false,
-        WhitelistPermission = 'admin', PVP = true, Discord = GetConvar('qb_discord', ''),
+        WhitelistPermission = 'admin', PVP = true, Discord = GetConvar('kora_discord', ''),
         CheckDuplicateLicense = true, Permissions = { 'god', 'admin', 'mod' },
     }
     QBCore.Config.Commands = { OOCColor = { 255, 151, 133 } }
@@ -528,5 +528,5 @@ function QBCore.Debug(tbl, indent)
     end
 end
 
-function QBCore.ShowError(res, msg) print(('^1[%s] %s^7'):format(res or 'qbcore', msg or '')) end
-function QBCore.ShowSuccess(res, msg) print(('^2[%s] %s^7'):format(res or 'qbcore', msg or '')) end
+function QBCore.ShowError(res, msg) print(('^1[%s] %s^7'):format(res or 'kora_core', msg or '')) end
+function QBCore.ShowSuccess(res, msg) print(('^2[%s] %s^7'):format(res or 'kora_core', msg or '')) end

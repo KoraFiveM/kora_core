@@ -54,7 +54,7 @@ local function reset()
     Config.compat.fireLegacyPlayerDataEvent = true
     Config.compat.inventoryPlayerDataEventInterval = 250
     Config.compat.jobUpdateEventSource = 'client'
-    TriggerEvent('qbcore:rep:snapshot', 0, {
+    TriggerEvent('kora_core:rep:snapshot', 0, {
         citizenid = 'FIRST', items = { [1] = weapon(30) }, money = { cash = 100 },
         job = { name = 'police', grade = { level = 3 } },
         gang = { name = 'ballas', grade = { level = 2 } },
@@ -63,7 +63,7 @@ local function reset()
 end
 
 local function itemDelta(seq, ammo)
-    TriggerEvent('qbcore:rep:delta', seq, { { p = { 'items', 1 }, v = weapon(ammo) } })
+    TriggerEvent('kora_core:rep:delta', seq, { { p = { 'items', 1 }, v = weapon(ammo) } })
 end
 
 h.test('inventory bursts notify once with current data while public reads and subscribers stay immediate', function()
@@ -115,7 +115,7 @@ h.test('non-inventory updates announce immediately and an old timer cannot flush
     reset()
     itemDelta(1, 29)
     advance(100)
-    TriggerEvent('qbcore:rep:delta', 2, { { p = { 'money', 'cash' }, v = 200 } })
+    TriggerEvent('kora_core:rep:delta', 2, { { p = { 'money', 'cash' }, v = 200 } })
     h.assertEqual(#legacy, 1)
     h.assertEqual(legacy[1].data.items[1].info.ammo, 29)
     h.assertEqual(legacy[1].data.money.cash, 200)
@@ -133,7 +133,7 @@ h.test('mixed inventory, job, and gang updates preserve immediate legacy event p
     reset()
     itemDelta(1, 29)
     advance(100)
-    TriggerEvent('qbcore:rep:delta', 2, {
+    TriggerEvent('kora_core:rep:delta', 2, {
         { p = { 'items', 1 }, v = weapon(28) },
         { p = { 'job' }, v = { name = 'ambulance', grade = { level = 4 } } },
         { p = { 'gang' }, v = { name = 'lostmc', grade = { level = 3 } } },
@@ -153,7 +153,7 @@ end)
 h.test('inventory deletion is immediately readable and the delayed payload retains the deletion', function()
     reset()
     itemDelta(1, 29)
-    TriggerEvent('qbcore:rep:delta', 2, { { p = { 'items' }, d = true } })
+    TriggerEvent('kora_core:rep:delta', 2, { { p = { 'items' }, d = true } })
     h.assertEqual(Core.replication.getData({ 'items' }), nil)
     h.assertEqual(QBCore.Functions.GetPlayerData().items, nil)
     advance(250)
@@ -170,7 +170,7 @@ h.test('explicit re-announcement and resync snapshots emit immediately and inval
     advance(150)
     h.assertEqual(#legacy, 1)
     itemDelta(2, 28)
-    TriggerEvent('qbcore:rep:snapshot', 10, { citizenid = 'FIRST', items = { [1] = weapon(10) } })
+    TriggerEvent('kora_core:rep:snapshot', 10, { citizenid = 'FIRST', items = { [1] = weapon(10) } })
     h.assertEqual(#legacy, 2)
     h.assertEqual(legacy[2].data.items[1].info.ammo, 10)
     h.assertEqual(Core.replication.getStats().seq, 10)
@@ -187,7 +187,7 @@ h.test('unload discards pending notifications and a delta before login still req
     local requests = #handle.serverEvents
     itemDelta(2, 28)
     h.assertEqual(#handle.serverEvents, requests + 1)
-    h.assertEqual(handle.serverEvents[#handle.serverEvents].name, 'qbcore:rep:resync')
+    h.assertEqual(handle.serverEvents[#handle.serverEvents].name, 'kora_core:rep:resync')
     advance(250)
     h.assertEqual(#legacy, 0)
 end)
@@ -198,7 +198,7 @@ h.test('a previous character timer cannot emit or cancel a new character notific
     advance(100)
     TriggerEvent('QBCore:Client:OnPlayerUnload')
     advance(50)
-    TriggerEvent('qbcore:rep:snapshot', 0, { citizenid = 'SECOND', items = { [1] = weapon(20) } })
+    TriggerEvent('kora_core:rep:snapshot', 0, { citizenid = 'SECOND', items = { [1] = weapon(20) } })
     h.assertEqual(#legacy, 1, 'new login announces immediately')
     itemDelta(1, 19)
     advance(100)

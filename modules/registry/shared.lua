@@ -16,7 +16,7 @@ end
 
 function RI.reg(name)
     local r = registries[name]
-    if not r then error(("qbcore: no registry named '%s'"):format(tostring(name)), 3) end
+    if not r then error(("kora_core: no registry named '%s'"):format(tostring(name)), 3) end
     return r
 end
 
@@ -65,7 +65,7 @@ function RI.dispatch(name, action, key, record, previous)
     for _, sub in pairs(r.subscribers) do
         local ok, err = pcall(sub.handler, action, key, record, previous)
         if not ok then
-            print(("^3[qbcore:registry]^7 subscriber for '%s' errored: %s"):format(name, tostring(err)))
+            print(("^3[kora_core:registry]^7 subscriber for '%s' errored: %s"):format(name, tostring(err)))
         end
     end
 end

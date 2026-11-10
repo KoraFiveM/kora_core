@@ -33,7 +33,7 @@ local function scheduleFlush()
                 if PI.mirrorOps then PI.mirrorOps(player, ops) end
                 if #ops > 0 then
                     player._seq = player._seq + 1
-                    TriggerClientEvent('qbcore:rep:delta', player.source, player._seq, ops)
+                    TriggerClientEvent('kora_core:rep:delta', player.source, player._seq, ops)
                 end
             end
         end
@@ -71,7 +71,7 @@ end
 ---@param player table
 function Core.replication._sendSnapshot(player)
     local data = PI.mirrorSnapshot and PI.mirrorSnapshot(player) or player.PlayerData
-    TriggerClientEvent('qbcore:rep:snapshot', player.source, player._seq, data)
+    TriggerClientEvent('kora_core:rep:snapshot', player.source, player._seq, data)
 end
 
 ---Schedule a flush for a player with no queued op (the cash mirror adds its own).
@@ -89,7 +89,7 @@ function Core.replication._forget(player)
     lastResync[player.citizenid] = nil
 end
 
-RegisterNetEvent('qbcore:rep:resync', function()
+RegisterNetEvent('kora_core:rep:resync', function()
     local src = source
     local player = PI.bySource[src]
     if not player then return end

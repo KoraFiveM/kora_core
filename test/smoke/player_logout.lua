@@ -62,7 +62,7 @@ h.test('housing logout confirms flush before unloading and preserves exterior ov
     Core.player.setPath(src, { 'money', 'bank' }, 345)
     flushHook = function()
         h.assertEqual(PI.handle(src), live)
-        h.assertTrue(Player(src).state['qbcore:loggedIn'])
+        h.assertTrue(Player(src).state['kora_core:loggedIn'])
         h.assertEqual(unloadCount(src), 0)
         Core.persistence.flushAll()
         local row = handle.sqlCalls.enqueue[#handle.sqlCalls.enqueue].row
@@ -72,7 +72,7 @@ h.test('housing logout confirms flush before unloading and preserves exterior ov
     end
     h.assertTrue(Core.player.logout(src, options()))
     h.assertEqual(PI.handle(src), nil)
-    h.assertFalse(Player(src).state['qbcore:loggedIn'])
+    h.assertFalse(Player(src).state['kora_core:loggedIn'])
     h.assertEqual(unloadCount(src), 1)
     h.assertFalse(Core.persistence._hasColumnOperation(live.citizenid))
     flushHook, caller = nil, nil
@@ -98,7 +98,7 @@ h.test('failed flush keeps the session and final changes retryable', function()
     local ok, err = Core.player.logout(src, options())
     h.assertFalse(ok); h.assertEqual(err, 'database unavailable')
     h.assertEqual(PI.handle(src), live)
-    h.assertTrue(Player(src).state['qbcore:loggedIn'])
+    h.assertTrue(Player(src).state['kora_core:loggedIn'])
     h.assertEqual(unloadCount(src), 0)
     h.assertEqual(live.PlayerData.position.x, position.x)
     h.assertTrue(live._dirty.money)
@@ -209,7 +209,7 @@ h.test('source reuse during flush cannot unload or evict the replacement session
     h.assertFalse(ok); h.assertEqual(err, 'player session changed')
     h.assertEqual(PI.handle(src), replacement)
     h.assertEqual(PI.byCitizenId[replacement.citizenid], replacement)
-    h.assertTrue(Player(src).state['qbcore:loggedIn'])
+    h.assertTrue(Player(src).state['kora_core:loggedIn'])
     h.assertEqual(unloadCount(src), 0)
     h.assertFalse(Core.persistence._hasColumnOperation(old.citizenid))
     flushHook = nil
@@ -221,7 +221,7 @@ h.test('joining epoch change during flush rejects the old logout', function()
     flushHook = function() handle.fireEvent('playerJoining', src); return true end
     h.assertFalse(Core.player.logout(src))
     h.assertEqual(PI.handle(src), live)
-    h.assertTrue(Player(src).state['qbcore:loggedIn'])
+    h.assertTrue(Player(src).state['kora_core:loggedIn'])
     h.assertEqual(unloadCount(src), 0)
     flushHook = nil
     h.assertTrue(Core.player.logout(src))
@@ -241,7 +241,7 @@ h.test('unload subscribers cannot cause replacement-cache eviction', function()
     h.assertTrue(Core.player.logout(src))
     h.assertEqual(PI.handle(src), replacement)
     h.assertEqual(PI.byCitizenId[replacement.citizenid], replacement)
-    h.assertTrue(Player(src).state['qbcore:loggedIn'])
+    h.assertTrue(Player(src).state['kora_core:loggedIn'])
     h.assertTrue(Core.player.logout(src))
 end)
 

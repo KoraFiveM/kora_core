@@ -110,7 +110,7 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
             local merged = it[stackSlot]
             merged.amount = merged.amount + amount
             Core.player.setPath(src, { 'items', stackSlot }, merged)
-            TriggerClientEvent('qbcore:client:itemBox', src, def, 'add', amount)
+            TriggerClientEvent('kora_core:client:itemBox', src, def, 'add', amount)
             return true
         end
     end
@@ -126,7 +126,7 @@ function Core.inventory.addItem(src, name, amount, slot, info, reason)
     else
         Core.player.setPath(src, { 'items', target }, buildItem(name, amount, target, info))
     end
-    TriggerClientEvent('qbcore:client:itemBox', src, def, 'add', amount)
+    TriggerClientEvent('kora_core:client:itemBox', src, def, 'add', amount)
     return true
 end
 
@@ -178,7 +178,7 @@ function Core.inventory._removeFromSlot(src, slot, amount)
         Core.player.setPath(src, { 'items', slot }, item)
     end
     local def = Core.registry.getShared('items', item.name)
-    if def then TriggerClientEvent('qbcore:client:itemBox', src, def, 'remove', amount) end
+    if def then TriggerClientEvent('kora_core:client:itemBox', src, def, 'remove', amount) end
     return true
 end
 
@@ -339,7 +339,7 @@ function Core.inventory.useItem(src, slotOrName)
     end
     local ok, result = pcall(u.handler, src, item)
     if not ok then
-        print(("^3[qbcore:inventory]^7 useable '%s' errored: %s"):format(item.name, tostring(result)))
+        print(("^3[kora_core:inventory]^7 useable '%s' errored: %s"):format(item.name, tostring(result)))
         return false
     end
     return result ~= false
@@ -371,13 +371,13 @@ end
 ---@param opts table|nil
 ---@return boolean, string|nil
 function Core.inventory.stashOpen(src, identifier, opts)
-    local handled = TriggerEvent('qbcore:inventory:open', src, {
+    local handled = TriggerEvent('kora_core:inventory:open', src, {
         kind = 'stash', identifier = identifier,
         slots = opts and opts.slots or 50,
         maxweight = opts and opts.maxweight or 100000,
     })
-    if Config.inventory.warnOnUnhandledOpen and not _G.__qbcoreInventoryUIHandled then
-        print(("^3[qbcore:inventory]^7 stashOpen('%s') emitted qbcore:inventory:open but no UI resource "
+    if Config.inventory.warnOnUnhandledOpen and not _G.__kora_coreInventoryUIHandled then
+        print(("^3[kora_core:inventory]^7 stashOpen('%s') emitted kora_core:inventory:open but no UI resource "
             .. "handled it. Ship or bridge an inventory UI, or set Config.inventory.warnOnUnhandledOpen=false.")
             :format(identifier))
     end
@@ -394,7 +394,7 @@ function Core.inventory.dropCreate(coords, dropItems)
     local id = nextDropId
     nextDropId = nextDropId + 1
     drops[id] = { coords = coords, items = dropItems or {}, created = os.time() }
-    TriggerClientEvent('qbcore:client:dropCreated', -1, id, coords)
+    TriggerClientEvent('kora_core:client:dropCreated', -1, id, coords)
     return id
 end
 
@@ -414,7 +414,7 @@ function Core.inventory.dropTake(src, dropId, slot, amount)
     if item.amount <= amount then drop.items[slot] = nil else item.amount = item.amount - amount end
     if next(drop.items) == nil then
         drops[dropId] = nil
-        TriggerClientEvent('qbcore:client:dropRemoved', -1, dropId)
+        TriggerClientEvent('kora_core:client:dropRemoved', -1, dropId)
     end
     return true
 end
@@ -426,7 +426,7 @@ CreateThread(function()
         for id, drop in pairs(drops) do
             if drop.created and drop.created < cutoff then
                 drops[id] = nil
-                TriggerClientEvent('qbcore:client:dropRemoved', -1, id)
+                TriggerClientEvent('kora_core:client:dropRemoved', -1, id)
             end
         end
     end

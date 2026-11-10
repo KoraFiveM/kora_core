@@ -4,7 +4,7 @@
 Job-aware alert fan-out for job resources (police/ambulance dispatch, tow, mechanic, …) to push a structured alert to every on-duty member of one or more jobs, plus optional legacy event compatibility for police/ambulance. Server only. kora_core ships no NUI/UI of its own (see compat/AGENTS.md) — rendering (blips/sound/notify) is the receiving job resource's own client code.
 
 ## Public API
-- `Core.dispatch.alert(payload)` — `payload = { jobs, title?, message?, coords?, code?, blip?, sound?, radius?, data? }`. Sends `qbcore:client:dispatchAlert` to every on-duty member of each job in `payload.jobs`, deduped. Returns the recipient count.
+- `Core.dispatch.alert(payload)` — `payload = { jobs, title?, message?, coords?, code?, blip?, sound?, radius?, data? }`. Sends `kora_core:client:dispatchAlert` to every on-duty member of each job in `payload.jobs`, deduped. Returns the recipient count.
 
 ## Implementation notes
 - **Recipients via `Core.jobs.getPlayersByJob`'s O(1) index**, one lookup per job in `payload.jobs`, not a scan of all players.

@@ -99,7 +99,7 @@ h.test('Functions.SetMoney cash sets the item-backed balance', function()
 end)
 
 local function deltaValue(path1, path2)
-    local ev = handle.lastClient('qbcore:rep:delta')
+    local ev = handle.lastClient('kora_core:rep:delta')
     if not ev then return nil end
     for _, op in ipairs(ev.args[2]) do
         if op.p[1] == path1 and (path2 == nil and #op.p == 1 or op.p[2] == path2) then return op.v end
@@ -108,7 +108,7 @@ end
 
 h.test('mirror: PlayerData.money.cash reads the real item balance after an inventory cash change', function()
     physical[1] = 777
-    handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
+    handle.fireEvent('kora_core:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
     h.assertEqual(QBCore.Functions.GetPlayer(1).PlayerData.money.cash, 777)
     h.assertEqual(p.Functions.GetPlayerData().money.cash, 777)
     h.assertEqual(Core.player.getPlayerData(1, { 'money', 'cash' }), 0, 'ledger stays zero')
@@ -125,7 +125,7 @@ end)
 h.test('mirror: client snapshot carries the real balance', function()
     local before = Core.player.getPlayerData(1, { 'money', 'cash' })
     Core.replication._sendSnapshot(CoreInternal.player.handle(1))
-    local ev = handle.lastClient('qbcore:rep:snapshot')
+    local ev = handle.lastClient('kora_core:rep:snapshot')
     h.assertEqual(ev.args[2].money.cash, 800)
     h.assertEqual(Core.player.getPlayerData(1, { 'money', 'cash' }), before, 'snapshot must not alter the ledger')
 end)
@@ -142,7 +142,7 @@ end)
 
 h.test('write-back of {cash = x} applies the delta against the real balance', function()
     physical[1] = 500
-    handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
+    handle.fireEvent('kora_core:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
     local read = p.Functions.GetMoney('cash')
     h.assertEqual(read, 500)
     h.assertTrue(p.Functions.SetPlayerData('money', { cash = read - 100, bank = 50, crypto = 0 }))
@@ -154,7 +154,7 @@ end)
 
 h.test('write-back delta is against the mirrored value the script saw, not the live balance (race)', function()
     physical[1] = 500
-    handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
+    handle.fireEvent('kora_core:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
     local seen = p.Functions.GetPlayerData().money.cash
     h.assertEqual(seen, 500)
     physical[1] = 650
@@ -163,7 +163,7 @@ h.test('write-back delta is against the mirrored value the script saw, not the l
     physical[1] = 5
     h.assertFalse(p.Functions.SetPlayerData('money', { cash = 660 - 100 }))
     h.assertEqual(Core.money.getMoney(1, 'cash'), 5)
-    handle.fireEvent('qbcore:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
+    handle.fireEvent('kora_core:server:inventoryChanged', 1, 1, { 'items', 1 }, {})
 end)
 
 h.test('mirror: unregistering the provider hands the view back to the ledger', function()

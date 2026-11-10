@@ -156,7 +156,7 @@ function Core.persistence.beginPlayerColumnOperation(key, citizenids, columns)
         end
         if #statements > 0 then
             operation.uncertain = true
-            local outcome, writeErr = Kora.sql.transactionChecked(statements, { key = 'qbcore:fence:' .. token, fingerprint = fingerprint, citizenids = ids })
+            local outcome, writeErr = Kora.sql.transactionChecked(statements, { key = 'kora_core:fence:' .. token, fingerprint = fingerprint, citizenids = ids })
             if not outcome or not outcome.success then
                 operation.uncertain = not outcome or outcome.code == 'indeterminate'
                 return false, writeErr or outcome and outcome.message

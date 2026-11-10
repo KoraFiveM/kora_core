@@ -4,7 +4,7 @@ local PI = CoreInternal.player
 local function deferToExternal(src, minutes, reason)
     for _, resourceName in ipairs(Config.jail.deferToResources) do
         if GetResourceState(resourceName) == 'started' then
-            TriggerEvent('qbcore:server:onJailRequest', src, minutes, reason, resourceName)
+            TriggerEvent('kora_core:server:onJailRequest', src, minutes, reason, resourceName)
             return true
         end
     end
@@ -42,8 +42,8 @@ function Core.jail.jailPlayer(src, minutes, reason)
     local releaseAt = os.time() + math.floor(minutes * 60)
     Core.player.setPath(src, { 'metadata', 'jailed' }, releaseAt)
     Core.player.setPath(src, { 'metadata', 'injail' }, releaseAt)
-    TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, minutes * 60)
-    TriggerEvent('qbcore:server:playerJailed', src, minutes, reason)
+    TriggerClientEvent('kora_core:client:jailTeleport', src, Config.jail.coords, minutes * 60)
+    TriggerEvent('kora_core:server:playerJailed', src, minutes, reason)
     scheduleRelease(src, p, releaseAt)
 
     return true
@@ -61,8 +61,8 @@ function Core.jail.release(src)
 
     Core.player.setPath(src, { 'metadata', 'jailed' }, 0)
     Core.player.setPath(src, { 'metadata', 'injail' }, 0)
-    TriggerClientEvent('qbcore:client:jailRelease', src)
-    TriggerEvent('qbcore:server:playerReleased', src)
+    TriggerClientEvent('kora_core:client:jailRelease', src)
+    TriggerEvent('kora_core:server:playerReleased', src)
 
     return true
 end
@@ -83,7 +83,7 @@ function Core.jail.isJailed(src)
     return Core.jail.getRemaining(src) > 0
 end
 
-AddEventHandler('qbcore:server:playerLoaded', function(src)
+AddEventHandler('kora_core:server:playerLoaded', function(src)
     local p = PI.handle(src)
     if not p or (p.PlayerData.metadata.jailed or 0) == 0 then return end
 
@@ -97,7 +97,7 @@ AddEventHandler('qbcore:server:playerLoaded', function(src)
         return
     end
 
-    TriggerClientEvent('qbcore:client:jailTeleport', src, Config.jail.coords, remaining)
+    TriggerClientEvent('kora_core:client:jailTeleport', src, Config.jail.coords, remaining)
     scheduleRelease(src, p, p.PlayerData.metadata.jailed)
 end)
 

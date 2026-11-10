@@ -2,7 +2,7 @@ local h = dofile('test/harness.lua')
 local mocks = dofile('test/mocks.lua')
 mocks.install()
 
-h.test('qbcore exposes its optional shared-registry init file to consumers', function()
+h.test('kora_core exposes its optional shared-registry init file to consumers', function()
     local file = assert(io.open('fxmanifest.lua', 'r'))
     local manifest = file:read('*a')
     file:close()

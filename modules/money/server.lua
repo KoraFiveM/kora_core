@@ -1,6 +1,6 @@
 local PI = CoreInternal.player
 local physicalAccounts = {}
-local MONEY_STATE_PREFIX = 'qbcore:money:'
+local MONEY_STATE_PREFIX = 'kora_core:money:'
 
 local function validAccount(account)
     for _, a in ipairs(Config.money.types) do if a == account then return true end end
@@ -36,7 +36,7 @@ local function taxWarn(message)
     local now = os.time()
     if now - taxWarnedAt < 60 then return end
     taxWarnedAt = now
-    print(('^3[qbcore:money]^7 transaction tax skipped: %s'):format(message))
+    print(('^3[kora_core:money]^7 transaction tax skipped: %s'):format(message))
 end
 
 local function taxConfig()
@@ -142,7 +142,7 @@ function Core.money.collectTax(amount, reason)
         taxAccountReady = false
         return false, ('banking provider %s rejected the tax deposit'):format(resource)
     end
-    TriggerEvent('qbcore:server:taxCollected', cfg.account, amount, reason)
+    TriggerEvent('kora_core:server:taxCollected', cfg.account, amount, reason)
     return true
 end
 
@@ -171,7 +171,7 @@ local function dispatchTax(tax, reason, refund)
     CreateThread(function()
         local ok, err = Core.money.collectTax(tax, reason)
         if ok then return end
-        print(('^1[qbcore:money]^7 tax deposit of %s failed: %s'):format(tax, tostring(err)))
+        print(('^1[kora_core:money]^7 tax deposit of %s failed: %s'):format(tax, tostring(err)))
         if refund then refund() end
     end)
 end
@@ -295,7 +295,7 @@ function PI.mirrorSnapshot(player)
     return data
 end
 
-AddEventHandler('qbcore:server:inventoryChanged', function(src)
+AddEventHandler('kora_core:server:inventoryChanged', function(src)
     if next(physicalAccounts) == nil then return end
     local player = PI.handle(src)
     if player then refreshMirror(player) end
@@ -349,7 +349,7 @@ function Core.money.registerPhysicalCash(account)
     for src in pairs(PI.bySource) do
         local imported, err = Core.money.migratePhysicalCash(src)
         if not imported then
-            print(('^1[qbcore:money]^7 physical cash import failed for %s: %s'):format(src, tostring(err)))
+            print(('^1[kora_core:money]^7 physical cash import failed for %s: %s'):format(src, tostring(err)))
             return false, err or 'physical cash import failed'
         end
     end

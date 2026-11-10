@@ -1,6 +1,6 @@
-QBCoreSeed = QBCoreSeed or {}
+KoraCoreSeed = KoraCoreSeed or {}
 
-QBCoreSeed.jobs = {
+KoraCoreSeed.jobs = {
     {
         name = 'unemployed', label = 'Civilian', defaultDuty = true, offDutyPay = false, type = 'civ',
         grades = { { name = 'Freelancer', payment = 10 } },

@@ -20,11 +20,11 @@ function Core.dispatch.alert(payload)
 
     local count = 0
     for src in pairs(recipients) do
-        TriggerClientEvent('qbcore:client:dispatchAlert', src, payload)
+        TriggerClientEvent('kora_core:client:dispatchAlert', src, payload)
         count = count + 1
     end
 
-    TriggerEvent('qbcore:server:dispatchAlert', payload, count)
+    TriggerEvent('kora_core:server:dispatchAlert', payload, count)
 
     if Config.dispatch.legacyEvents then
         for _, jobName in ipairs(payload.jobs) do

@@ -60,8 +60,8 @@ end)
 
 local function broadcast(name, action, key, record)
     local epoch = RI.reg(name).epoch
-    TriggerEvent('qbcore:registry:delta', name, action, key, record, epoch)
-    TriggerClientEvent('qbcore:registry:delta', -1, name, action, key, record, epoch)
+    TriggerEvent('kora_core:registry:delta', name, action, key, record, epoch)
+    TriggerClientEvent('kora_core:registry:delta', -1, name, action, key, record, epoch)
 end
 
 ---Register/update one record. Returns (true) or (false, errorString).
@@ -153,11 +153,11 @@ function Core.registry.offSharedChange(name, subId)
 end
 
 do
-    QBCoreSeed = QBCoreSeed or {}
+    KoraCoreSeed = KoraCoreSeed or {}
     local seeds = {
-        items = QBCoreSeed.items, vehicles = QBCoreSeed.vehicles,
-        jobs = QBCoreSeed.jobs, gangs = QBCoreSeed.gangs,
-        weapons = QBCoreSeed.weapons, locations = QBCoreSeed.locations,
+        items = KoraCoreSeed.items, vehicles = KoraCoreSeed.vehicles,
+        jobs = KoraCoreSeed.jobs, gangs = KoraCoreSeed.gangs,
+        weapons = KoraCoreSeed.weapons, locations = KoraCoreSeed.locations,
     }
     for name, records in pairs(seeds) do
         if records then Core.registry.registerManyShared(name, records) end
@@ -167,7 +167,7 @@ end
 local snapshotWindows = {}
 
 local function sendSnapshot(src)
-    TriggerClientEvent('qbcore:registry:snapshotAll', src, RI.snapshotAll())
+    TriggerClientEvent('kora_core:registry:snapshotAll', src, RI.snapshotAll())
     local windowMs = tonumber(Config.replication and Config.replication.snapshotCoalesceMs) or 0
     if windowMs <= 0 then return end
     local window = { pending = false }
@@ -179,7 +179,7 @@ local function sendSnapshot(src)
     end)
 end
 
-RegisterNetEvent('qbcore:registry:requestSnapshot', function()
+RegisterNetEvent('kora_core:registry:requestSnapshot', function()
     local src = source
     local window = snapshotWindows[src]
     if window then

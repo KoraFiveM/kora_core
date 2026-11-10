@@ -1,4 +1,4 @@
-RegisterNetEvent('qbcore:client:vehicleCondition', function(netId, fuel, engineHealth)
+RegisterNetEvent('kora_core:client:vehicleCondition', function(netId, fuel, engineHealth)
     if source ~= 65535 then return end
     if not Kora.util.isFiniteNumber(netId) or netId <= 0 or netId % 1 ~= 0
         or not Kora.util.isFiniteNumber(fuel) or not Kora.util.isFiniteNumber(engineHealth) then return end

@@ -2,7 +2,7 @@ local selecting = false
 local uiClaimed = false
 
 ---A character-select UI resource calls this (via `exports.kora_core:claimUI()` --
----qbcore's flat exports are named after the function alone, not
+---kora_core's flat exports are named after the function alone, not
 ---`<module>_<fn>`; see build/finalise.lua) to suppress the default
 ---auto-select/auto-create flow below. Must be called
 ---before ~500ms after THIS resource's own scripts start, or the default flow
@@ -16,23 +16,23 @@ end
 
 ---Ask the server for this player's characters.
 function Core.multichar.request()
-    TriggerServerEvent('qbcore:server:requestCharacters')
+    TriggerServerEvent('kora_core:server:requestCharacters')
 end
 
 ---Select an existing character by citizenid.
 ---@param citizenid string
 function Core.multichar.select(citizenid)
-    TriggerServerEvent('qbcore:server:selectCharacter', citizenid)
+    TriggerServerEvent('kora_core:server:selectCharacter', citizenid)
 end
 
 ---Create a new character.
 ---@param charinfo table
 ---@param cid integer|nil
 function Core.multichar.create(charinfo, cid)
-    TriggerServerEvent('qbcore:server:createCharacter', charinfo, cid)
+    TriggerServerEvent('kora_core:server:createCharacter', charinfo, cid)
 end
 
-RegisterNetEvent('qbcore:client:receiveCharacters', function(characters)
+RegisterNetEvent('kora_core:client:receiveCharacters', function(characters)
     if uiClaimed or selecting then return end
     selecting = true
     if characters and characters[1] then
@@ -45,7 +45,7 @@ RegisterNetEvent('qbcore:client:receiveCharacters', function(characters)
     end
 end)
 
-RegisterNetEvent('qbcore:client:characterSelected', function(ok, err)
+RegisterNetEvent('kora_core:client:characterSelected', function(ok, err)
     if not ok then
         print(('^1[kora_core:multichar]^7 character select failed: %s'):format(tostring(err)))
         selecting = false

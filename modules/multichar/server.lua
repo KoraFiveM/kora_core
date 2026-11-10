@@ -69,29 +69,29 @@ function Core.multichar.deleteCharacter(src, citizenid)
     return Core.persistence._deleteCharacterRow(citizenid)
 end
 
-RegisterNetEvent('qbcore:server:requestCharacters', function()
+RegisterNetEvent('kora_core:server:requestCharacters', function()
     local src = source
-    TriggerClientEvent('qbcore:client:receiveCharacters', src, Core.multichar.getCharacters(src))
+    TriggerClientEvent('kora_core:client:receiveCharacters', src, Core.multichar.getCharacters(src))
 end)
 
-RegisterNetEvent('qbcore:server:selectCharacter', function(citizenid)
+RegisterNetEvent('kora_core:server:selectCharacter', function(citizenid)
     local src = source
     local ok, err = Core.multichar.selectCharacter(src, citizenid)
-    TriggerClientEvent('qbcore:client:characterSelected', src, ok, err)
+    TriggerClientEvent('kora_core:client:characterSelected', src, ok, err)
 end)
 
-RegisterNetEvent('qbcore:server:createCharacter', function(charinfo, cid)
+RegisterNetEvent('kora_core:server:createCharacter', function(charinfo, cid)
     local src = source
     local citizenid, err = Core.player.createCharacter(src, charinfo, cid)
     if citizenid then
-        TriggerClientEvent('qbcore:client:characterSelected', src, true)
+        TriggerClientEvent('kora_core:client:characterSelected', src, true)
     else
-        TriggerClientEvent('qbcore:client:characterSelected', src, false, err)
+        TriggerClientEvent('kora_core:client:characterSelected', src, false, err)
     end
 end)
 
-RegisterNetEvent('qbcore:server:deleteCharacter', function(citizenid)
+RegisterNetEvent('kora_core:server:deleteCharacter', function(citizenid)
     local src = source
     Core.multichar.deleteCharacter(src, citizenid)
-    TriggerClientEvent('qbcore:client:receiveCharacters', src, Core.multichar.getCharacters(src))
+    TriggerClientEvent('kora_core:client:receiveCharacters', src, Core.multichar.getCharacters(src))
 end)

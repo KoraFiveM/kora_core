@@ -158,7 +158,7 @@ h.test('QBCore:DebugSomething runs again once the cooldown has elapsed', functio
     QBCore.Debug = realDebug
 end)
 
-h.test('qbcore:server:playerDropped clears the debug cooldown entry too (no leak)', function()
+h.test('kora_core:server:playerDropped clears the debug cooldown entry too (no leak)', function()
     local calls = 0
     local realDebug = QBCore.Debug
     QBCore.Debug = function(...) calls = calls + 1 end
@@ -168,7 +168,7 @@ h.test('qbcore:server:playerDropped clears the debug cooldown entry too (no leak
     handle.fireEvent('QBCore:DebugSomething', 1, {})
     h.assertEqual(calls, 1, 'primes the cooldown')
 
-    TriggerEvent('qbcore:server:playerDropped', 1, 'CID1', 'test')
+    TriggerEvent('kora_core:server:playerDropped', 1, 'CID1', 'test')
 
     handle.fireEvent('QBCore:DebugSomething', 1, {})
     h.assertEqual(calls, 2, 'cooldown must be cleared by playerDropped, not left stale')
@@ -225,10 +225,10 @@ h.test('QBCore:CallCommand without argsrequired runs even with zero args', funct
     h.assertTrue(ran, 'a command with no argsrequired must run regardless of arg count')
 end)
 
-h.test('fireSharedUpdateAtLogin defaults to false: qbcore:server:playerLoaded does not fire QBCore:Client:SharedUpdate', function()
+h.test('fireSharedUpdateAtLogin defaults to false: kora_core:server:playerLoaded does not fire QBCore:Client:SharedUpdate', function()
     h.assertEqual(Config.compat.fireSharedUpdateAtLogin, false, 'default must be false')
     local before = #handle.clientEvents
-    TriggerEvent('qbcore:server:playerLoaded', 1, 'CID1')
+    TriggerEvent('kora_core:server:playerLoaded', 1, 'CID1')
     local fired = false
     for i = before + 1, #handle.clientEvents do
         if handle.clientEvents[i].name == 'QBCore:Client:SharedUpdate' then fired = true end

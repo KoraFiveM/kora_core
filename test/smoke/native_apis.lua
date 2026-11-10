@@ -20,7 +20,7 @@ h.test('native bucket changes keep compatibility tracking and voice notification
     SetPlayerRoutingBucket = function(src, value) h.assertEqual(src, 1); bucket = value end
     local trigger = TriggerEvent
     TriggerEvent = function(name, src)
-        h.assertEqual(name, 'qbvoice:server:bucketChanged')
+        h.assertEqual(name, 'kora_voice:server:bucketChanged')
         h.assertEqual(src, 1); notifications = (notifications or 0) + 1
     end
     h.assertTrue(Core.player.setPlayerBucket(1, 42))

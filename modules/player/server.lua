@@ -75,13 +75,13 @@ function Core.player.setPath(src, path, value, opts)
         if pathMatchesPrefix(path, sub.prefix) then
             local ok, err = pcall(sub.handler, src, path, value)
             if not ok then
-                print(("^3[qbcore:player]^7 onChange handler errored: %s"):format(tostring(err)))
+                print(("^3[kora_core:player]^7 onChange handler errored: %s"):format(tostring(err)))
             end
         end
     end
 
     if path[1] == 'items' then
-        TriggerEvent('qbcore:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
+        TriggerEvent('kora_core:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
     end
     return true
 end
@@ -111,7 +111,7 @@ function Core.player.setPlayerBucket(src, bucket)
         QBCore.Player_Buckets = QBCore.Player_Buckets or {}
         QBCore.Player_Buckets[license] = { id = src, bucket = bucket }
     end
-    TriggerEvent('qbvoice:server:bucketChanged', src)
+    TriggerEvent('kora_voice:server:bucketChanged', src)
     return true
 end
 
@@ -220,7 +220,7 @@ function Core.player.registerPlayerDataField(key, provider)
     for src, player in pairs(bySource) do
         local value, err = loadPlayerDataField(field, player)
         if err then
-            print(('^3[qbcore:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+            print(('^3[kora_core:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
                 :format(resource, key, player.citizenid, err))
         else
             Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
@@ -291,7 +291,7 @@ local function adopt(src, player)
     for key, field in pairs(playerDataFields) do
         local value, err = loadPlayerDataField(field, player)
         if err then
-            print(('^3[qbcore:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+            print(('^3[kora_core:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
                 :format(field.resource, key, player.citizenid, err))
         else
             Core.player.setPath(src, { key }, value, {
@@ -313,10 +313,10 @@ local function adopt(src, player)
     end
 
     TriggerEvent('QBCore:Server:PlayerLoaded', Core.compat.buildLoadedPlayer and Core.compat.buildLoadedPlayer(src) or player)
-    TriggerEvent('qbcore:server:playerLoaded', src, player.citizenid)
+    TriggerEvent('kora_core:server:playerLoaded', src, player.citizenid)
     Core.replication._sendSnapshot(player)
     if Core.money and Core.money.syncState then Core.money.syncState(src) end
-    Player(src).state:set('qbcore:loggedIn', true, true)
+    Player(src).state:set('kora_core:loggedIn', true, true)
     Player(src).state:set('isLoggedIn', true, true)
     if Config.compat.deferClientPlayerLoaded ~= true then
         player._clientLoadedSent = true
@@ -550,7 +550,7 @@ function Core.player.logout(src, options)
         if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
         return false, not sameSession and 'player session changed' or tostring(err or saved or 'player save failed')
     end
-    Player(src).state:set('qbcore:loggedIn', false, true)
+    Player(src).state:set('kora_core:loggedIn', false, true)
     Player(src).state:set('isLoggedIn', false, true)
     TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
     TriggerEvent('QBCore:Server:OnPlayerUnload', src)
@@ -577,7 +577,7 @@ function Core.player.dropPlayer(src, reason)
     if byCitizenId[player.citizenid] == player then byCitizenId[player.citizenid] = nil end
     Core.replication._forget(player)
     Core.persistence._forget(player)
-    TriggerEvent('qbcore:server:playerDropped', src, player.citizenid, reason)
+    TriggerEvent('kora_core:server:playerDropped', src, player.citizenid, reason)
 end
 
 AddEventHandler('playerDropped', function(reason)

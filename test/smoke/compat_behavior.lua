@@ -91,7 +91,7 @@ h.test('UpdatePlayerData commits direct edits through persistence and replicatio
     h.assertEqual(changed[2].job.grade.level, 2)
     h.assertEqual(allData.charinfo.firstname, 'Changed')
     handle.drainTimeouts()
-    local delta = handle.lastClient('qbcore:rep:delta')
+    local delta = handle.lastClient('kora_core:rep:delta')
     h.assertEqual(delta.target, 73)
     local update = handle.lastClient('QBCore:Client:OnPlayerUpdated')
     h.assertEqual(update.args[1], 'all')
@@ -109,7 +109,7 @@ h.test('keyed UpdateClient preserves false and publishes after the delta', funct
     h.assertEqual(update.args[2], false)
     local deltaIndex, updateIndex
     for index, event in ipairs(handle.clientEvents) do
-        if event.target == 74 and event.name == 'qbcore:rep:delta' then deltaIndex = index end
+        if event.target == 74 and event.name == 'kora_core:rep:delta' then deltaIndex = index end
         if event.target == 74 and event.name == 'QBCore:Client:OnPlayerUpdated' then updateIndex = index end
     end
     h.assertTrue(deltaIndex < updateIndex)

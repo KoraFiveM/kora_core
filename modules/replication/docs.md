@@ -4,8 +4,8 @@
 Keeps each client's local `PlayerData` mirror in sync with the server using a **delta protocol** instead of resending the whole blob on every change. The funnel queues ops; the server coalesces them per-player-per-frame and ships a sequenced batch; the client applies them in order, detecting a dropped batch via the sequence number and requesting a resync. Legacy full-blob events are re-fired **client-side** from the already-mirrored table, so every legacy listener keeps working at zero network cost. Functions are split across realms and exported flat as `exports.kora_core:<fn>`.
 
 ## Wire shape
-- **Snapshot** (`qbcore:rep:snapshot`): `seq, PlayerData` — full state; resets the client's expected seq.
-- **Delta** (`qbcore:rep:delta`): `seq, ops` where each op is `{ p = keyArray, v = value }` or `{ p = keyArray, d = true }` for a delete.
+- **Snapshot** (`kora_core:rep:snapshot`): `seq, PlayerData` — full state; resets the client's expected seq.
+- **Delta** (`kora_core:rep:delta`): `seq, ops` where each op is `{ p = keyArray, v = value }` or `{ p = keyArray, d = true }` for a delete.
 
 ## API
 

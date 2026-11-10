@@ -25,7 +25,7 @@ Shared math (internal, `CoreInternal.inventory`): `totalWeight`, `isUnique`, `fi
 - **Gateway is all-or-nothing.** Once kora_inventory is started, every public server operation goes through its same-named lower-camel export. Never add a partial fallback for a missing kora_inventory export: return the clear gateway error instead, otherwise player/stash authority would split.
 - **Fallback is transitional.** If kora_inventory is stopped, `allowLegacyFallback` selects the captured implementation and emits one warning. Set it false in production once migration is complete; it then returns a descriptive failure instead of silently writing through kora_core.
 - **Ground drops are in-memory only.** `drops[dropId] = {coords, items, created}`, broadcast to all clients on create/remove. Not persisted across restart, by design — a crash drops the drops. A sweep thread expires drops older than `Config.inventory.dropTTL` every `Config.inventory.dropSweepInterval`, so uncollected drops don't accumulate forever.
-- **Client is minimal.** `qbcore:client:itemBox` shows a `Kora.notify.send` by default (a UI resource can also listen); `getInventory` reads the mirror. No client-side authority.
+- **Client is minimal.** `kora_core:client:itemBox` shows a `Kora.notify.send` by default (a UI resource can also listen); `getInventory` reads the mirror. No client-side authority.
 
 ## Best practices
 - Mutate inventory only through these functions so each change is one funnel write with correct dirty/replication behaviour.

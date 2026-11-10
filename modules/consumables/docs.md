@@ -14,12 +14,12 @@ Whether the kora_inventory `usingItem` hook is currently registered.
 #### Example
 ```lua
 if not exports.kora_core:isRegistered() then
-    print('qbinventory effect bridge is not active')
+    print('kora_inventory effect bridge is not active')
 end
 ```
 
 ## Notes
-- **Data-driven, not per-item code.** Give an item (in `shared/items.lua`, or any resource's own item registration) an `effect` table and this module applies it automatically whenever the item is used through qbinventory:
+- **Data-driven, not per-item code.** Give an item (in `shared/items.lua`, or any resource's own item registration) an `effect` table and this module applies it automatically whenever the item is used through kora_inventory:
   ```lua
   effect = { hungerDelta = 10, thirstDelta = -5, stressDelta = -2 }
   ```

@@ -6,7 +6,7 @@ Job-aware alert fan-out. A job resource (police, ambulance, tow, mechanic, …) 
 ## API
 
 ### `Core.dispatch.alert(payload)`
-Sends `payload` to every on-duty player of each job in `payload.jobs` via `qbcore:client:dispatchAlert`.
+Sends `payload` to every on-duty player of each job in `payload.jobs` via `kora_core:client:dispatchAlert`.
 
 #### Parameters
 - `payload: table`
@@ -36,19 +36,19 @@ exports.kora_core:alert({
 
 ## Events
 
-### `qbcore:server:dispatchAlert(payload, recipientCount)` — server
+### `kora_core:server:dispatchAlert(payload, recipientCount)` — server
 Fired once per alert, after the fan-out. This is the hook for a resource that
 **owns** dispatch presentation (a dispatch/MDT UI with a call log) rather than
 merely receiving one alert as a recipient.
 
-Such a resource cannot key off the client push: `qbcore:client:dispatchAlert`
+Such a resource cannot key off the client push: `kora_core:client:dispatchAlert`
 reaches every recipient, so each of their clients would ask the server to record
 the same incident once per recipient. This fires exactly once.
 
-### `qbcore:client:dispatchAlert(payload)` — client
+### `kora_core:client:dispatchAlert(payload)` — client
 The per-recipient push, delivered only to on-duty members of the requested jobs.
 
 ## Notes
-- **Rendering is not this module's job.** kora_core ships no NUI/UI of its own — a job resource's own client code decides how to present the `qbcore:client:dispatchAlert` push (blips, sound, notify).
+- **Rendering is not this module's job.** kora_core ships no NUI/UI of its own — a job resource's own client code decides how to present the `kora_core:client:dispatchAlert` push (blips, sound, notify).
 - **Legacy compatibility, gated by `Config.dispatch.legacyEvents`.** When enabled, a `police` alert also fires `police:server:policeAlert` and `police:client:policeAlert` to each recipient; `ambulance`/`ems` alerts also fire `hospital:client:ambulanceAlert`. Both legacy client events receive `(message or title, coords)`, not the full payload table.
 - **Dedup, not multiplied sends.** A recipient matching more than one job in `payload.jobs` is still only notified once.

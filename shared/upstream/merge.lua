@@ -41,10 +41,10 @@ local function splitUpstreamWeapons(target, upstream)
     return weapons
 end
 
-assert(QBCoreSeed and QBCoreUpstream, 'shared seed tables must load before the qb-core compatibility merge')
-QBCoreSeed.upstreamWeapons = splitUpstreamWeapons(QBCoreSeed.items, QBCoreUpstream.items)
-mergeRegistry(QBCoreSeed.items, QBCoreUpstream.items)
-mergeRegistry(QBCoreSeed.jobs, QBCoreUpstream.jobs)
-mergeRegistry(QBCoreSeed.gangs, QBCoreUpstream.gangs)
+assert(KoraCoreSeed and QBCoreUpstream, 'shared seed tables must load before the qb-core compatibility merge')
+KoraCoreSeed.upstreamWeapons = splitUpstreamWeapons(KoraCoreSeed.items, QBCoreUpstream.items)
+mergeRegistry(KoraCoreSeed.items, QBCoreUpstream.items)
+mergeRegistry(KoraCoreSeed.jobs, QBCoreUpstream.jobs)
+mergeRegistry(KoraCoreSeed.gangs, QBCoreUpstream.gangs)
 
 QBCoreUpstream = nil

@@ -33,12 +33,12 @@ _G.exports.kora_inventory = {
 
 dofile('modules/consumables/server.lua')
 
-h.test('registration is deferred while qbinventory is not running', function()
+h.test('registration is deferred while kora_inventory is not running', function()
     h.assertFalse(Core.consumables.isRegistered())
-    h.assertTrue(registeredHookCallback == nil, 'the hook must not be registered before qbinventory starts')
+    h.assertTrue(registeredHookCallback == nil, 'the hook must not be registered before kora_inventory starts')
 end)
 
-h.test('onResourceStart for qbinventory registers the hook', function()
+h.test('onResourceStart for kora_inventory registers the hook', function()
     handle.resourceStates.kora_inventory = 'started'
     handle.fireEvent('onResourceStart', nil, 'kora_inventory')
 
@@ -46,7 +46,7 @@ h.test('onResourceStart for qbinventory registers the hook', function()
     h.assertTrue(registeredHookCallback ~= nil)
 end)
 
-h.test('a second onResourceStart for qbinventory (a restart) re-registers the hook, not skipped by a stale latch', function()
+h.test('a second onResourceStart for kora_inventory (a restart) re-registers the hook, not skipped by a stale latch', function()
     h.assertTrue(Core.consumables.isRegistered(), 'precondition: already registered from the prior onResourceStart')
 
     local hookCallCount = 0
@@ -58,7 +58,7 @@ h.test('a second onResourceStart for qbinventory (a restart) re-registers the ho
 
     handle.fireEvent('onResourceStart', nil, 'kora_inventory')
 
-    h.assertEqual(hookCallCount, 1, 'register() must re-run RegisterHook on a qbinventory restart, not be skipped by a permanent latch')
+    h.assertEqual(hookCallCount, 1, 'register() must re-run RegisterHook on a kora_inventory restart, not be skipped by a permanent latch')
     h.assertTrue(Core.consumables.isRegistered())
     h.assertTrue(registeredHookCallback ~= nil)
 end)

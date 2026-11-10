@@ -1,6 +1,6 @@
 # kora_core API reference
 
-Two ways to use qbcore: the modern flat exports (`exports.kora_core:getPlayer(src)`)
+Two ways to use kora_core: the modern flat exports (`exports.kora_core:getPlayer(src)`)
 for new code, and the legacy `exports['qb-core']:GetCoreObject()` object for
 existing QBCore resources (works unmodified).
 
@@ -8,7 +8,7 @@ existing QBCore resources (works unmodified).
 
 `server.cfg`, in order:
 ```
-set mysql_connection_string "mysql://user:pass@localhost/qbcore?charset=utf8mb4"
+set mysql_connection_string "mysql://user:pass@localhost/kora_core?charset=utf8mb4"
 ensure kora_sql
 ensure kora_lib
 ensure kora_core
@@ -194,7 +194,7 @@ legacy draw-text events (`qb-core:client:drawText`, `changeText`, and
 `hideText`) forward to kora_lib's text UI.
 
 For client UI visibility, prefer the server-owned replicated player state bag
-`LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
+`LocalPlayer.state['kora_core:loggedIn']` and `AddStateBagChangeHandler` over
 legacy load/unload events. kora_core sets it true only after the initial PlayerData
 snapshot and clears it before logout teardown; legacy lifecycle events remain
 for compatibility. A bare `LocalPlayer.state['isLoggedIn']` is mirrored
@@ -239,7 +239,7 @@ No NUI ships. A bare server auto-selects character slot 1 (creating a default
 character if none exist). A character-select UI calls
 `exports.kora_core:claimUI()` and drives
 `exports.kora_core:getCharacters/selectCharacter/deleteCharacter` (or the
-`qbcore:server:*` / legacy `qb-multicharacter:*` events).
+`kora_core:server:*` / legacy `qb-multicharacter:*` events).
 
 The character-slot cap is `Config.identity.maxCharacters` by default, but a
 `users` row can override it per license (`exports.kora_core:setMaxCharacters`) --

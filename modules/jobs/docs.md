@@ -155,8 +155,8 @@ end
   `Core.persistence._load` backfills it for characters saved before the field
   existed. `blip` and any other extra registry field stay registry-only.
 - **The index is maintained inline, with an `onChange` reconciler as a backstop.**
-  It is seeded on `qbcore:server:playerLoaded`, swept on
-  `qbcore:server:playerDropped`, and updated inline by `setJob`/`setJobDuty`.
+  It is seeded on `kora_core:server:playerLoaded`, swept on
+  `kora_core:server:playerDropped`, and updated inline by `setJob`/`setJobDuty`.
   A subscription on the `job` prefix additionally catches writes that bypass
   those functions — chiefly the legacy `SetJobData('onduty', …)`, which used to
   flip duty with the index none the wiser, silently cutting that player out of

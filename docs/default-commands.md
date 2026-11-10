@@ -43,7 +43,7 @@ There is no `/id` in qb-core's `commands.lua`, so none is registered.
   invoker's permission level (`QBCore.Functions.HasPermission`) in its handler, so
   a holder of the per-command ACE who lacks the `admin`/`god` level is refused
   (and the attempt audited with `denied = true`) even via `QBCore:CallCommand`.
-- **ACE.** Like stock, `Commands.Add` grants `command.<name>` to `qbcore.<level>`
+- **ACE.** Like stock, `Commands.Add` grants `command.<name>` to `kora_core.<level>`
   (not for `god`/`user`, `QBCore.Commands.IgnoreList`). Without that ACE
   `QBCore:CallCommand` and chat suggestions deny the command.
 - **Arguments** are never trusted: ids must be online integers, money types must

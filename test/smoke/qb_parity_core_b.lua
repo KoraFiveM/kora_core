@@ -95,7 +95,7 @@ h.test('GetDatabaseInfo handles url and key=value connection strings', function(
     _G.GetConvar = old
 end)
 
-h.test('drop fires the legacy events before eviction, then qbcore:server:playerDropped', function()
+h.test('drop fires the legacy events before eviction, then kora_core:server:playerDropped', function()
     assert(Core.player.login(2, 'PB2', newData('PB2', 'license:two')))
     local order, sawPlayer = {}, {}
     AddEventHandler('QBCore:Server:PlayerDropped', function(src)
@@ -104,7 +104,7 @@ h.test('drop fires the legacy events before eviction, then qbcore:server:playerD
     AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
         if src == 2 then sawPlayer.unload = F.GetPlayer(src) ~= nil end
     end)
-    AddEventHandler('qbcore:server:playerDropped', function(src)
+    AddEventHandler('kora_core:server:playerDropped', function(src)
         order[#order + 1] = 'kora'; sawPlayer.after = F.GetPlayer(src) == nil
     end)
     Core.player.dropPlayer(2, 'bye')

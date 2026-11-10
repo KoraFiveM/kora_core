@@ -21,15 +21,15 @@ function Core.development.setDevMode(src, enabled)
     if current == enabled then return true end
 
     enabledBySource[src] = enabled and true or nil
-    TriggerClientEvent('qbcore:client:setDevMode', src, enabled)
-    TriggerEvent('qbcore:server:devModeChanged', src, enabled)
+    TriggerClientEvent('kora_core:client:setDevMode', src, enabled)
+    TriggerEvent('kora_core:server:devModeChanged', src, enabled)
     return true
 end
 
-AddEventHandler('qbcore:server:playerLoaded', function(src)
-    TriggerClientEvent('qbcore:client:setDevMode', src, enabledBySource[src] == true)
+AddEventHandler('kora_core:server:playerLoaded', function(src)
+    TriggerClientEvent('kora_core:client:setDevMode', src, enabledBySource[src] == true)
 end)
 
-AddEventHandler('qbcore:server:playerDropped', function(src)
+AddEventHandler('kora_core:server:playerDropped', function(src)
     enabledBySource[src] = nil
 end)

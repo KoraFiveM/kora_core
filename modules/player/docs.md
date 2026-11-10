@@ -93,7 +93,7 @@ Removes a server-side subscription by id.
 - `id: integer`
 
 ### `Core.player.login(src, citizenid, data)` — server
-Logs a source in with already-loaded `data` (from `Core.persistence.load`). Builds the `Player` handle, adopts it into the caches, sends the initial PlayerData snapshot, then replicates `Player(src).state['qbcore:loggedIn'] = true`. Legacy load events are retained for compatibility. Returns `(true)` or `(false, err)`.
+Logs a source in with already-loaded `data` (from `Core.persistence.load`). Builds the `Player` handle, adopts it into the caches, sends the initial PlayerData snapshot, then replicates `Player(src).state['kora_core:loggedIn'] = true`. Legacy load events are retained for compatibility. Returns `(true)` or `(false, err)`.
 
 #### Parameters
 - `src: integer`
@@ -170,7 +170,7 @@ Removes a client-side subscription by id.
 #### Parameters
 - `id: integer`
 
-## The QBPlayer handle
+## The KoraPlayer handle
 Internally each online player is a `Player` handle (never exported — reads clone out of it). Its fields:
 
 - `source: integer` — Current server source.

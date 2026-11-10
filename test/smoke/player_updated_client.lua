@@ -13,7 +13,7 @@ dofile('modules/replication/client.lua')
 dofile('compat/shared/coreobject.lua')
 dofile('compat/client/qb-core-events.lua')
 
-TriggerEvent('qbcore:rep:snapshot', 1, {
+TriggerEvent('kora_core:rep:snapshot', 1, {
     citizenid = 'CID1',
     money = { cash = 500 },
     job = { name = 'police', label = 'Police', grade = { level = 3, name = 'Sergeant' }, onduty = true },

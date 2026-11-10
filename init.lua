@@ -36,7 +36,7 @@ local function applyDelta(name, action, key, record, epoch)
                 for n, payload in pairs(all) do reseed(n, payload.keyField, payload.records, payload.epoch) end
             end
         else
-            TriggerServerEvent('qbcore:registry:requestSnapshot')
+            TriggerServerEvent('kora_core:registry:requestSnapshot')
         end
         return
     end
@@ -70,7 +70,7 @@ local function applyDelta(name, action, key, record, epoch)
     for _, handler in pairs(subs[name] or {}) do
         local ok, err = pcall(handler, action, key, record, previous)
         if not ok then
-            print(("^3[qbcore:shared]^7 onChange handler for '%s' errored: %s"):format(name, tostring(err)))
+            print(("^3[kora_core:shared]^7 onChange handler for '%s' errored: %s"):format(name, tostring(err)))
         end
     end
 end
@@ -141,16 +141,16 @@ end
 local isServerRealm = IsDuplicityVersion and IsDuplicityVersion()
 
 if not isServerRealm then
-    RegisterNetEvent('qbcore:registry:delta')
+    RegisterNetEvent('kora_core:registry:delta')
 end
-AddEventHandler('qbcore:registry:delta', function(name, action, key, record, epoch)
+AddEventHandler('kora_core:registry:delta', function(name, action, key, record, epoch)
     applyDelta(name, action, key, record, epoch)
 end)
 
 if not isServerRealm then
-    RegisterNetEvent('qbcore:registry:snapshotAll')
+    RegisterNetEvent('kora_core:registry:snapshotAll')
 end
-AddEventHandler('qbcore:registry:snapshotAll', function(all)
+AddEventHandler('kora_core:registry:snapshotAll', function(all)
     for name, payload in pairs(all) do
         reseed(name, payload.keyField, payload.records, payload.epoch)
     end
@@ -170,6 +170,6 @@ CreateThread(function()
         end
     else
         Wait(0)
-        TriggerServerEvent('qbcore:registry:requestSnapshot')
+        TriggerServerEvent('kora_core:registry:requestSnapshot')
     end
 end)

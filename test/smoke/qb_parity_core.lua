@@ -109,8 +109,8 @@ h.test('Commands.Add keeps the stock List shape and lower-cases names', function
     h.assertEqual(entry.permission[1], 'admin'); h.assertEqual(entry.permission[2], 'mod')
     local aces = {}
     for _, c in ipairs(handle.executeCommandCalls) do aces[c] = true end
-    h.assertTrue(aces['add_ace qbcore.admin command.MyCmd allow'])
-    h.assertTrue(aces['add_ace qbcore.mod command.MyCmd allow'])
+    h.assertTrue(aces['add_ace kora_core.admin command.MyCmd allow'])
+    h.assertTrue(aces['add_ace kora_core.mod command.MyCmd allow'])
     QBCore.Commands.Add('plain', 'h', {}, false, cb)
     h.assertEqual(QBCore.Commands.List.plain.permission, 'user')
     h.assertTrue(QBCore.Commands.IgnoreList.god and QBCore.Commands.IgnoreList.user)
@@ -137,7 +137,7 @@ h.test('root optin defaults to true and ToggleOptin flips it for admins only', f
     F.ToggleOptin(1)
     h.assertEqual(F.GetPlayer(1).PlayerData.optin, true, 'non-admins cannot toggle')
     handle.setAce(1, 'group.admin', true)
-    handle.setAce(1, 'qbcore.admin', true)
+    handle.setAce(1, 'kora_core.admin', true)
     F.ToggleOptin(1)
     h.assertEqual(F.GetPlayer(1).PlayerData.optin, false)
     h.assertFalse(F.IsOptin(1))

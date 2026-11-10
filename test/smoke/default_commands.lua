@@ -40,8 +40,8 @@ assert(Core.player.login(1, 'CMD1', data))
 local data2 = CoreInternal.player.freshData('CMD2', 'license:cmd2', 1, { firstname = 'C', lastname = 'D' })
 assert(Core.player.login(2, 'CMD2', data2))
 handle.setPlayers({ 1, 2 })
-handle.setAce(1, 'qbcore.admin', true)
-handle.setAce(1, 'qbcore.god', true)
+handle.setAce(1, 'kora_core.admin', true)
+handle.setAce(1, 'kora_core.god', true)
 
 local function notifications(src)
     local out = {}
@@ -75,9 +75,9 @@ end)
 h.test('permission groups get the command.<name> ACE like stock', function()
     local seen = {}
     for _, c in ipairs(handle.executeCommandCalls) do seen[c] = true end
-    h.assertTrue(seen['add_ace qbcore.admin command.tp allow'])
-    h.assertTrue(seen['add_ace qbcore.god command.addpermission allow'] == nil, 'god is in the ignore list')
-    h.assertTrue(seen['add_ace qbcore.user command.job allow'] == nil, 'user is in the ignore list')
+    h.assertTrue(seen['add_ace kora_core.admin command.tp allow'])
+    h.assertTrue(seen['add_ace kora_core.god command.addpermission allow'] == nil, 'god is in the ignore list')
+    h.assertTrue(seen['add_ace kora_core.user command.job allow'] == nil, 'user is in the ignore list')
 end)
 
 h.test('QBCore:Server:PreCommandExecution fires and can cancel', function()
@@ -133,7 +133,7 @@ h.test('setjob lower-cases, converts the zero-based grade and reports unknown jo
 end)
 
 h.test('setgang sets a gang and job/gang info commands notify', function()
-    local gang = QBCoreSeed.gangs[2].name
+    local gang = KoraCoreSeed.gangs[2].name
     run('setgang', 1, '2', gang:upper(), '0')
     h.assertEqual(Core.jobs.getGang(2).name, gang)
     handlers.job(2, {}, 'job')
@@ -147,9 +147,9 @@ h.test('addpermission / removepermission only accept configured levels', functio
     local mark = #handle.executeCommandCalls
     run('addpermission', 1, '2', 'admin')
     handle.setAce(2, 'admin', true)
-    h.assertEqual(handle.executeCommandCalls[mark + 1], 'add_principal identifier.license:abc qbcore.admin')
+    h.assertEqual(handle.executeCommandCalls[mark + 1], 'add_principal identifier.license:abc kora_core.admin')
     run('removepermission', 1, '2', 'admin')
-    h.assertEqual(handle.executeCommandCalls[mark + 2], 'remove_principal identifier.license:abc qbcore.admin')
+    h.assertEqual(handle.executeCommandCalls[mark + 2], 'remove_principal identifier.license:abc kora_core.admin')
     local after = #handle.executeCommandCalls
     run('addpermission', 1, '2', 'admin allow; quit')
     run('addpermission', 1, '2', 'superuser')
@@ -160,7 +160,7 @@ end)
 h.test('closeserver / openserver toggle the flag and kick non-whitelisted players', function()
     local kicked = {}
     _G.DropPlayer = function(src) kicked[#kicked + 1] = src end
-    handle.setAce(1, 'qbcore.admin', true)
+    handle.setAce(1, 'kora_core.admin', true)
     handle.setAce(1, 'command.admin', true)
     run('closeserver', 1, 'maintenance', 'window')
     h.assertEqual(QBCore.Config.Server.Closed, true)
@@ -253,7 +253,7 @@ end)
 
 h.test('CallCommand runs the command for an ACE holder and survives hostile args', function()
     handle.setAce(2, 'command.togglepvp', true)
-    handle.setAce(2, 'qbcore.admin', true)
+    handle.setAce(2, 'kora_core.admin', true)
     local pvp = QBCore.Config.Server.PVP
     handle.fireEvent('QBCore:CallCommand', 2, 'togglepvp', 'not-a-table')
     h.assertEqual(QBCore.Config.Server.PVP, not pvp)
@@ -263,7 +263,7 @@ h.test('CallCommand runs the command for an ACE holder and survives hostile args
     local bank = Core.money.getMoney(1, 'bank')
     handle.fireEvent('QBCore:CallCommand', 2, 'givemoney', { { 'x' }, {}, {} })
     h.assertEqual(Core.money.getMoney(1, 'bank'), bank, 'table-valued args are rejected, not coerced')
-    handle.setAce(2, 'qbcore.admin', false)
+    handle.setAce(2, 'kora_core.admin', false)
 end)
 
 h.test('CallCommand by a non-admin with broad per-command ACE is refused by the permission check', function()

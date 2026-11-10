@@ -36,4 +36,4 @@ exports.kora_core:reset(src) -- e.g. on respawn
 - **Stress is never auto-decayed.** Only `hunger` and `thirst` tick down, by `Config.needs.hungerDecay`/`Config.needs.thirstDecay` per tick, clamped to `[0, 100]`. Push stress changes directly via `exports.kora_core:incrementMetaData(src, 'stress', delta, 0, 100)`.
 - **Empty needs damage independently.** Each replicated zero hunger update calls `ApplyDamageToPed` with `Config.needs.hungerDamage`, and each zero thirst update does the same with `Config.needs.thirstDamage`. When both are zero, both amounts apply. Damage is skipped while the ped is dead or player metadata reports death/last stand.
 - **Development mode suppresses passive needs per player.** A player activated through `exports.kora_core:setDevMode(src, true)` is skipped by the server decay tick and ignores client zero-need damage. It does not prevent explicit metadata changes from another resource.
-- **A tick that errors is caught and logged** (`[qbcore:needs] tick errored: ...`); it does not stop the loop.
+- **A tick that errors is caught and logged** (`[kora_core:needs] tick errored: ...`); it does not stop the loop.

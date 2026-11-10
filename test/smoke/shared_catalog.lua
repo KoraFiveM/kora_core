@@ -18,7 +18,7 @@ dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
 dofile('modules/registry/server.lua')
 dofile('compat/shared/coreobject.lua')
-local expected = dofile('test/fixtures/qbcore_catalog.lua')
+local expected = dofile('test/fixtures/kora_core_catalog.lua')
 local items, weapons = QBCore.Shared.Items, QBCore.Shared.Weapons
 
 h.test('all pinned inventory names resolve to canonical native records', function()
@@ -67,7 +67,7 @@ h.test('newer native weapons have a usable generic medical log reason', function
 end)
 
 h.test('environmental causes cannot become grantable inventory definitions', function()
-    for _, name in ipairs(QBCoreSeed.legacyDamageCauses) do
+    for _, name in ipairs(KoraCoreSeed.legacyDamageCauses) do
         h.assertEqual(items[name], nil, name .. ' leaked into Items')
         h.assertEqual(Core.registry.getShared('weapons', name), nil)
         h.assertEqual(Core.registry.getShared('items', name), nil)
@@ -109,7 +109,7 @@ h.test('explicit item override wins and removing it reveals the current weapon',
     h.assertTrue(Core.registry.unregisterShared('weapons', name))
     h.assertEqual(weapons[453432689].name, name, 'static damage metadata is independent of inventory stock')
     h.assertEqual(weapons[453432689].damageModifier, nil, 'removed native overrides must disappear')
-    h.assertEqual(weapons[453432689].damagereason, QBCoreSeed.legacyWeaponMetadata[name].damagereason)
+    h.assertEqual(weapons[453432689].damagereason, KoraCoreSeed.legacyWeaponMetadata[name].damagereason)
     h.assertEqual(items[name], nil)
     h.assertTrue(Core.registry.registerShared('weapons', name, native))
 end)
@@ -117,9 +117,9 @@ end)
 h.test('editing a damage view cannot mutate seed metadata or native definitions', function()
     weapons[joaat('weapon_bleeding')].damagereason = 'Changed locally'
     weapons[453432689].label = 'Changed locally'
-    h.assertEqual(QBCoreSeed.legacyWeaponMetadata.weapon_bleeding.damagereason, 'Bled out')
+    h.assertEqual(KoraCoreSeed.legacyWeaponMetadata.weapon_bleeding.damagereason, 'Bled out')
     h.assertTrue(Core.registry.getShared('weapons', 'weapon_pistol').label ~= 'Changed locally')
-    TriggerEvent('qbcore:registry:synced')
+    TriggerEvent('kora_core:registry:synced')
     h.assertEqual(weapons[joaat('weapon_bleeding')].damagereason, 'Bled out')
     h.assertEqual(weapons[453432689].label, Core.registry.getShared('weapons', 'weapon_pistol').label)
 end)

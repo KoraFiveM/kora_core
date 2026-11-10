@@ -33,4 +33,4 @@ end
 - **On duty:** paid `job.payment` (the current grade's payment, from `Core.jobs.getJob`) if it's a number `> 0`.
 - **Off duty:** paid `job.offDutyPay` from the job's registry record, only if it's a number `> 0`. `false` (the common case) means no off-duty pay.
 - **One `Core.jobs.getPlayersByJob` lookup per distinct job**, not per player, to determine the on-duty set for that tick.
-- **A tick that errors is caught and logged** (`[qbcore:paycheck] tick errored: ...`); it does not stop the loop.
+- **A tick that errors is caught and logged** (`[kora_core:paycheck] tick errored: ...`); it does not stop the loop.

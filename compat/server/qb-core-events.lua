@@ -9,13 +9,13 @@ local CLIENT_METADATA_RULES = {
 RegisterNetEvent('QBCore:Server:SetMetaData', function(key, value)
     local src = source
     if type(key) ~= 'string' or key == 'starterItems' or Config.compat.clientMetadataKeys[key] ~= true then
-        print(("^3[qbcore]^7 rejected client metadata write from %s for key '%s'"):format(src, tostring(key)))
+        print(("^3[kora_core]^7 rejected client metadata write from %s for key '%s'"):format(src, tostring(key)))
         return
     end
     local rule = CLIENT_METADATA_RULES[key]
     if rule then
         if type(value) ~= 'number' or value ~= value or value == math.huge or value == -math.huge then
-            print(("^3[qbcore]^7 rejected client metadata write from %s for key '%s': not a finite number"):format(src, key))
+            print(("^3[kora_core]^7 rejected client metadata write from %s for key '%s': not a finite number"):format(src, key))
             return
         end
         value = math.min(rule.max, math.max(rule.min, value))
@@ -36,7 +36,7 @@ RegisterNetEvent('QBCore:ToggleDuty', function()
     if not handle then return end
     local job = handle.PlayerData.job
     if type(job) ~= 'table' or type(job.name) ~= 'string' or job.name == Config.jobs.defaultJob then
-        print(("^3[qbcore]^7 rejected QBCore:ToggleDuty from %s: no job"):format(tostring(src)))
+        print(("^3[kora_core]^7 rejected QBCore:ToggleDuty from %s: no job"):format(tostring(src)))
         return
     end
     local nextDuty = not job.onduty
@@ -91,7 +91,7 @@ RegisterNetEvent('QBCore:DebugSomething', function(...)
     QBCore.Debug(...)
 end)
 
-AddEventHandler('qbcore:server:playerDropped', function(src)
+AddEventHandler('kora_core:server:playerDropped', function(src)
     updateCooldowns[src] = nil
     debugCooldowns[src] = nil
     dutyCooldowns[src] = nil
@@ -165,7 +165,7 @@ RegisterNetEvent('QBCore:CallCommand', function(name, args)
 end)
 
 if Config.compat.fireSharedUpdateAtLogin then
-    AddEventHandler('qbcore:server:playerLoaded', function(src)
+    AddEventHandler('kora_core:server:playerLoaded', function(src)
         TriggerClientEvent('QBCore:Client:SharedUpdate', src, QBCore.Shared)
     end)
 end
@@ -206,7 +206,7 @@ RegisterNetEvent('hud:server:RelieveStress', function(amount)
     end
 end)
 
-AddEventHandler('qbcore:server:playerDropped', function(src)
+AddEventHandler('kora_core:server:playerDropped', function(src)
     stressLast[src] = nil
 end)
 

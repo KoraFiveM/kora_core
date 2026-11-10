@@ -73,7 +73,7 @@ under the mocks (see `test/`); it lists every exported name.
 - Physical-cash mirror (modules/money/server.lua): while kora_inventory owns the cash account the ledger is 0, and
   the real balance is overlaid onto the compat view (`Core.money._mirrorOverlay`) and onto outgoing replication
   ops/snapshots (`CoreInternal.player.mirrorOps/mirrorSnapshot`). It is refreshed on `Core.money` changes and
-  `qbcore:server:inventoryChanged`, never persisted, never polled.
+  `kora_core:server:inventoryChanged`, never persisted, never polled.
 - Deliberately NOT `provide 'qb-multicharacter'`: that compat is event-level only,
   and hijacking the name would disable a real character-select UI.
 

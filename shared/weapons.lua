@@ -1,4 +1,4 @@
-QBCoreSeed = QBCoreSeed or {}
+KoraCoreSeed = KoraCoreSeed or {}
 
 local damageSettings = {
     weapon_unarmed = { modifier = 0.2, disableCriticalHits = true },
@@ -54,7 +54,7 @@ local function weapon(name, label, ammotype, weight, weapontype)
         name = name,
         label = label,
         ammotype = ammotype,
-        ammoItem = ammotype and (QBCoreSeed.ammoItems and QBCoreSeed.ammoItems[ammotype]) or nil,
+        ammoItem = ammotype and (KoraCoreSeed.ammoItems and KoraCoreSeed.ammoItems[ammotype]) or nil,
         weight = weight,
         type = 'weapon',
         weapontype = weapontype,
@@ -63,12 +63,12 @@ local function weapon(name, label, ammotype, weight, weapontype)
         unique = true,
         useable = true,
         image = name .. '.png',
-        imageUrl = QBCoreSeed.imageUrl(name),
+        imageUrl = KoraCoreSeed.imageUrl(name),
         shouldClose = true,
     }
 end
 
-QBCoreSeed.weapons = {
+KoraCoreSeed.weapons = {
     weapon('weapon_unarmed', 'Fists', nil, 0, 'Melee'),
     weapon('weapon_dagger', 'Antique Cavalry Dagger', nil, 400, 'Melee'),
     weapon('weapon_bat', 'Baseball Bat', nil, 1200, 'Melee'),
@@ -198,10 +198,10 @@ QBCoreSeed.weapons = {
 }
 
 do
-    local upstream = QBCoreSeed.upstreamWeapons
+    local upstream = KoraCoreSeed.upstreamWeapons
     if type(upstream) == 'table' then
         local native = {}
-        for _, record in ipairs(QBCoreSeed.weapons) do
+        for _, record in ipairs(KoraCoreSeed.weapons) do
             native[record.name] = record
         end
         local names = {}
@@ -216,14 +216,14 @@ do
                     if current[field] == nil then current[field] = value end
                 end
             else
-                QBCoreSeed.weapons[#QBCoreSeed.weapons + 1] = source
+                KoraCoreSeed.weapons[#KoraCoreSeed.weapons + 1] = source
             end
         end
     end
-    QBCoreSeed.upstreamWeapons = nil
+    KoraCoreSeed.upstreamWeapons = nil
 end
 
-QBCoreSeed.legacyWeaponMetadata = {
+KoraCoreSeed.legacyWeaponMetadata = {
     gadget_parachute = { name = 'gadget_parachute', label = 'Parachute', weapontype = 'Miscellaneous', ammotype = nil, damagereason = 'Died' },
     weapon_advancedrifle = { name = 'weapon_advancedrifle', label = 'Advanced Rifle', weapontype = 'Assault Rifle', ammotype = 'AMMO_RIFLE', damagereason = 'Ended / Rifled / Shot down / Floored' },
     weapon_animal = { name = 'weapon_animal', label = 'Animal', weapontype = 'Animals', ammotype = nil, damagereason = 'Mauled' },
@@ -351,7 +351,7 @@ QBCoreSeed.legacyWeaponMetadata = {
     weapon_vintagepistol = { name = 'weapon_vintagepistol', label = 'Vintage Pistol', weapontype = 'Pistol', ammotype = 'AMMO_PISTOL', damagereason = 'Pistoled / Blasted / Plugged / Bust a cap in' },
     weapon_wrench = { name = 'weapon_wrench', label = 'Wrench', weapontype = 'Melee', ammotype = nil, damagereason = 'Melee killed / Whacked / Executed / Beat down / Murdered / Battered' },
 }
-QBCoreSeed.legacyDamageCauses = {
+KoraCoreSeed.legacyDamageCauses = {
     'gadget_parachute',
     'weapon_animal',
     'weapon_barbed_wire',

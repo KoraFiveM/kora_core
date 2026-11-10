@@ -272,17 +272,17 @@ h.test('the replicated login state bag follows the initial player snapshot and c
     local snapshotIndex, loginStateIndex
     for index = start + 1, #handle.lifecycleTrace do
         local entry = handle.lifecycleTrace[index]
-        if entry.kind == 'client' and entry.name == 'qbcore:rep:snapshot' and entry.target == 42 then snapshotIndex = index end
-        if entry.kind == 'state' and entry.source == 42 and entry.key == 'qbcore:loggedIn' and entry.value == true then loginStateIndex = index end
+        if entry.kind == 'client' and entry.name == 'kora_core:rep:snapshot' and entry.target == 42 then snapshotIndex = index end
+        if entry.kind == 'state' and entry.source == 42 and entry.key == 'kora_core:loggedIn' and entry.value == true then loginStateIndex = index end
     end
     h.assertTrue(snapshotIndex ~= nil, 'login should send the initial PlayerData snapshot')
-    h.assertTrue(loginStateIndex ~= nil, 'login should replicate qbcore:loggedIn=true')
+    h.assertTrue(loginStateIndex ~= nil, 'login should replicate kora_core:loggedIn=true')
     h.assertTrue(loginStateIndex > snapshotIndex, 'login state must follow the initial snapshot')
-    h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], true, 'Player state should expose logged-in status')
+    h.assertEqual(handle.playerStates[42]['kora_core:loggedIn'], true, 'Player state should expose logged-in status')
     h.assertEqual(handle.playerStates[42]['isLoggedIn'], true, 'login should also replicate the legacy bare isLoggedIn key')
 
     h.assertTrue(Core.player.logout(42))
-    h.assertEqual(handle.playerStates[42]['qbcore:loggedIn'], false, 'logout should replicate qbcore:loggedIn=false')
+    h.assertEqual(handle.playerStates[42]['kora_core:loggedIn'], false, 'logout should replicate kora_core:loggedIn=false')
     h.assertEqual(handle.playerStates[42]['isLoggedIn'], false, 'logout should also clear the legacy bare isLoggedIn key')
 end)
 
@@ -292,7 +292,7 @@ h.test('a hard disconnect fires the modern event plus BOTH legacy-named events',
 
     local modernFired, legacyDropped, legacyUnload
     local modernArgs, legacyDroppedArgs
-    AddEventHandler('qbcore:server:playerDropped', function(src, citizenid, reason)
+    AddEventHandler('kora_core:server:playerDropped', function(src, citizenid, reason)
         modernFired = true
         modernArgs = { src = src, citizenid = citizenid, reason = reason }
     end)
@@ -306,7 +306,7 @@ h.test('a hard disconnect fires the modern event plus BOTH legacy-named events',
 
     handle.fireEvent('playerDropped', 43, 'reason text')
 
-    h.assertTrue(modernFired, 'the modern qbcore:server:playerDropped event must fire')
+    h.assertTrue(modernFired, 'the modern kora_core:server:playerDropped event must fire')
     h.assertEqual(modernArgs.src, 43)
     h.assertEqual(modernArgs.citizenid, 'CID-drop')
     h.assertEqual(modernArgs.reason, 'reason text')

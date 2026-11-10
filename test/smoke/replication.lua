@@ -26,7 +26,7 @@ h.test('N mutations in one frame coalesce into ONE delta with per-path last valu
     serverQueueOp(player, { 'money', 'cash' }, 1234)
     handle.drainTimeouts()
 
-    local delta = handle.lastClient('qbcore:rep:delta')
+    local delta = handle.lastClient('kora_core:rep:delta')
     h.assertTrue(delta ~= nil, 'expected a delta event')
     local ops = delta.args[2]
     h.assertEqual(#ops, 2, 'coalesced to two distinct paths')
@@ -95,7 +95,7 @@ for _, case in ipairs(inventoryWriteCases) do
             h.assertTrue(Core.player.setPath(1, write.p, Core.util.deepClone(write.v)))
         end
         handle.drainTimeouts()
-        local delta = handle.lastClient('qbcore:rep:delta')
+        local delta = handle.lastClient('kora_core:rep:delta')
         local ops = delta.args[2]
         h.assertEqual(#ops, 1, 'overlapping paths must produce one authoritative root op')
         h.assertEqual(#ops[1].p, 1)
@@ -125,8 +125,8 @@ local clientRep = Core.replication
 h.test('coalesced inventory root and slot writes reproduce server state on the client', function()
     h.assertEqual(#overlappingBatches, #inventoryWriteCases, 'every server case must produce a client batch')
     for _, batch in ipairs(overlappingBatches) do
-        TriggerEvent('qbcore:rep:snapshot', batch.seq - 1, { items = batch.initialItems })
-        TriggerEvent('qbcore:rep:delta', batch.seq, batch.ops)
+        TriggerEvent('kora_core:rep:snapshot', batch.seq - 1, { items = batch.initialItems })
+        TriggerEvent('kora_core:rep:delta', batch.seq, batch.ops)
         local items = clientRep.getData({ 'items' })
         if batch.ammo then
             h.assertEqual(items[1].info.ammo, batch.ammo)
@@ -138,9 +138,9 @@ h.test('coalesced inventory root and slot writes reproduce server state on the c
 end)
 
 h.test('client applies a snapshot then a delta batch to its mirror', function()
-    TriggerEvent('qbcore:rep:snapshot', 0, { money = { cash = 100 }, metadata = { hunger = 100 } })
+    TriggerEvent('kora_core:rep:snapshot', 0, { money = { cash = 100 }, metadata = { hunger = 100 } })
     h.assertEqual(clientRep.getData({ 'money', 'cash' }), 100)
-    TriggerEvent('qbcore:rep:delta', 1, {
+    TriggerEvent('kora_core:rep:delta', 1, {
         { p = { 'money', 'cash' }, v = 250 },
         { p = { 'metadata', 'hunger' }, v = 80 },
     })
@@ -149,27 +149,27 @@ h.test('client applies a snapshot then a delta batch to its mirror', function()
 end)
 
 h.test('a delete op (d=true) removes the key rather than setting nil', function()
-    TriggerEvent('qbcore:rep:snapshot', 10, { items = { [1] = { name = 'x' } } })
-    TriggerEvent('qbcore:rep:delta', 11, { { p = { 'items', 1 }, d = true } })
+    TriggerEvent('kora_core:rep:snapshot', 10, { items = { [1] = { name = 'x' } } })
+    TriggerEvent('kora_core:rep:delta', 11, { { p = { 'items', 1 }, d = true } })
     h.assertTrue(clientRep.getData({ 'items', 1 }) == nil, 'delete op should remove the slot')
 end)
 
 h.test('a seq gap requests exactly one resync', function()
-    TriggerEvent('qbcore:rep:snapshot', 20, { money = { cash = 5 } })
+    TriggerEvent('kora_core:rep:snapshot', 20, { money = { cash = 5 } })
     for i=#handle.serverEvents,1,-1 do handle.serverEvents[i]=nil end
-    TriggerEvent('qbcore:rep:delta', 22, { { p = { 'money', 'cash' }, v = 999 } })
+    TriggerEvent('kora_core:rep:delta', 22, { { p = { 'money', 'cash' }, v = 999 } })
     h.assertEqual(clientRep.getData({ 'money', 'cash' }), 5, 'stale delta must not apply')
     local resyncs = 0
-    for _, e in ipairs(handle.serverEvents) do if e.name == 'qbcore:rep:resync' then resyncs = resyncs + 1 end end
+    for _, e in ipairs(handle.serverEvents) do if e.name == 'kora_core:rep:resync' then resyncs = resyncs + 1 end end
     h.assertEqual(resyncs, 1, 'exactly one resync requested on a gap')
 end)
 
 h.test('the legacy QBCore:Player:SetPlayerData event fires locally on a delta', function()
     local fired = false
     AddEventHandler('QBCore:Player:SetPlayerData', function() fired = true end)
-    TriggerEvent('qbcore:rep:snapshot', 30, { money = { cash = 1 } })
+    TriggerEvent('kora_core:rep:snapshot', 30, { money = { cash = 1 } })
     fired = false
-    TriggerEvent('qbcore:rep:delta', 31, { { p = { 'money', 'cash' }, v = 2 } })
+    TriggerEvent('kora_core:rep:delta', 31, { { p = { 'money', 'cash' }, v = 2 } })
     h.assertTrue(fired, 'legacy full-blob event should fire client-side from the mirror')
 end)
 
@@ -179,14 +179,14 @@ h.test('the local legacy re-fire never warns when CFX copies a net-event payload
     _G.print = function(message) warnings[#warnings + 1] = tostring(message) end
     handle.setCloneLocalNetPayloads(true)
 
-    TriggerEvent('qbcore:rep:snapshot', 40, { money = { cash = 1 } })
-    TriggerEvent('qbcore:rep:delta', 41, { { p = { 'money', 'cash' }, v = 2 } })
+    TriggerEvent('kora_core:rep:snapshot', 40, { money = { cash = 1 } })
+    TriggerEvent('kora_core:rep:delta', 41, { { p = { 'money', 'cash' }, v = 2 } })
 
     handle.setCloneLocalNetPayloads(false)
     _G.print = originalPrint
 
     h.assertEqual(#warnings, 0,
-        'qbcore must not report its own local compatibility event as a direct PlayerData write')
+        'kora_core must not report its own local compatibility event as a direct PlayerData write')
     h.assertEqual(clientRep.getData({ 'money', 'cash' }), 2,
         'the local compatibility event must not replace the replication mirror')
 end)
@@ -194,13 +194,13 @@ end)
 dofile('compat/client/qb-core-events.lua')
 
 h.test('a job-changing delta fires QBCore:Client:OnPlayerUpdated exactly once, and OnJobUpdate does not double-fire', function()
-    TriggerEvent('qbcore:rep:snapshot', 50, { job = { name = 'unemployed', grade = { level = 0 } } })
+    TriggerEvent('kora_core:rep:snapshot', 50, { job = { name = 'unemployed', grade = { level = 0 } } })
 
     local playerUpdatedCount, jobUpdateCount = 0, 0
     AddEventHandler('QBCore:Client:OnPlayerUpdated', function(key) if key == 'job' then playerUpdatedCount = playerUpdatedCount + 1 end end)
     AddEventHandler('QBCore:Client:OnJobUpdate', function() jobUpdateCount = jobUpdateCount + 1 end)
 
-    TriggerEvent('qbcore:rep:delta', 51, { { p = { 'job' }, v = { name = 'police', grade = { level = 1 } } } })
+    TriggerEvent('kora_core:rep:delta', 51, { { p = { 'job' }, v = { name = 'police', grade = { level = 1 } } } })
 
     h.assertEqual(playerUpdatedCount, 1, 'QBCore:Client:OnPlayerUpdated must fire exactly once per job-changing delta')
     h.assertEqual(jobUpdateCount, 1, 'OnJobUpdate must not double-fire once OnPlayerUpdated also fires for the same change')

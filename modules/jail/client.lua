@@ -9,7 +9,7 @@ local function clearContainment()
     end
 end
 
-RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds)
+RegisterNetEvent('kora_core:client:jailTeleport', function(coords, remainingSeconds)
     clearContainment()
 
     SetEntityCoords(PlayerPedId(), coords.x, coords.y, coords.z, false, false, false, false)
@@ -26,7 +26,7 @@ RegisterNetEvent('qbcore:client:jailTeleport', function(coords, remainingSeconds
     Kora.notify.send({ message = ('You have been jailed for %d minutes.'):format(math.ceil(remainingSeconds / 60)), type = 'error' })
 end)
 
-RegisterNetEvent('qbcore:client:jailRelease', function()
+RegisterNetEvent('kora_core:client:jailRelease', function()
     clearContainment()
     Kora.notify.send({ message = 'You have been released.', type = 'success' })
 end)

@@ -24,7 +24,7 @@ function Core.needs.startNeedsDecay()
             if running and threadGeneration == myGeneration then
                 local ok, err = pcall(Core.needs._tick)
                 if not ok then
-                    print(('[qbcore:needs] tick errored: %s'):format(tostring(err)))
+                    print(('[kora_core:needs] tick errored: %s'):format(tostring(err)))
                 end
             end
         end

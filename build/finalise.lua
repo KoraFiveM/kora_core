@@ -18,7 +18,7 @@ for moduleName, moduleTable in pairs(Core) do
     if type(moduleTable) == "table" then
         for fnName, fn in pairs(moduleTable) do
             if type(fn) == "function" and fnName:sub(1, 1) ~= "_" then
-                assert(not seen[fnName], ("qbcore export collision: '%s' is defined in both Core.%s and Core.%s")
+                assert(not seen[fnName], ("kora_core export collision: '%s' is defined in both Core.%s and Core.%s")
                     :format(fnName, seen[fnName], moduleName))
                 seen[fnName] = moduleName
                 exports(fnName, fn)
@@ -27,7 +27,7 @@ for moduleName, moduleTable in pairs(Core) do
     elseif type(moduleTable) == "function" then
         -- A bare function attached directly to Core (rare) exports under its
         -- own name too.
-        assert(not seen[moduleName], ("qbcore export collision: '%s'"):format(moduleName))
+        assert(not seen[moduleName], ("kora_core export collision: '%s'"):format(moduleName))
         seen[moduleName] = "<root>"
         exports(moduleName, moduleTable)
     end

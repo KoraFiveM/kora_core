@@ -1,5 +1,5 @@
 local LEVELS = { 'god', 'admin', 'mod', 'user' }
-local PREFIX = 'qbcore'
+local PREFIX = 'kora_core'
 
 ---@param src integer
 ---@return string
@@ -20,7 +20,7 @@ end
 function Core.permissions.addPermission(src, permission)
     local license = Core.identity.primary(src)
     if not license then return false end
-    ExecuteCommand(('add_principal identifier.%s:%s qbcore.%s'):format(Config.identity.primaryIdentifier, license:gsub('^%w+:', ''), permission))
+    ExecuteCommand(('add_principal identifier.%s:%s kora_core.%s'):format(Config.identity.primaryIdentifier, license:gsub('^%w+:', ''), permission))
     return true
 end
 
@@ -30,7 +30,7 @@ end
 function Core.permissions.removePermission(src, permission)
     local license = Core.identity.primary(src)
     if not license then return false end
-    ExecuteCommand(('remove_principal identifier.%s:%s qbcore.%s'):format(Config.identity.primaryIdentifier, license:gsub('^%w+:', ''), permission))
+    ExecuteCommand(('remove_principal identifier.%s:%s kora_core.%s'):format(Config.identity.primaryIdentifier, license:gsub('^%w+:', ''), permission))
     return true
 end
 

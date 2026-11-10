@@ -113,7 +113,7 @@ h.test('duplicate unload and drop events clear publication without negative coun
     handle.drainTimeouts()
     Core.player.dropPlayer(6)
     TriggerEvent('QBCore:Server:OnPlayerUnload', 6)
-    TriggerEvent('qbcore:server:playerDropped', 6)
+    TriggerEvent('kora_core:server:playerDropped', 6)
     handle.drainTimeouts()
     h.assertEqual(Core.jobs.getDutyCount('police'), 0, 'duplicate cleanup never decrements twice')
     h.assertEqual(Core.jobs.getDutyCountByType('leo'), 0, 'type cleanup is also idempotent')

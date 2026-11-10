@@ -50,7 +50,7 @@ end
 local function audit(src, callback, data)
     data.callback = callback
     local ok, err = pcall(Core.logging.logEvent, 'vehicle', src, data)
-    if not ok then print(('^3[qbcore:vehicles]^7 audit log failed: %s'):format(tostring(err))) end
+    if not ok then print(('^3[kora_core:vehicles]^7 audit log failed: %s'):format(tostring(err))) end
 end
 
 local function trackSpawn(src, vehicle)
@@ -72,7 +72,7 @@ local function grantKeys(src, vehicle)
     local plate = GetVehicleNumberPlateText(vehicle)
     if type(plate) ~= 'string' or plate:match('^%s*$') then return end
     local ok, err = pcall(function() return exports.kora_vehiclekeys:giveKeys(src, plate) end)
-    if not ok then print(('^3[qbcore:vehicles]^7 could not grant keys: %s'):format(tostring(err))) end
+    if not ok then print(('^3[kora_core:vehicles]^7 could not grant keys: %s'):format(tostring(err))) end
 end
 
 local function handle(callbackName, create)
@@ -127,7 +127,7 @@ F.CreateCallback('QBCore:Server:CreateVehicle', handle('QBCore:Server:CreateVehi
     return F.CreateAutomobile(src, hash, position, warp)
 end))
 
-AddEventHandler('qbcore:server:playerDropped', function(src)
+AddEventHandler('kora_core:server:playerDropped', function(src)
     lastRequest[src] = nil
     local list = live[src]
     live[src] = nil

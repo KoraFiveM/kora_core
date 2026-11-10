@@ -215,7 +215,7 @@ h.test('per-player Player.Functions.* is complete after login', function()
     local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
     Core.player.login(1, 'CID1', data)
     local Player = QBCore.Functions.GetPlayer(1)
-    h.assertTrue(Player ~= nil, 'GetPlayer returned a QBPlayer')
+    h.assertTrue(Player ~= nil, 'GetPlayer returned a KoraPlayer')
     assertCallableFields(Player.Functions, {
         'SetJob', 'SetGang', 'SetJobDuty', 'SetJobData', 'SetGangData',
         'AddMoney', 'RemoveMoney', 'SetMoney', 'GetMoney',
@@ -443,7 +443,7 @@ h.test('player bucket setters notify after the native and legacy map update', fu
     SetPlayerRoutingBucket = function(src, bucket) buckets[src] = bucket end
     GetPlayerRoutingBucket = function(src) return buckets[src] end
     SetEntityRoutingBucket = function() end
-    AddEventHandler('qbvoice:server:bucketChanged', function(src)
+    AddEventHandler('kora_voice:server:bucketChanged', function(src)
         local license = QBCore.Functions.GetIdentifier(src, 'license')
         notifications[#notifications + 1] = {
             src = src, native = GetPlayerRoutingBucket(src), map = QBCore.Player_Buckets[license].bucket,

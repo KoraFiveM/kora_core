@@ -30,7 +30,7 @@ Checks whether the player can receive `amount` of `name` — both a weight check
 - `string | nil` — Failure reason (`'no such player'`, `'unknown item'`, `'over weight'`, `'no free slot'`).
 
 ### `Core.inventory.addItem(src, name, amount, slot, info, reason)` — server
-Adds an item, stacking into an existing matching slot when the item is stackable, otherwise placing into `slot` (if given) or the first free slot. A unique item added with `amount > 1` occupies multiple slots, one each. Fires the `qbcore:client:itemBox` pickup event.
+Adds an item, stacking into an existing matching slot when the item is stackable, otherwise placing into `slot` (if given) or the first free slot. A unique item added with `amount > 1` occupies multiple slots, one each. Fires the `kora_core:client:itemBox` pickup event.
 
 #### Parameters
 - `src: integer`
@@ -181,7 +181,7 @@ Writes a stash's items (fire-and-forget upsert through the SQL queue).
 - `boolean`
 
 ### `Core.inventory.stashOpen(src, identifier, opts)` — server
-Emits `qbcore:inventory:open` for a UI resource to handle. Ships **no NUI**; warns (once, if `Config.inventory.warnOnUnhandledOpen`) when nothing handled it.
+Emits `kora_core:inventory:open` for a UI resource to handle. Ships **no NUI**; warns (once, if `Config.inventory.warnOnUnhandledOpen`) when nothing handled it.
 
 #### Parameters
 - `src: integer`

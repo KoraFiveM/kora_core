@@ -1,6 +1,6 @@
-QBCoreSeed = QBCoreSeed or {}
+KoraCoreSeed = KoraCoreSeed or {}
 
-QBCoreSeed.gangs = {
+KoraCoreSeed.gangs = {
     { name = 'none', label = 'No Gang', grades = { { name = 'None' } } },
     {
         name = 'ballas', label = 'Ballas',

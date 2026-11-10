@@ -204,7 +204,7 @@ end)
 ```
 
 ### Events
-`qbcore:server:taxCollected(account, amount, reason)` fires server-side after
+`kora_core:server:taxCollected(account, amount, reason)` fires server-side after
 each successful deposit.
 
 

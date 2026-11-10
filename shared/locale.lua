@@ -6,7 +6,7 @@ local function currentLanguage()
         local ok, language = pcall(function() return exports.kora_lib:locale_getLanguage() end)
         if ok and type(language) == 'string' then return language end
     end
-    return GetConvar('qb_locale', 'en')
+    return GetConvar('kora_locale', 'en')
 end
 
 local function setNested(tree, key, value)
@@ -132,7 +132,7 @@ end
 
 function Locale:forPlayer(path, subs)
     return {
-        __qb_locale = true,
+        __kora_locale = true,
         resource = self.resource,
         key = path,
         substitutions = subs,

@@ -7,18 +7,18 @@ RI.create('gangs', 'name')
 RI.create('weapons', 'name')
 RI.create('locations', 'key')
 
-RegisterNetEvent('qbcore:registry:snapshotAll', function(all)
+RegisterNetEvent('kora_core:registry:snapshotAll', function(all)
     for name, payload in pairs(all) do
         if RI.registries[name] then RI.reseed(name, payload.records, payload.epoch) end
     end
-    TriggerEvent('qbcore:registry:synced')
+    TriggerEvent('kora_core:registry:synced')
 end)
 
-RegisterNetEvent('qbcore:registry:delta', function(name, action, key, record, epoch)
+RegisterNetEvent('kora_core:registry:delta', function(name, action, key, record, epoch)
     local r = RI.registries[name]
     if not r then return end
     if epoch and epoch ~= r.epoch and action ~= 'remove' then
-        TriggerServerEvent('qbcore:registry:requestSnapshot')
+        TriggerServerEvent('kora_core:registry:requestSnapshot')
         return
     end
     local previous = Core.registry.getShared(name, key)
@@ -47,5 +47,5 @@ end
 
 CreateThread(function()
     Wait(0)
-    TriggerServerEvent('qbcore:registry:requestSnapshot')
+    TriggerServerEvent('kora_core:registry:requestSnapshot')
 end)

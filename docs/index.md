@@ -6,7 +6,7 @@ title: kora_core
 Framework core for FiveM. Owns player state, money, jobs/gangs, metadata, and a
 headless inventory, all behind a **single mutation funnel** with delta
 replication to clients and minimum-write persistence through
-[qbsql](https://qbcore2.github.io/kora_sql/). Ships full drop-in compatibility
+[kora_sql](https://qbcore2.github.io/kora_sql/). Ships full drop-in compatibility
 with legacy `qb-core` — existing QBCore resources run unmodified.
 
 Two ways to use it: the modern flat exports (`exports.kora_core:getPlayer(src)`)
@@ -15,13 +15,13 @@ for new code, or `exports['qb-core']:GetCoreObject()` for legacy resources.
 ## Requirements
 
 - [kora_lib](https://qbcore2.github.io/kora_lib/)
-- [qbsql](https://qbcore2.github.io/kora_sql/)
+- [kora_sql](https://qbcore2.github.io/kora_sql/)
 
 ## Installation
 
 `server.cfg`, in this order:
 ```
-set mysql_connection_string "mysql://user:pass@localhost/qbcore?charset=utf8mb4"
+set mysql_connection_string "mysql://user:pass@localhost/kora_core?charset=utf8mb4"
 ensure kora_sql
 ensure kora_lib
 ensure kora_core
@@ -222,7 +222,7 @@ exports.kora_core:useItem(src, slotOrName)
 exports.kora_core:stashGet(id)  exports.kora_core:stashSet(id, items)  exports.kora_core:stashOpen(src, id, opts)
 ```
 Items are slot-keyed (`items[slot] = {slot, name, amount, info, ...}`). No NUI is
-shipped — [qbinventory](https://qbcore2.github.io/kora_inventory/) is the headless
+shipped — [kora_inventory](https://qbcore2.github.io/kora_inventory/) is the headless
 inventory authority; its optional companion resource owns any UI.
 
 ### Shared registries (items/vehicles/jobs/gangs/weapons/locations)
@@ -289,7 +289,7 @@ legacy draw-text events (`qb-core:client:drawText`, `changeText`, and
 `hideText`) forward to kora_lib's text UI.
 
 For client UI visibility, prefer the server-owned replicated player state bag
-`LocalPlayer.state['qbcore:loggedIn']` and `AddStateBagChangeHandler` over
+`LocalPlayer.state['kora_core:loggedIn']` and `AddStateBagChangeHandler` over
 legacy load/unload events. A bare `LocalPlayer.state['isLoggedIn']` is set
 alongside it as a legacy mirror (real qb-core uses that unnamespaced key, and
 untouchable consumers such as real qb-doorlock read it directly) — new code
@@ -319,7 +319,7 @@ and must never be trusted for server authorization.
 - With `kora_inventory` cash-as-item on, `PlayerData.money.cash` (server compat
   view and the replicated client PlayerData) MIRRORS the real cash item balance
   and is refreshed whenever the cash stack changes (Core.money paths and
-  `qbcore:server:inventoryChanged`; no polling). The persisted ledger stays 0.
+  `kora_core:server:inventoryChanged`; no polling). The persisted ledger stays 0.
   A `SetPlayerData('money', { cash = x })` write-back means "cash becomes x" and
   applies the delta against the mirrored balance the script saw (not a live item
   query), so a stack that moved after the read still receives the intended change;
@@ -347,8 +347,8 @@ and must never be trusted for server authorization.
 No NUI ships. A bare server auto-selects character slot 1 (creating a default
 character if none exist). A character-select UI calls `exports.kora_core:claimUI()`
 and drives `exports.kora_core:getCharacters/selectCharacter/deleteCharacter` (or the
-`qbcore:server:*` / legacy `qb-multicharacter:*` events) — see
-[qbmultichar](https://qbcore2.github.io/kora_multichar/) for a ready-made UI.
+`kora_core:server:*` / legacy `qb-multicharacter:*` events) — see
+[kora_multichar](https://qbcore2.github.io/kora_multichar/) for a ready-made UI.
 
 ## Config highlights (`config.lua`)
 
@@ -373,11 +373,11 @@ time the driver enters a vehicle.
 Part of the [qbcore2](https://github.com/qbcore2) resource set:
 
 - [kora_lib](https://qbcore2.github.io/kora_lib/) — shared helper library
-- [qbsql](https://qbcore2.github.io/kora_sql/) — database driver
-- [qbinventory](https://qbcore2.github.io/kora_inventory/) — headless inventory
-- [qbtarget](https://qbcore2.github.io/kora_target/) — targeting/interaction
-- [qbclothing](https://qbcore2.github.io/kora_clothing/) — clothing/wardrobe
-- [qbadmin](https://qbcore2.github.io/kora_admin/) — admin menu
+- [kora_sql](https://qbcore2.github.io/kora_sql/) — database driver
+- [kora_inventory](https://qbcore2.github.io/kora_inventory/) — headless inventory
+- [kora_target](https://qbcore2.github.io/kora_target/) — targeting/interaction
+- [kora_clothing](https://qbcore2.github.io/kora_clothing/) — clothing/wardrobe
+- [kora_admin](https://qbcore2.github.io/kora_admin/) — admin menu
 - [full resource list ↗](https://github.com/orgs/qbcore2/repositories)
 
 ## qb-core parity behaviour
@@ -395,7 +395,7 @@ Part of the [qbcore2](https://github.com/qbcore2) resource set:
 - Vehicle spawn callbacks: see `vehicle-spawn.md`.
 - Identifier lookups (`GetPlayer`, `GetSource`, `GetPlayerByLicense`, `IsLicenseInUse`, `GetOfflinePlayerByLicense`) accept `license:xxx` or the bare form; `GetIdentifier` still returns its stored form. `IsPlayerBanned` treats a NULL `expire` as permanent.
   `GetDatabaseInfo` also parses `server=..;database=..` strings (the connection string is never logged).
-- Player drop fires `QBCore:Server:PlayerDropped` / `OnPlayerUnload` before the player is evicted (`GetPlayer(src)` works in handlers); `qbcore:server:playerDropped` follows eviction.
+- Player drop fires `QBCore:Server:PlayerDropped` / `OnPlayerUnload` before the player is evicted (`GetPlayer(src)` works in handlers); `kora_core:server:playerDropped` follows eviction.
 - `Player.Functions.AddMoney/RemoveMoney` accept amount 0 and lower-case the account; `AddPermission` refreshes commands; `SetPlayerBucket` sets `Player(src).state.instance`;
   `SetJobDuty` also fires `OnJobUpdate` / `OnPlayerUpdated`; `Shared.Round(v)` returns an integer; `QBCore.ServerCallbacks` / `ClientCallbacks` exist.
 - `Locale` supports `extend/clear/replace/locale/has/delete`, the flat `phrases` field, `fallbackLang`, and `warnOnMissing` defaults to true.

@@ -51,6 +51,6 @@ Returns whether the player is opted into admin/dev features — defined here as 
 - `boolean`
 
 ## Notes
-- **Legacy vocabulary → ace principals.** `god`/`admin`/`mod`/`user` are checked against `kora_core.<level>` and `group.<level>` so both qbcore-native and group-based server configs work.
+- **Legacy vocabulary → ace principals.** `god`/`admin`/`mod`/`user` are checked against `kora_core.<level>` and `group.<level>` so both kora_core-native and group-based server configs work.
 - **`hasPermission` also honours `command.<permission>`**, so an ace that grants a command implicitly satisfies the same-named permission check — this is what the commands module leans on.
 - **Runtime grants are not persisted by this module** — `add_principal` lives for the server session (or until written into `server.cfg`). Persisting an admin list is out of scope here.

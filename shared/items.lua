@@ -1,8 +1,8 @@
-QBCoreSeed = QBCoreSeed or {}
+KoraCoreSeed = KoraCoreSeed or {}
 
-QBCoreSeed.itemImageBaseUrl = QBCoreSeed.itemImageBaseUrl
+KoraCoreSeed.itemImageBaseUrl = KoraCoreSeed.itemImageBaseUrl
     or 'https://raw.githubusercontent.com/aifazi/items-images/main/'
-QBCoreSeed.itemImagePaths = {
+KoraCoreSeed.itemImagePaths = {
     bread = "ingredients/bread.png",
     id_card = "license/id_card.png",
     lockpick = "tools/lockpicks/lockpick.png",
@@ -106,12 +106,12 @@ QBCoreSeed.itemImagePaths = {
     weaponlicense = "license/weaponlicense.png",
 }
 
-function QBCoreSeed.imageUrl(name)
-    local path = QBCoreSeed.itemImagePaths[name]
-    return path and (QBCoreSeed.itemImageBaseUrl .. path) or nil
+function KoraCoreSeed.imageUrl(name)
+    local path = KoraCoreSeed.itemImagePaths[name]
+    return path and (KoraCoreSeed.itemImageBaseUrl .. path) or nil
 end
 
-QBCoreSeed.ammoItems = {
+KoraCoreSeed.ammoItems = {
     AMMO_PISTOL = 'pistol_ammo',
     AMMO_SMG = 'smg_ammo',
     AMMO_SHOTGUN = 'shotgun_ammo',
@@ -144,42 +144,42 @@ local function ammo(name, label, ammoType, weight, rounds)
         ammoType = ammoType,
         rounds = rounds,
         image = name .. '.png',
-        imageUrl = QBCoreSeed.imageUrl(name),
+        imageUrl = KoraCoreSeed.imageUrl(name),
     }
 end
 
-QBCoreSeed.items = {
-    { name = 'water_bottle', label = 'Water',    weight = 500,  type = 'item', image = 'water_bottle.png', imageUrl = QBCoreSeed.imageUrl('water_bottle'), unique = false, useable = true,  shouldClose = true,  description = 'Refreshing.' },
-    { name = 'sandwich',     label = 'Sandwich', weight = 220,  type = 'item', image = 'sandwich.png',     imageUrl = QBCoreSeed.imageUrl('sandwich'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
-    { name = 'beer',          label = 'Beer',          weight = 350, type = 'item', image = 'beer.png',          imageUrl = QBCoreSeed.imageUrl('beer'),          unique = false, useable = true, shouldClose = true, description = 'An alcoholic drink.' },
-    { name = 'whiskey',       label = 'Whiskey',       weight = 400, type = 'item', image = 'whiskey.png',       imageUrl = QBCoreSeed.imageUrl('whiskey'),       unique = false, useable = true, shouldClose = true, description = 'Strong stuff.' },
-    { name = 'weed',          label = 'Weed',          weight = 20,  type = 'item', image = 'weed.png',          imageUrl = QBCoreSeed.imageUrl('weed'),          unique = false, useable = true, shouldClose = true, description = 'Best used off duty.' },
-    { name = 'phone',        label = 'Phone',    weight = 190,  type = 'item', image = 'phone.png',        imageUrl = QBCoreSeed.imageUrl('phone'), unique = true,  useable = true,  shouldClose = false, description = 'Smartphone.' },
-    { name = 'id_card',      label = 'ID Card',  weight = 0,    type = 'item', image = 'id_card.png',      imageUrl = QBCoreSeed.imageUrl('id_card'), unique = true,  useable = true,  shouldClose = false, description = 'Identification.' },
-    { name = 'lockpick',     label = 'Lockpick', weight = 160,  type = 'item', image = 'lockpick.png',     imageUrl = QBCoreSeed.imageUrl('lockpick'), unique = false, useable = true,  shouldClose = true,  description = 'For locked things.' },
-    { name = 'vehiclekey',   label = 'Vehicle Key', weight = 20, type = 'item', image = 'vehiclekey.png',   imageUrl = QBCoreSeed.imageUrl('vehiclekey'), unique = true, useable = true, shouldClose = false, description = 'A key assigned to a vehicle.' },
-    { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = QBCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
+KoraCoreSeed.items = {
+    { name = 'water_bottle', label = 'Water',    weight = 500,  type = 'item', image = 'water_bottle.png', imageUrl = KoraCoreSeed.imageUrl('water_bottle'), unique = false, useable = true,  shouldClose = true,  description = 'Refreshing.' },
+    { name = 'sandwich',     label = 'Sandwich', weight = 220,  type = 'item', image = 'sandwich.png',     imageUrl = KoraCoreSeed.imageUrl('sandwich'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
+    { name = 'beer',          label = 'Beer',          weight = 350, type = 'item', image = 'beer.png',          imageUrl = KoraCoreSeed.imageUrl('beer'),          unique = false, useable = true, shouldClose = true, description = 'An alcoholic drink.' },
+    { name = 'whiskey',       label = 'Whiskey',       weight = 400, type = 'item', image = 'whiskey.png',       imageUrl = KoraCoreSeed.imageUrl('whiskey'),       unique = false, useable = true, shouldClose = true, description = 'Strong stuff.' },
+    { name = 'weed',          label = 'Weed',          weight = 20,  type = 'item', image = 'weed.png',          imageUrl = KoraCoreSeed.imageUrl('weed'),          unique = false, useable = true, shouldClose = true, description = 'Best used off duty.' },
+    { name = 'phone',        label = 'Phone',    weight = 190,  type = 'item', image = 'phone.png',        imageUrl = KoraCoreSeed.imageUrl('phone'), unique = true,  useable = true,  shouldClose = false, description = 'Smartphone.' },
+    { name = 'id_card',      label = 'ID Card',  weight = 0,    type = 'item', image = 'id_card.png',      imageUrl = KoraCoreSeed.imageUrl('id_card'), unique = true,  useable = true,  shouldClose = false, description = 'Identification.' },
+    { name = 'lockpick',     label = 'Lockpick', weight = 160,  type = 'item', image = 'lockpick.png',     imageUrl = KoraCoreSeed.imageUrl('lockpick'), unique = false, useable = true,  shouldClose = true,  description = 'For locked things.' },
+    { name = 'vehiclekey',   label = 'Vehicle Key', weight = 20, type = 'item', image = 'vehiclekey.png',   imageUrl = KoraCoreSeed.imageUrl('vehiclekey'), unique = true, useable = true, shouldClose = false, description = 'A key assigned to a vehicle.' },
+    { name = 'bread',        label = 'Bread',    weight = 120,  type = 'item', image = 'bread.png',        imageUrl = KoraCoreSeed.imageUrl('bread'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
 
-    { name = 'chocolate_bar', label = 'Chocolate Bar', weight = 80,  type = 'item', image = 'chocolate_bar.png', imageUrl = QBCoreSeed.imageUrl('chocolate_bar'), unique = false, useable = true, shouldClose = true, description = 'A quick snack.' },
-    { name = 'soda',          label = 'Soda',          weight = 350, type = 'item', image = 'soda.png',          imageUrl = QBCoreSeed.imageUrl('soda'),          unique = false, useable = true, shouldClose = true, description = 'Sweet and fizzy.' },
+    { name = 'chocolate_bar', label = 'Chocolate Bar', weight = 80,  type = 'item', image = 'chocolate_bar.png', imageUrl = KoraCoreSeed.imageUrl('chocolate_bar'), unique = false, useable = true, shouldClose = true, description = 'A quick snack.' },
+    { name = 'soda',          label = 'Soda',          weight = 350, type = 'item', image = 'soda.png',          imageUrl = KoraCoreSeed.imageUrl('soda'),          unique = false, useable = true, shouldClose = true, description = 'Sweet and fizzy.' },
 
-    { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = QBCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
-    { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = QBCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
+    { name = 'backpack',     label = 'Backpack', weight = 1500, type = 'item', image = 'backpack.png',     imageUrl = KoraCoreSeed.imageUrl('backpack'), unique = true,  useable = true,  shouldClose = false, container = true, description = 'A personal carry pack.' },
+    { name = 'cash',         label = 'Cash',     weight = 0,    type = 'item', image = 'cash.png',         imageUrl = KoraCoreSeed.imageUrl('cash'), unique = false, useable = false, shouldClose = true,  description = 'Physical money.' },
 
-    { name = 'metalscrap', label = 'Metal Scrap', weight = 100, type = 'item', image = 'metalscrap.png', imageUrl = QBCoreSeed.imageUrl('metalscrap'), unique = false, useable = false, shouldClose = true, description = 'Salvaged mixed metal.' },
-    { name = 'plastic',    label = 'Plastic',     weight = 100, type = 'item', image = 'plastic.png',    imageUrl = QBCoreSeed.imageUrl('plastic'),    unique = false, useable = false, shouldClose = true, description = 'Sorted recyclable plastic.' },
-    { name = 'copper',     label = 'Copper',      weight = 100, type = 'item', image = 'copper.png',     imageUrl = QBCoreSeed.imageUrl('copper'),     unique = false, useable = false, shouldClose = true, description = 'Recovered copper.' },
-    { name = 'rubber',     label = 'Rubber',      weight = 100, type = 'item', image = 'rubber.png',     imageUrl = QBCoreSeed.imageUrl('rubber'),     unique = false, useable = false, shouldClose = true, description = 'Reclaimed rubber.' },
-    { name = 'iron',       label = 'Iron',        weight = 100, type = 'item', image = 'iron.png',       imageUrl = QBCoreSeed.imageUrl('iron'),       unique = false, useable = false, shouldClose = true, description = 'Recovered iron.' },
-    { name = 'aluminum',   label = 'Aluminum',    weight = 100, type = 'item', image = 'aluminum.png',   imageUrl = QBCoreSeed.imageUrl('aluminum'),   unique = false, useable = false, shouldClose = true, description = 'Recovered aluminum.' },
-    { name = 'steel',      label = 'Steel',       weight = 100, type = 'item', image = 'steel.png',      imageUrl = QBCoreSeed.imageUrl('steel'),      unique = false, useable = false, shouldClose = true, description = 'Recovered steel.' },
-    { name = 'glass',      label = 'Glass',       weight = 100, type = 'item', image = 'glass.png',      imageUrl = QBCoreSeed.imageUrl('glass'),      unique = false, useable = false, shouldClose = true, description = 'Sorted glass.' },
-    { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = QBCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
+    { name = 'metalscrap', label = 'Metal Scrap', weight = 100, type = 'item', image = 'metalscrap.png', imageUrl = KoraCoreSeed.imageUrl('metalscrap'), unique = false, useable = false, shouldClose = true, description = 'Salvaged mixed metal.' },
+    { name = 'plastic',    label = 'Plastic',     weight = 100, type = 'item', image = 'plastic.png',    imageUrl = KoraCoreSeed.imageUrl('plastic'),    unique = false, useable = false, shouldClose = true, description = 'Sorted recyclable plastic.' },
+    { name = 'copper',     label = 'Copper',      weight = 100, type = 'item', image = 'copper.png',     imageUrl = KoraCoreSeed.imageUrl('copper'),     unique = false, useable = false, shouldClose = true, description = 'Recovered copper.' },
+    { name = 'rubber',     label = 'Rubber',      weight = 100, type = 'item', image = 'rubber.png',     imageUrl = KoraCoreSeed.imageUrl('rubber'),     unique = false, useable = false, shouldClose = true, description = 'Reclaimed rubber.' },
+    { name = 'iron',       label = 'Iron',        weight = 100, type = 'item', image = 'iron.png',       imageUrl = KoraCoreSeed.imageUrl('iron'),       unique = false, useable = false, shouldClose = true, description = 'Recovered iron.' },
+    { name = 'aluminum',   label = 'Aluminum',    weight = 100, type = 'item', image = 'aluminum.png',   imageUrl = KoraCoreSeed.imageUrl('aluminum'),   unique = false, useable = false, shouldClose = true, description = 'Recovered aluminum.' },
+    { name = 'steel',      label = 'Steel',       weight = 100, type = 'item', image = 'steel.png',      imageUrl = KoraCoreSeed.imageUrl('steel'),      unique = false, useable = false, shouldClose = true, description = 'Recovered steel.' },
+    { name = 'glass',      label = 'Glass',       weight = 100, type = 'item', image = 'glass.png',      imageUrl = KoraCoreSeed.imageUrl('glass'),      unique = false, useable = false, shouldClose = true, description = 'Sorted glass.' },
+    { name = 'cryptostick', label = 'Crypto Stick', weight = 20, type = 'item', image = 'cryptostick.png', imageUrl = KoraCoreSeed.imageUrl('cryptostick'), unique = false, useable = false, shouldClose = true, description = 'A lucky recycling find.' },
 
-    { name = 'wire_bundle',        label = 'Wire Bundle',        weight = 180,  type = 'item', image = 'wire_bundle.png',        imageUrl = QBCoreSeed.imageUrl('wire_bundle'),        unique = false, useable = false, shouldClose = true, description = 'Insulated copper wiring for electrical projects.' },
-    { name = 'metal_bracket',      label = 'Metal Bracket',      weight = 350,  type = 'item', image = 'metal_bracket.png',      imageUrl = QBCoreSeed.imageUrl('metal_bracket'),      unique = false, useable = false, shouldClose = true, description = 'A reinforced bracket for mechanical assemblies.' },
-    { name = 'electronics_kit',    label = 'Electronics Kit',    weight = 650,  type = 'item', image = 'electronics_kit.png',    imageUrl = QBCoreSeed.imageUrl('electronics_kit'),    unique = false, useable = false, shouldClose = true, description = 'Packaged wiring and components for electronic repairs.' },
-    { name = 'vehicle_repair_kit', label = 'Vehicle Repair Kit', weight = 1800, type = 'item', image = 'vehicle_repair_kit.png', imageUrl = QBCoreSeed.imageUrl('vehicle_repair_kit'), unique = false, useable = false, shouldClose = true, description = 'Workshop supplies for repairing a damaged vehicle.' },
+    { name = 'wire_bundle',        label = 'Wire Bundle',        weight = 180,  type = 'item', image = 'wire_bundle.png',        imageUrl = KoraCoreSeed.imageUrl('wire_bundle'),        unique = false, useable = false, shouldClose = true, description = 'Insulated copper wiring for electrical projects.' },
+    { name = 'metal_bracket',      label = 'Metal Bracket',      weight = 350,  type = 'item', image = 'metal_bracket.png',      imageUrl = KoraCoreSeed.imageUrl('metal_bracket'),      unique = false, useable = false, shouldClose = true, description = 'A reinforced bracket for mechanical assemblies.' },
+    { name = 'electronics_kit',    label = 'Electronics Kit',    weight = 650,  type = 'item', image = 'electronics_kit.png',    imageUrl = KoraCoreSeed.imageUrl('electronics_kit'),    unique = false, useable = false, shouldClose = true, description = 'Packaged wiring and components for electronic repairs.' },
+    { name = 'vehicle_repair_kit', label = 'Vehicle Repair Kit', weight = 1800, type = 'item', image = 'vehicle_repair_kit.png', imageUrl = KoraCoreSeed.imageUrl('vehicle_repair_kit'), unique = false, useable = false, shouldClose = true, description = 'Workshop supplies for repairing a damaged vehicle.' },
 
     ammo('pistol_ammo', 'Pistol Magazine', 'AMMO_PISTOL', 180, 12),
     ammo('smg_ammo', 'SMG Magazine', 'AMMO_SMG', 300, 30),
@@ -200,7 +200,7 @@ QBCoreSeed.items = {
     ammo('homing_missile', 'Homing Missile', 'AMMO_HOMINGLAUNCHER', 2400, 1),
     ammo('emp_round', 'EMP round', 'AMMO_EMPLAUNCHER', 1000, 1),
 
-    { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weapon_license.png', imageUrl = QBCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
+    { name = 'weaponlicense', label = 'Weapon Licence', weight = 0, type = 'item', image = 'weapon_license.png', imageUrl = KoraCoreSeed.imageUrl('weaponlicense'), unique = true, useable = false, shouldClose = false, description = 'A valid weapon licence.' },
 
     { name = "baking_soda", label = "Baking soda", weight = 1000, type = "item", image = "baking_soda.png", unique = false, useable = false, shouldClose = true, description = "I can use this for cakes or maybe something else" },
     { name = "gram_bag", label = "Gram Bag", weight = 1, type = "item", image = "gram_bag.png", unique = false, useable = false, shouldClose = true, description = "A small bag containing a gram." },

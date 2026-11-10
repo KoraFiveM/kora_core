@@ -324,14 +324,14 @@ function Core.jobs.getOnDutyRoster(filter)
     return out
 end
 
-AddEventHandler('qbcore:server:playerLoaded', function(src)
+AddEventHandler('kora_core:server:playerLoaded', function(src)
     local p = PI.handle(src)
     if p and p.PlayerData.job then
         indexAdd(src, p.PlayerData.job.name, p.PlayerData.job.onduty, p.PlayerData.job.type)
     end
 end)
 
-AddEventHandler('qbcore:server:playerDropped', function(src)
+AddEventHandler('kora_core:server:playerDropped', function(src)
     indexForget(src)
 end)
 

@@ -38,7 +38,7 @@ h.test('alert reaches only on-duty members of the requested job(s)', function()
     local count = Core.dispatch.alert({ jobs = { 'police' }, title = 'Robbery', message = '10-90 in progress' })
     h.assertEqual(count, 1, 'only the one on-duty cop should be notified')
 
-    local hits = eventsFor('qbcore:client:dispatchAlert')
+    local hits = eventsFor('kora_core:client:dispatchAlert')
     h.assertEqual(#hits, 1, 'exactly one dispatchAlert should have been sent')
     h.assertEqual(hits[1].target, 1, 'it should be addressed to the on-duty cop')
     h.assertEqual(hits[1].args[1].title, 'Robbery', 'the payload should be forwarded intact')
@@ -81,8 +81,8 @@ end)
 
 h.test('a server-side mirror event fires exactly once per alert', function()
     local seen = {}
-    handle.eventHandlers['qbcore:server:dispatchAlert'] = handle.eventHandlers['qbcore:server:dispatchAlert'] or {}
-    table.insert(handle.eventHandlers['qbcore:server:dispatchAlert'], function(payload, count)
+    handle.eventHandlers['kora_core:server:dispatchAlert'] = handle.eventHandlers['kora_core:server:dispatchAlert'] or {}
+    table.insert(handle.eventHandlers['kora_core:server:dispatchAlert'], function(payload, count)
         seen[#seen + 1] = { payload = payload, count = count }
     end)
 

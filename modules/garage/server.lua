@@ -211,7 +211,7 @@ function Core.garage.spawnVehicle(src, plate, coords, heading, expectedOwner)
 
         Core.garage.tagVehicle(vehicle, row.id)
 
-        TriggerClientEvent('qbcore:client:vehicleCondition', src, resolvedNetworkId, row.fuel + 0.0, row.engine_health + 0.0)
+        TriggerClientEvent('kora_core:client:vehicleCondition', src, resolvedNetworkId, row.fuel + 0.0, row.engine_health + 0.0)
         return resolvedNetworkId
     end)
 

@@ -41,7 +41,7 @@ local function dispatch(path, value)
     end
 end
 
-local REFIRE_TOKEN = 'qbcore:rep:refire'
+local REFIRE_TOKEN = 'kora_core:rep:refire'
 local pendingLegacy = nil
 
 local function announceLegacyPlayerData(data, inventoryOnly)
@@ -115,22 +115,22 @@ function Core.replication.reannounceFull()
     return true
 end
 
-RegisterNetEvent('qbcore:rep:snapshot', function(seq, data)
+RegisterNetEvent('kora_core:rep:snapshot', function(seq, data)
     mirror = data
     expectedSeq = seq
     stats.seq = seq
-    TriggerEvent('qbcore:client:playerLoaded', mirror)
+    TriggerEvent('kora_core:client:playerLoaded', mirror)
     fireLegacy({ job = true, gang = true })
 end)
 
-RegisterNetEvent('qbcore:rep:delta', function(seq, ops)
+RegisterNetEvent('kora_core:rep:delta', function(seq, ops)
     if not mirror then
-        TriggerServerEvent('qbcore:rep:resync')
+        TriggerServerEvent('kora_core:rep:resync')
         return
     end
     if seq ~= expectedSeq + 1 then
         stats.resyncs = stats.resyncs + 1
-        TriggerServerEvent('qbcore:rep:resync')
+        TriggerServerEvent('kora_core:rep:resync')
         return
     end
     expectedSeq = seq
@@ -222,7 +222,7 @@ AddEventHandler('onClientResourceStop', function(resource)
 end)
 
 function Core.replication.requestResync()
-    TriggerServerEvent('qbcore:rep:resync')
+    TriggerServerEvent('kora_core:rep:resync')
 end
 
 ---@return table

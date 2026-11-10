@@ -46,7 +46,7 @@ function Core.paycheck.startPaycheck()
             if running and threadGeneration == myGeneration then
                 local ok, err = pcall(Core.paycheck._tick)
                 if not ok then
-                    print(('[qbcore:paycheck] tick errored: %s'):format(tostring(err)))
+                    print(('[kora_core:paycheck] tick errored: %s'):format(tostring(err)))
                 end
             end
         end

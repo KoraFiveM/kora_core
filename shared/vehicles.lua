@@ -1,6 +1,6 @@
-QBCoreSeed = QBCoreSeed or {}
+KoraCoreSeed = KoraCoreSeed or {}
 
-QBCoreSeed.vehicles = {
+KoraCoreSeed.vehicles = {
     { brand = 'Maxwell', name = 'Asbo', price = 4000, category = 'Compact', model = 'asbo' },
     { brand = 'Dinka', name = 'Blista', price = 13000, category = 'Compact', model = 'blista' },
     { brand = 'Grotti', name = 'Brioso R/A', price = 20000, category = 'Compact', model = 'brioso' },

@@ -62,17 +62,17 @@ h.test('job.grade carries payment and isboss from the job definition', function(
     local job = QBCore.Functions.GetPlayer(1).PlayerData.job
     h.assertEqual(job.name, 'police')
     h.assertEqual(job.grade.level, 2)
-    h.assertEqual(job.grade.payment, QBCoreSeed.jobs[2].grades[3].payment)
+    h.assertEqual(job.grade.payment, KoraCoreSeed.jobs[2].grades[3].payment)
     h.assertEqual(job.grade.isboss, false)
-    local top = #QBCoreSeed.jobs[2].grades
+    local top = #KoraCoreSeed.jobs[2].grades
     h.assertTrue(p.Functions.SetJob('police', top - 1))
-    h.assertEqual(QBCore.Functions.GetPlayer(1).PlayerData.job.grade.isboss, QBCoreSeed.jobs[2].grades[top].isboss or false)
+    h.assertEqual(QBCore.Functions.GetPlayer(1).PlayerData.job.grade.isboss, KoraCoreSeed.jobs[2].grades[top].isboss or false)
 end)
 
 h.test('SetJob and SetGang lower-case the name like stock', function()
     h.assertTrue(p.Functions.SetJob('POLICE', 0))
     h.assertEqual(QBCore.Functions.GetPlayer(1).PlayerData.job.name, 'police')
-    local gang = QBCoreSeed.gangs[2] and QBCoreSeed.gangs[2].name
+    local gang = KoraCoreSeed.gangs[2] and KoraCoreSeed.gangs[2].name
     if gang then
         h.assertTrue(p.Functions.SetGang(gang:upper(), 0))
         local g = QBCore.Functions.GetPlayer(1).PlayerData.gang

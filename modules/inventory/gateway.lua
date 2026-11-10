@@ -31,12 +31,12 @@ local function callProvider(name, ...)
     local resourceExports = exports[providerName]
     local fn = resourceExports and resourceExports[name]
     if type(fn) ~= 'function' then
-        return nil, ("qbinventory is started but is missing required qbcore gateway export '%s'"):format(name)
+        return nil, ("kora_inventory is started but is missing required kora_core gateway export '%s'"):format(name)
     end
 
     local results = table.pack(pcall(providerColonCall(name), resourceExports, ...))
     if not results[1] then
-        return nil, ("qbinventory gateway export '%s' failed: %s"):format(name, tostring(results[2]))
+        return nil, ("kora_inventory gateway export '%s' failed: %s"):format(name, tostring(results[2]))
     end
     return table.unpack(results, 2, results.n)
 end
@@ -44,18 +44,18 @@ end
 local function unavailable(name)
     local state = providerState()
     if state == 'started' then
-        return nil, ("qbinventory is started but is missing required qbcore gateway export '%s'"):format(name)
+        return nil, ("kora_inventory is started but is missing required kora_core gateway export '%s'"):format(name)
     end
 
     if not Config.inventory.allowLegacyFallback then
-        return nil, ("qbinventory is not started (state: %s); set Config.inventory.allowLegacyFallback=true for a temporary "
-            .. "qbcore legacy fallback, or ensure qbinventory before resources that use inventory APIs."):format(state)
+        return nil, ("kora_inventory is not started (state: %s); set Config.inventory.allowLegacyFallback=true for a temporary "
+            .. "kora_core legacy fallback, or ensure kora_inventory before resources that use inventory APIs."):format(state)
     end
 
     if not warnedUnavailable then
         warnedUnavailable = true
-        print(("^3[qbcore:inventory]^7 qbinventory is not started (state: %s); using the temporary built-in "
-            .. "legacy fallback. start qbinventory to enable authoritative inventory sessions and live updates."):format(state))
+        print(("^3[kora_core:inventory]^7 kora_inventory is not started (state: %s); using the temporary built-in "
+            .. "legacy fallback. start kora_inventory to enable authoritative inventory sessions and live updates."):format(state))
     end
     return false
 end

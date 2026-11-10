@@ -28,7 +28,7 @@ h.test('server export activates one player and pushes the client state', functio
     h.assertTrue(Core.development.isDevMode(1))
     h.assertEqual(#handle.clientEvents, before + 1)
     local event = handle.clientEvents[#handle.clientEvents]
-    h.assertEqual(event.name, 'qbcore:client:setDevMode')
+    h.assertEqual(event.name, 'kora_core:client:setDevMode')
     h.assertEqual(event.target, 1)
     h.assertTrue(event.args[1])
 
@@ -42,7 +42,7 @@ h.test('server export disables the mode and disconnect forgets it', function()
     h.assertFalse(Core.development.isDevMode(1))
 
     Core.development.setDevMode(1, true)
-    handle.fireEvent('qbcore:server:playerDropped', 0, 1)
+    handle.fireEvent('kora_core:server:playerDropped', 0, 1)
     h.assertFalse(Core.development.isDevMode(1))
 end)
 
@@ -71,7 +71,7 @@ dofile('modules/development/client.lua')
 
 h.test('client activation applies god mode and the configured fast walk rate', function()
     h.assertFalse(Core.development.isDevMode())
-    TriggerEvent('qbcore:client:setDevMode', true)
+    TriggerEvent('kora_core:client:setDevMode', true)
 
     h.assertTrue(Core.development.isDevMode())
     h.assertTrue(invincible[41], 'current ped should be invincible')
@@ -92,7 +92,7 @@ h.test('a replacement ped is protected and the previous ped is restored', functi
 end)
 
 h.test('client deactivation restores the active ped', function()
-    TriggerEvent('qbcore:client:setDevMode', false)
+    TriggerEvent('kora_core:client:setDevMode', false)
     local restoresBefore = #staminaRestores
     Core.development._tick()
     h.assertEqual(#staminaRestores, restoresBefore, 'stamina refill should stop when disabled')
@@ -103,7 +103,7 @@ h.test('client deactivation restores the active ped', function()
 end)
 
 h.test('resource stop also restores an active mode', function()
-    TriggerEvent('qbcore:client:setDevMode', true)
+    TriggerEvent('kora_core:client:setDevMode', true)
     handle.fireEvent('onClientResourceStop', 0, 'kora_core')
 
     h.assertFalse(Core.development.isDevMode())

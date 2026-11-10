@@ -27,7 +27,7 @@ h.test('resource fields hydrate before the initial snapshot without becoming dir
 
     local data = CoreInternal.player.freshData('FIELD1', 'license:test', 1, { firstname = 'Field', lastname = 'Test' })
     h.assertTrue(Core.player.login(1, 'FIELD1', data))
-    local snapshot = handle.lastClient('qbcore:rep:snapshot')
+    local snapshot = handle.lastClient('kora_core:rep:snapshot')
     h.assertEqual(snapshot.args[2].skills.mining.level, 4)
     h.assertEqual(next(CoreInternal.player.handle(1)._dirty), nil, 'replicated-only fields must not dirty player columns')
 end)

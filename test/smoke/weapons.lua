@@ -15,9 +15,9 @@ dofile('modules/registry/server.lua')
 
 h.test('weapon seed records are canonical, unique inventory definitions', function()
     local seen = {}
-    h.assertTrue(#QBCoreSeed.weapons >= 100, 'catalogue unexpectedly incomplete')
+    h.assertTrue(#KoraCoreSeed.weapons >= 100, 'catalogue unexpectedly incomplete')
 
-    for _, definition in ipairs(QBCoreSeed.weapons) do
+    for _, definition in ipairs(KoraCoreSeed.weapons) do
         h.assertTrue(type(definition.name) == 'string' and definition.name == definition.name:lower(), 'weapon name must be lowercase')
         h.assertTrue(definition.name:match('^weapon_[%w_]+$') ~= nil, 'weapon must use a native-style name')
         h.assertFalse(seen[definition.name], 'duplicate weapon seed: ' .. definition.name)
@@ -62,16 +62,16 @@ end)
 
 h.test('core image URLs use exact reviewed GitHub artwork paths when available', function()
     local base = 'https://raw.githubusercontent.com/aifazi/items-images/main/'
-    h.assertEqual(QBCoreSeed.itemImageBaseUrl, base)
-    h.assertEqual(QBCoreSeed.imageUrl('weapon_pistol'), base .. 'weapons/pistol/weapon_pistol.png')
-    h.assertEqual(QBCoreSeed.imageUrl('pistol_ammo'), base .. 'weapons/ammo/pistol_ammo.png')
-    h.assertEqual(QBCoreSeed.imageUrl('cash'), nil, 'missing artwork must fall back rather than guess a URL')
-    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').imageUrl, QBCoreSeed.imageUrl('weapon_pistol'))
-    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').imageUrl, QBCoreSeed.imageUrl('pistol_ammo'))
+    h.assertEqual(KoraCoreSeed.itemImageBaseUrl, base)
+    h.assertEqual(KoraCoreSeed.imageUrl('weapon_pistol'), base .. 'weapons/pistol/weapon_pistol.png')
+    h.assertEqual(KoraCoreSeed.imageUrl('pistol_ammo'), base .. 'weapons/ammo/pistol_ammo.png')
+    h.assertEqual(KoraCoreSeed.imageUrl('cash'), nil, 'missing artwork must fall back rather than guess a URL')
+    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').imageUrl, KoraCoreSeed.imageUrl('weapon_pistol'))
+    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').imageUrl, KoraCoreSeed.imageUrl('pistol_ammo'))
 end)
 
-h.test('every mapped specialised ammunition item is valid qbinventory stock', function()
-    for ammoType, itemName in pairs(QBCoreSeed.ammoItems) do
+h.test('every mapped specialised ammunition item is valid kora_inventory stock', function()
+    for ammoType, itemName in pairs(KoraCoreSeed.ammoItems) do
         local item = Core.registry.getShared('items', itemName)
         h.assertTrue(item ~= nil, 'mapped ammunition missing: ' .. ammoType)
         h.assertEqual(item.name, itemName)

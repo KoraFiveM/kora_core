@@ -62,7 +62,7 @@ end)
 h.test('defaults are registered through the runtime delta funnel', function()
     local seen = {}
     for _, event in ipairs(handle.clientEvents) do
-        if event.name == 'qbcore:registry:delta' then seen[event.args[1]] = true end
+        if event.name == 'kora_core:registry:delta' then seen[event.args[1]] = true end
     end
     for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs' }) do
         h.assertTrue(seen[name] == true, ('%s defaults did not emit runtime registration deltas'):format(name))
@@ -192,17 +192,17 @@ h.test('snapshot requests from one client share one trailing answer', function()
     local function sent()
         local n = 0
         for _, event in ipairs(handle.clientEvents) do
-            if event.name == 'qbcore:registry:snapshotAll' and event.target == 77 then n = n + 1 end
+            if event.name == 'kora_core:registry:snapshotAll' and event.target == 77 then n = n + 1 end
         end
         return n
     end
-    for _ = 1, 5 do handle.fireEvent('qbcore:registry:requestSnapshot', 77) end
+    for _ = 1, 5 do handle.fireEvent('kora_core:registry:requestSnapshot', 77) end
     h.assertEqual(sent(), 1, 'the first request is answered at once')
     handle.drainTimeouts()
     h.assertEqual(sent(), 2, 'requests inside the window get one trailing answer')
     handle.drainTimeouts()
     h.assertEqual(sent(), 2, 'a quiet window sends nothing more')
-    handle.fireEvent('qbcore:registry:requestSnapshot', 77)
+    handle.fireEvent('kora_core:registry:requestSnapshot', 77)
     h.assertEqual(sent(), 3, 'a request after the window is answered at once')
     handle.drainTimeouts()
 end)

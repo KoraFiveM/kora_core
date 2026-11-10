@@ -14,7 +14,7 @@ h.test('no native weapon is shadowed by an upstream items record', function()
     for _, record in ipairs(Core.registry.allShared('weapons')) do
         h.assertEqual(Core.registry.getShared('items', record.name), nil, record.name .. ' shadowed in items')
     end
-    h.assertEqual(QBCoreSeed.upstreamWeapons, nil, 'staging table must be cleared')
+    h.assertEqual(KoraCoreSeed.upstreamWeapons, nil, 'staging table must be cleared')
 end)
 
 h.test('item-first lookups resolve the native weapon record', function()

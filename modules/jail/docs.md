@@ -37,14 +37,14 @@ Releases `src` from Core.jail's own jail. Does not affect a sentence an external
 
 ## Events
 
-- `qbcore:server:onJailRequest(src, minutes, reason, resourceName)` — fired instead of jailing internally when `resourceName` (from `Config.jail.deferToResources`) is running.
-- `qbcore:server:playerJailed(src, minutes, reason)` — fired after an internal jail.
-- `qbcore:server:playerReleased(src)` — fired after an internal release.
-- `qbcore:client:jailTeleport(coords, remainingSeconds)` (client) — teleport + start containment.
-- `qbcore:client:jailRelease` (client) — clear containment.
+- `kora_core:server:onJailRequest(src, minutes, reason, resourceName)` — fired instead of jailing internally when `resourceName` (from `Config.jail.deferToResources`) is running.
+- `kora_core:server:playerJailed(src, minutes, reason)` — fired after an internal jail.
+- `kora_core:server:playerReleased(src)` — fired after an internal release.
+- `kora_core:client:jailTeleport(coords, remainingSeconds)` (client) — teleport + start containment.
+- `kora_core:client:jailRelease` (client) — clear containment.
 
 ## Notes
 - **State lives in `metadata.jailed`** as a UNIX release timestamp — survives relog with no extra schema. Read it directly if you need the raw timestamp; prefer `getRemaining`/`isJailed` otherwise.
-- **External prison resources take over entirely.** If any resource named in `Config.jail.deferToResources` is `started`, `jailPlayer` fires `qbcore:server:onJailRequest` and does nothing else — no `metadata.jailed` write, no teleport push. That resource's own release flow is expected to run independently of `Core.jail.release`.
-- **Rejoin mid-sentence re-teleports automatically** (on `qbcore:server:playerLoaded`), unless an external prison resource is now running.
+- **External prison resources take over entirely.** If any resource named in `Config.jail.deferToResources` is `started`, `jailPlayer` fires `kora_core:server:onJailRequest` and does nothing else — no `metadata.jailed` write, no teleport push. That resource's own release flow is expected to run independently of `Core.jail.release`.
+- **Rejoin mid-sentence re-teleports automatically** (on `kora_core:server:playerLoaded`), unless an external prison resource is now running.
 - **Client containment** is a 30m `Kora.zones` sphere around the jail coords; leaving it snaps the player back. No built-in countdown UI — build one against `getRemaining` if you need it.

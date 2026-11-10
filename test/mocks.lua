@@ -263,7 +263,7 @@ function M.install(opts)
     local sqlCalls = { enqueue = {}, enqueueMany = {}, query = {}, single = {}, execute = {}, ensureTables = {}, migrate = {} }
     local sqlResponses = { query = {}, single = {} }
     Kora.sql = {
-        NULL = '\0qbsql:null\0',
+        NULL = '\0kora_sql:null\0',
         ready = function() return true end,
         enqueue = function(t, k, row, opts) table.insert(sqlCalls.enqueue, { table = t, key = k, row = row, opts = opts }) end,
         enqueueMany = function(t, k, rows, opts) table.insert(sqlCalls.enqueueMany, { table = t, key = k, rows = rows, opts = opts }) end,
