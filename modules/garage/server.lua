@@ -180,7 +180,14 @@ function Core.garage.spawnVehicle(src, plate, coords, heading, expectedOwner)
         local modelHash = tonumber(row.model) or joaat(row.model)
 
         vehicle = CreateVehicle(modelHash, coords.x, coords.y, coords.z, heading or 0.0, true, false)
-        if vehicle == 0 or not DoesEntityExist(vehicle) then
+        -- A server-created entity is registered asynchronously: checking in the
+        -- same tick can report a failure for a vehicle that is about to appear.
+        local attempts = 0
+        while vehicle and vehicle ~= 0 and not DoesEntityExist(vehicle) and attempts < 100 do
+            Wait(0)
+            attempts = attempts + 1
+        end
+        if not vehicle or vehicle == 0 or not DoesEntityExist(vehicle) then
             return false, 'failed to create vehicle'
         end
 

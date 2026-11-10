@@ -61,6 +61,9 @@ function CoreInternal.player.buildJob(name, grade)
         return { name = name, label = name, type = 'none', onduty = true, isboss = false,
                  payment = 0, grade = { name = 'Unknown', level = grade } }
     end
+    -- A grade the job does not define falls back to grade 1; report that level
+    -- too, so level, name and payment always describe the same grade.
+    if def.grades and not def.grades[grade] and def.grades[1] then grade = 1 end
     local g = def.grades and (def.grades[grade] or def.grades[1]) or { name = 'Grade', payment = 0 }
     return {
         name = def.name,
@@ -82,6 +85,7 @@ function CoreInternal.player.buildGang(name, grade)
     if not def then
         return { name = name, label = name, isboss = false, grade = { name = 'None', level = grade } }
     end
+    if def.grades and not def.grades[grade] and def.grades[1] then grade = 1 end
     local g = def.grades and (def.grades[grade] or def.grades[1]) or { name = 'None' }
     return {
         name = def.name,

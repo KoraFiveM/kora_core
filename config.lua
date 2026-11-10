@@ -26,7 +26,7 @@ Config.money = {
     types = { 'cash', 'bank', 'crypto' },
     default = { cash = 500, bank = 5000, crypto = 0 },
     cashType = 'cash',
-    allowNegative = { bank = true },
+    allowNegative = {},  -- no overdraft: bank purchases are refused when short
     minusLimit = -50000,
 
     tax = {
