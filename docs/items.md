@@ -113,4 +113,4 @@ Gangs: `none`, `ballas`, `vagos` from `shared/gangs.lua`, plus stock `lostmc`,
 `tools/ox_items/generate.lua` is an offline Lua 5.4 script that builds a stock
 ox_inventory `data/items.lua` from the kora_core registry, with a name mapping and
 a report of items referenced in code but missing from the registry. See its
-[README](https://github.com/KoraFiveM/kora_core/blob/master/tools/ox_items/README.md).
+[README](https://github.com/KoraFiveM/kora_core/blob/dev/tools/ox_items/README.md).
