@@ -1,0 +1,4 @@
+theme: jekyll-theme-cayman
+title: kora_core
+description: "Framework core for FiveM: players, money, jobs, inventory, shared registries — full legacy qb-core compat."
+show_downloads: false

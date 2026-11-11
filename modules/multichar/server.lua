@@ -1,0 +1,97 @@
+local PI = CoreInternal.player
+
+---List a source's characters (by their primary identifier). Yields.
+---@param src integer
+---@return table[]  -- decoded summaries {citizenid, cid, name, charinfo, money, job, gang}
+function Core.multichar.getCharacters(src)
+    local license = Core.identity.primary(src)
+    if not license then return {} end
+    Core.users.recordDiscord(src)
+    local rows = Core.persistence._listCharacters(license)
+    local function dec(s) local ok, v = pcall(json.decode, s or ''); return ok and v or {} end
+    for _, row in ipairs(rows) do
+        row.charinfo = dec(row.charinfo)
+        row.money = dec(row.money)
+        row.job = dec(row.job)
+        row.gang = dec(row.gang)
+    end
+    return rows
+end
+
+---Whether a citizen belongs to the source's primary identifier. Yields.
+---Kept as a dedicated public check for pre-login integrations such as a
+---character selector fetching saved appearance without adopting the player.
+---@param src integer
+---@param citizenid string
+---@return boolean
+function Core.multichar.ownsCharacter(src, citizenid)
+    if type(citizenid) ~= 'string' or citizenid == '' then return false end
+    local license = Core.identity.primary(src)
+    if not license then return false end
+    local data = Core.persistence._load(citizenid)
+    return data ~= nil and data.license == license
+end
+
+---Select (load + log in) an existing character. Yields. Returns (true) or (nil, err).
+---@param src integer
+---@param citizenid string
+---@return boolean, string|nil
+function Core.multichar.selectCharacter(src, citizenid)
+    if type(citizenid) ~= 'string' or citizenid == '' then return false, 'invalid citizenid' end
+    local license = Core.identity.primary(src)
+    local data, err = Core.persistence._load(citizenid)
+    if not data then return false, err end
+    if data.license ~= license then return false, 'character does not belong to this player' end
+    return Core.player.login(src, citizenid, data)
+end
+
+---Create a new character in a slot. Yields. Returns (citizenid) or (nil, err).
+---@param src integer
+---@param charinfo table
+---@param cid integer|nil
+---@return string|nil, string|nil
+
+---Delete a character (soft-delete). Yields.
+---@param src integer
+---@param citizenid string
+---@return boolean, string|nil
+function Core.multichar.deleteCharacter(src, citizenid)
+    local license = Core.identity.primary(src)
+    local data = Core.persistence._load(citizenid)
+    if not data then return false, 'character not found' end
+    if Core.identity.primary(src) ~= license then return false, 'player session changed' end
+    if data and data.license ~= license then return false, 'not your character' end
+    local player = PI.byCitizenId[citizenid]
+    if player then
+        local loggedOut, err = Core.player.logout(player.source)
+        if not loggedOut then return false, err or 'character logout failed' end
+    end
+    return Core.persistence._deleteCharacterRow(citizenid)
+end
+
+RegisterNetEvent('kora_core:server:requestCharacters', function()
+    local src = source
+    TriggerClientEvent('kora_core:client:receiveCharacters', src, Core.multichar.getCharacters(src))
+end)
+
+RegisterNetEvent('kora_core:server:selectCharacter', function(citizenid)
+    local src = source
+    local ok, err = Core.multichar.selectCharacter(src, citizenid)
+    TriggerClientEvent('kora_core:client:characterSelected', src, ok, err)
+end)
+
+RegisterNetEvent('kora_core:server:createCharacter', function(charinfo, cid)
+    local src = source
+    local citizenid, err = Core.player.createCharacter(src, charinfo, cid)
+    if citizenid then
+        TriggerClientEvent('kora_core:client:characterSelected', src, true)
+    else
+        TriggerClientEvent('kora_core:client:characterSelected', src, false, err)
+    end
+end)
+
+RegisterNetEvent('kora_core:server:deleteCharacter', function(citizenid)
+    local src = source
+    Core.multichar.deleteCharacter(src, citizenid)
+    TriggerClientEvent('kora_core:client:receiveCharacters', src, Core.multichar.getCharacters(src))
+end)

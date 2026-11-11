@@ -1,0 +1,167 @@
+--   * license/cid never appear in a write set;
+
+local h = dofile('test/harness.lua')
+local mocks = dofile('test/mocks.lua')
+local handle = mocks.install()
+
+dofile('config.lua')
+dofile('shared/items.lua'); dofile('shared/jobs.lua'); dofile('shared/gangs.lua')
+dofile('shared/vehicles.lua'); dofile('shared/weapons.lua'); dofile('shared/locations.lua')
+dofile('modules/util/shared.lua')
+dofile('modules/registry/shared.lua')
+dofile('modules/registry/server.lua')
+dofile('modules/player/shared.lua')
+dofile('modules/replication/server.lua')
+dofile('modules/persistence/server.lua')
+dofile('modules/player/server.lua')
+dofile('modules/money/server.lua')
+dofile('modules/metadata/server.lua')
+
+local PI = CoreInternal.player
+local legacyLoadedPlayer
+AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
+    legacyLoadedPlayer = player
+end)
+
+local function loginTestPlayer()
+    local data = CoreInternal.player.freshData('CID1', 'license:abc', 1, { firstname = 'A', lastname = 'B' })
+    Core.player.login(1, 'CID1', data)
+    return PI.handle(1)
+end
+
+h.test('mutating money marks exactly {money} dirty', function()
+    local p = loginTestPlayer()
+    p._dirty = {}
+    Core.money.addMoney(1, 'cash', 100, 'test')
+    local keys = {}
+    for k in pairs(p._dirty) do keys[#keys + 1] = k end
+    h.assertEqual(#keys, 1, 'exactly one column dirty')
+    h.assertEqual(keys[1], 'money')
+end)
+
+h.test('legacy PlayerLoaded receives the Player wrapper expected by qb-inventory', function()
+    h.assertTrue(legacyLoadedPlayer ~= nil, 'legacy PlayerLoaded event fired')
+    h.assertTrue(legacyLoadedPlayer.PlayerData ~= nil, 'event payload exposes PlayerData')
+    h.assertEqual(legacyLoadedPlayer.PlayerData.citizenid, 'CID1')
+end)
+
+h.test('flushAll enqueues one row with ONLY the money column', function()
+    Core.persistence.flushAll()
+    Core.money.addMoney(1, 'cash', 10, 'baseline')
+    handle.sqlCalls.enqueueMany = {}
+    Core.persistence.flushAll()
+    local call = handle.sqlCalls.enqueueMany[1]
+    h.assertTrue(call ~= nil, 'expected an enqueueMany')
+    h.assertEqual(call.table, 'players')
+    h.assertEqual(call.opts.writeMode, 'update', 'existing player saves must never use a partial upsert')
+    h.assertEqual(#call.rows, 1, 'one dirty player')
+    local cols = call.rows[1].cols
+    local colNames = {}
+    for k in pairs(cols) do colNames[#colNames + 1] = k end
+    h.assertEqual(#colNames, 1, 'only one column written')
+    h.assertEqual(colNames[1], 'money')
+end)
+
+h.test('mutating twice before a flush still produces ONE row', function()
+    Core.money.addMoney(1, 'cash', 50, 't')
+    Core.money.addMoney(1, 'bank', 25, 't')
+    handle.sqlCalls.enqueueMany = {}
+    Core.persistence.flushAll()
+    local call = handle.sqlCalls.enqueueMany[1]
+    h.assertEqual(#call.rows, 1, 'still one row for the one player')
+end)
+
+h.test('setting a value back to its original enqueues ZERO columns (byte-identical gate)', function()
+    local p = PI.handle(1)
+    local before = p.PlayerData.money.cash
+    Core.money.setMoney(1, 'cash', before + 999, 't')
+    Core.money.setMoney(1, 'cash', before, 't')
+    handle.sqlCalls.enqueueMany = {}
+    local flushed = Core.persistence.flushAll()
+    h.assertEqual(flushed, 0, 'a reverted change must write nothing')
+end)
+
+h.test('license and cid never appear in a write set', function()
+    local p = PI.handle(1)
+    p._dirty['license'] = true
+    p._dirty['cid'] = true
+    p._dirty['money'] = true
+    p.PlayerData.money.cash = p.PlayerData.money.cash + 1
+    handle.sqlCalls.enqueueMany = {}
+    Core.persistence.flushAll()
+    local call = handle.sqlCalls.enqueueMany[1]
+    if call then
+        for _, row in ipairs(call.rows) do
+            h.assertTrue(row.cols.license == nil, 'license must never be written')
+            h.assertTrue(row.cols.cid == nil, 'cid must never be written')
+        end
+    end
+end)
+
+h.test('_load re-keys JSON string slot keys back to numbers', function()
+    local sql = 'SELECT * FROM `players` WHERE `citizenid` = ? AND `deleted_at` IS NULL'
+    handle.sqlResponses.single[sql] = {
+        citizenid = 'CID9', license = 'license:z', cid = 1, name = 'jay sixty',
+        money = '{}', charinfo = '{"phone":"5551234"}', job = '{}', gang = '{}',
+        position = '{}', metadata = '{}', phone_number = nil,
+        inventory = '{"1":{"slot":1,"name":"weapon_knife","amount":1,"weight":500},'
+            .. '"29":{"slot":29,"name":"weapon_knife","amount":1,"weight":500}}',
+    }
+
+    local data = Core.persistence._load('CID9')
+    h.assertTrue(data ~= nil, 'character loaded')
+    h.assertTrue(data.items[1] ~= nil, 'slot 1 is reachable by NUMBER')
+    h.assertTrue(data.items[29] ~= nil, 'slot 29 is reachable by NUMBER')
+    h.assertEqual(data.items[1].name, 'weapon_knife')
+    h.assertEqual(data.items[1].slot, 1)
+    h.assertTrue(data.items['1'] == nil, 'the string key does not survive')
+    h.assertEqual(data.phone, '5551234', 'legacy charinfo phone survives a NULL scalar column')
+
+    handle.sqlResponses.single[sql].inventory = '[]'
+    local empty = Core.persistence._load('CID9')
+    h.assertEqual(next(empty.items), nil, 'an empty inventory decodes to an empty map')
+end)
+
+for _, method in ipairs({ 'flushAll', 'saveNow' }) do
+    h.test(method .. ' writes a cleared phone as SQL NULL and retains the change gate', function()
+        local p = loginTestPlayer()
+        local function save()
+            handle.sqlCalls.enqueueMany = {}
+            handle.sqlCalls.enqueue = {}
+            if method == 'flushAll' then
+                Core.persistence.flushAll()
+                local call = handle.sqlCalls.enqueueMany[1]
+                return call and call.rows[1]
+            end
+            h.assertEqual(Core.persistence.saveNow(p), nil, 'immediate save return stays nil')
+            local call = handle.sqlCalls.enqueue[1]
+            if call then h.assertEqual(call.opts.priority, 'immediate') end
+            return call and call.row
+        end
+        local function savePhone(value, expected)
+            h.assertTrue(Core.player.setPath(1, { 'phone' }, value))
+            h.assertTrue(p._dirty.phone_number, 'phone is dirty before save')
+            local row = save()
+            h.assertTrue(row ~= nil, 'phone update is queued')
+            h.assertEqual(row.pk, p.citizenid)
+            h.assertEqual(row.cols.phone_number, expected)
+            h.assertEqual(p._encoded.phone_number, expected, 'baseline matches the emitted value')
+            h.assertEqual(p._dirty.phone_number, nil, 'dirty phone is cleared after save')
+        end
+
+        savePhone('5551234', '5551234')
+        savePhone(nil, Kora.sql.NULL)
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, nil))
+        h.assertEqual(save(), nil, 'repeated clear writes nothing')
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, false))
+        h.assertEqual(save(), nil, 'false retains the existing absent-phone meaning')
+        savePhone('', '')
+        savePhone(0, '0')
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, '5559999'))
+        h.assertTrue(Core.player.setPath(1, { 'phone' }, 0))
+        h.assertEqual(save(), nil, 'reverted phone change writes nothing')
+        savePhone(false, Kora.sql.NULL)
+    end)
+end
+
+h.report('persistence')

@@ -1,0 +1,594 @@
+local PI = CoreInternal.player
+local COLUMN_FOR = PI.COLUMN_FOR
+
+local bySource = {}
+local byCitizenId = {}
+PI.bySource = bySource
+PI.byCitizenId = byCitizenId
+local physicalCashWriteToken = {}
+local logoutWriteToken = {}
+local sourceSessions = {}
+
+local playerDataFields = {}
+local playerDataFieldWriteToken = {}
+
+local subscribers = {}
+local nextSubId = 1
+
+local isCallable = Kora.util.isCallable
+
+local function pathMatchesPrefix(path, prefix)
+    if #prefix > #path then return false end
+    for i = 1, #prefix do
+        if path[i] ~= prefix[i] then return false end
+    end
+    return true
+end
+
+---THE single mutation entry point. Writes PlayerData at `path`, marks the
+---owning DB column dirty, queues a client delta, and fires matching subscribers.
+---@param src integer
+---@param path (string|integer)[]
+---@param value any
+---@param opts table|nil  -- { silent = true skips replication (rare) }
+---@return boolean, string|nil
+function Core.player.setPath(src, path, value, opts)
+    local player = bySource[src]
+    if not player then return false, 'no such player' end
+    if player._loggingOut and not (opts and opts._logoutWriteToken == logoutWriteToken) then
+        return false, 'player logout is in progress'
+    end
+    if type(path) ~= 'table' or #path == 0 then return false, 'path must be a non-empty array' end
+    if Core.persistence._canWriteColumn and not Core.persistence._canWriteColumn(player.citizenid, COLUMN_FOR[path[1]], opts and opts._columnOperationToken) then
+        return false, 'player data is busy'
+    end
+
+    local field = playerDataFields[path[1]]
+    if field and not (opts and opts._playerDataFieldWriteToken == playerDataFieldWriteToken) then
+        local invokingResource = GetInvokingResource() or GetCurrentResourceName()
+        if invokingResource ~= field.resource then
+            return false, ('PlayerData field %s is owned by %s'):format(path[1], field.resource)
+        end
+    end
+
+    if path[1] == 'money' and Core.money and Core.money.isPhysicalCash
+        and Core.money.isPhysicalCash(path[2]) and not (opts and opts._physicalCashToken == physicalCashWriteToken) then
+        return false, 'physical cash account is inventory-owned'
+    end
+
+    Core.util.pathSet(player.PlayerData, path, value)
+
+    if Core.compat.onPlayerDataChanged then
+        Core.compat.onPlayerDataChanged(src, path, value)
+    end
+
+    local column = COLUMN_FOR[path[1]]
+    if column then
+        Core.persistence._markDirty(player, column)
+    end
+
+    if not (opts and opts.silent) then
+        Core.replication._queueOp(player, path, value)
+    end
+
+    for _, sub in pairs(subscribers) do
+        if pathMatchesPrefix(path, sub.prefix) then
+            local ok, err = pcall(sub.handler, src, path, value)
+            if not ok then
+                print(("^3[kora_core:player]^7 onChange handler errored: %s"):format(tostring(err)))
+            end
+        end
+    end
+
+    if path[1] == 'items' then
+        TriggerEvent('kora_core:server:inventoryChanged', src, Core.util.deepClone(path), Core.util.deepClone(value))
+    end
+    return true
+end
+
+function PI._setPhysicalCashLedger(src, account, value)
+    return Core.player.setPath(src, { 'money', account }, value, { _physicalCashToken = physicalCashWriteToken })
+end
+
+---@param src integer
+---@return table|nil  -- a deep-cloned PlayerData snapshot (safe to cross the export boundary)
+function Core.player.getPlayer(src)
+    local player = bySource[src]
+    if not player then return nil end
+    return Core.util.deepClone(player.PlayerData)
+end
+
+---@param src integer
+---@param bucket integer
+---@return boolean
+function Core.player.setPlayerBucket(src, bucket)
+    if not (src and bucket) then return false end
+    SetPlayerRoutingBucket(src, bucket)
+    local state = Player(src) and Player(src).state
+    if state then state:set('instance', bucket, true) end
+    local license = Core.identity.getIdentifiers(src).license
+    if license then
+        QBCore.Player_Buckets = QBCore.Player_Buckets or {}
+        QBCore.Player_Buckets[license] = { id = src, bucket = bucket }
+    end
+    TriggerEvent('kora_voice:server:bucketChanged', src)
+    return true
+end
+
+---@param src integer
+---@param requiredField string|nil Refuse a partial save when this field is fenced.
+---@return boolean, string|nil
+function Core.player.savePlayer(src, requiredField)
+    local player = PI.handle(src)
+    if not player then return false, 'no such player' end
+    if requiredField ~= nil then
+        local column = type(requiredField) == 'string' and PI.COLUMN_FOR[requiredField]
+        if not column then return false, 'invalid player field' end
+        if Core.persistence._isColumnLocked and Core.persistence._isColumnLocked(player.citizenid, column) then
+            return false, 'player data is busy'
+        end
+    end
+    Core.persistence.saveNow(player)
+    return true
+end
+
+---@return table
+function Core.player.getStarterItems()
+    return Core.util.deepClone(QBCore.Shared.StarterItems)
+end
+
+---Internal: the LIVE Player handle (never exported; used by compat & modules).
+---@param src integer
+---@return table|nil
+function PI.handle(src) return bySource[src] end
+
+---@param citizenid string
+---@return table|nil
+function Core.player.getPlayerByCitizenId(citizenid)
+    local player = byCitizenId[citizenid]
+    return player and Core.util.deepClone(player.PlayerData) or nil
+end
+
+---Read a sub-path of a player's data without cloning the whole blob. With no
+---path, returns a full clone.
+---@param src integer
+---@param path (string|integer)[]|nil
+---@return any
+function Core.player.getPlayerData(src, path)
+    local player = bySource[src]
+    if not player then return nil end
+    if not path then return Core.util.deepClone(player.PlayerData) end
+    local v = Core.util.pathGet(player.PlayerData, path)
+    return (type(v) == 'table') and Core.util.deepClone(v) or v
+end
+
+---@return integer[]
+function Core.player.getPlayers()
+    local out = {}
+    for src in pairs(bySource) do out[#out + 1] = src end
+    return out
+end
+
+---@return table[]  -- snapshots of every online player
+function Core.player.getAllPlayers()
+    local out = {}
+    for _, player in pairs(bySource) do out[#out + 1] = Core.util.deepClone(player.PlayerData) end
+    return out
+end
+
+local RESERVED_PLAYER_DATA_FIELDS = {
+    source = true,
+    citizenid = true,
+    license = true,
+    cid = true,
+}
+
+for key in pairs(COLUMN_FOR) do RESERVED_PLAYER_DATA_FIELDS[key] = true end
+
+local function validPlayerDataField(key)
+    return type(key) == 'string' and #key <= 32 and key:match('^[a-z][%w_]*$') ~= nil
+        and not RESERVED_PLAYER_DATA_FIELDS[key]
+end
+
+local function loadPlayerDataField(field, player)
+    local ok, value, err = pcall(field.provider, player.source, player.citizenid)
+    if not ok then return nil, tostring(value) end
+    if err then return nil, tostring(err) end
+    return Core.util.deepClone(value)
+end
+
+---Register a resource-owned, replicated-only root field. The provider is run
+---before each initial snapshot and receives (source, citizenid). Its returned
+---value is never persisted by kora_core.
+---@param key string
+---@param provider fun(src:integer, citizenid:string):any, string|nil
+---@return boolean, string|nil
+function Core.player.registerPlayerDataField(key, provider)
+    if not validPlayerDataField(key) then return false, 'invalid or reserved PlayerData field' end
+    if not isCallable(provider) then return false, 'provider must be callable' end
+
+    local resource = GetInvokingResource() or GetCurrentResourceName()
+    local existing = playerDataFields[key]
+    if existing then
+        if existing.resource == resource then return false, 'PlayerData field is already registered' end
+        return false, ('PlayerData field is owned by %s'):format(existing.resource)
+    end
+
+    local field = { resource = resource, provider = provider }
+    playerDataFields[key] = field
+
+    for src, player in pairs(bySource) do
+        local value, err = loadPlayerDataField(field, player)
+        if err then
+            print(('^3[kora_core:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+                :format(resource, key, player.citizenid, err))
+        else
+            Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+        end
+    end
+    return true
+end
+
+---Update a registered replicated-only field. Only its registering resource can
+---write it; server authority must remain in that resource's own store/cache.
+---@param src integer
+---@param key string
+---@param value any
+---@return boolean, string|nil
+function Core.player.setPlayerDataField(src, key, value)
+    local field = playerDataFields[key]
+    if not field then return false, 'PlayerData field is not registered' end
+    local resource = GetInvokingResource() or GetCurrentResourceName()
+    if field.resource ~= resource then return false, ('PlayerData field is owned by %s'):format(field.resource) end
+    return Core.player.setPath(src, { key }, value, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+end
+
+---Subscribe to changes under a path prefix. handler(src, path, value). Prefix is
+---a key array, e.g. {'money'} or {'metadata','hunger'}.
+---@param pathPrefix (string|integer)[]
+---@param handler fun(src:integer, path:table, value:any)
+---@return integer|nil, string|nil
+function Core.player.onChange(pathPrefix, handler)
+    if not isCallable(handler) then return nil, 'handler must be callable' end
+    local id = nextSubId
+    nextSubId = nextSubId + 1
+    subscribers[id] = {
+        resource = GetInvokingResource() or GetCurrentResourceName(),
+        prefix = type(pathPrefix) == 'table' and pathPrefix or { pathPrefix },
+        handler = handler,
+    }
+    return id
+end
+
+---@param id integer
+function Core.player.offChange(id)
+    subscribers[id] = nil
+end
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() then return end
+    for id, subscriber in pairs(subscribers) do
+        if subscriber.resource == resource then subscribers[id] = nil end
+    end
+    for key, field in pairs(playerDataFields) do
+        if field.resource == resource then
+            playerDataFields[key] = nil
+            for src in pairs(bySource) do
+                Core.player.setPath(src, { key }, nil, { _playerDataFieldWriteToken = playerDataFieldWriteToken })
+            end
+        end
+    end
+end)
+
+local function adopt(src, player)
+    player.source = src
+    player.PlayerData.source = src
+    bySource[src] = player
+    byCitizenId[player.citizenid] = player
+    Core.persistence._adopt(player)
+    Core.replication._adopt(player)
+
+    for key, field in pairs(playerDataFields) do
+        local value, err = loadPlayerDataField(field, player)
+        if err then
+            print(('^3[kora_core:player]^7 %s could not hydrate PlayerData.%s for %s: %s')
+                :format(field.resource, key, player.citizenid, err))
+        else
+            Core.player.setPath(src, { key }, value, {
+                silent = true,
+                _playerDataFieldWriteToken = playerDataFieldWriteToken,
+            })
+        end
+    end
+
+    if Core.money and Core.money.migratePhysicalCash then
+        local migrated, migrateErr = Core.money.migratePhysicalCash(src)
+        if not migrated then
+            bySource[src] = nil
+            byCitizenId[player.citizenid] = nil
+            Core.replication._forget(player)
+            Core.persistence._forget(player)
+            return false, migrateErr
+        end
+    end
+
+    TriggerEvent('QBCore:Server:PlayerLoaded', Core.compat.buildLoadedPlayer and Core.compat.buildLoadedPlayer(src) or player)
+    TriggerEvent('kora_core:server:playerLoaded', src, player.citizenid)
+    Core.replication._sendSnapshot(player)
+    if Core.money and Core.money.syncState then Core.money.syncState(src) end
+    Player(src).state:set('kora_core:loggedIn', true, true)
+    Player(src).state:set('isLoggedIn', true, true)
+    if Config.compat.deferClientPlayerLoaded ~= true then
+        player._clientLoadedSent = true
+        TriggerClientEvent('QBCore:Client:OnPlayerLoaded', src)
+    end
+    return true
+end
+
+---Log a player in with already-loaded data (from persistence.load). Builds the
+---Player handle around the DB blob and adopts it.
+---@param src integer
+---@param citizenid string
+---@param data table  -- decoded PlayerData
+---@return boolean, string|nil
+function Core.player.login(src, citizenid, data)
+    if bySource[src] then return false, 'source already logged in' end
+    if byCitizenId[citizenid] then return false, 'character already logged in' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(citizenid)
+        if not available then return false, err end
+    end
+    if Core.persistence._columnEpoch and Core.persistence._columnEpoch(citizenid) > 0 then
+        local latest, err = Core.persistence._load(citizenid)
+        if not latest then return false, err end
+        for field in pairs(COLUMN_FOR) do data[field] = latest[field] end
+    end
+    if bySource[src] then return false, 'source already logged in' end
+    if byCitizenId[citizenid] then return false, 'character already logged in' end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(citizenid) then return false, 'player data is busy' end
+    data.source = src
+    data.citizenid = citizenid
+    local player = {
+        source = src,
+        citizenid = citizenid,
+        license = data.license,
+        cid = data.cid or 1,
+        PlayerData = data,
+        _dirty = {},
+        _encoded = {},
+        _pendingOps = {},
+        _seq = 0,
+    }
+    return adopt(src, player)
+end
+
+---Create a brand-new character for a source. Returns (citizenid) or (nil, err).
+---An explicit `cid` (admin tool) is honoured if in bounds and free; otherwise the next free
+---slot is computed server-side -- a client's slot guess is never trusted (it gates the limit).
+---@param src integer
+---@param charinfo table
+---@param cid integer|nil
+---@return string|nil, string|nil
+local creatingCharacter = {}
+
+local function trim(value)
+    return type(value) == 'string' and Kora.util.trim(value) or nil
+end
+
+local function boundedText(value, field, minimum, maximum)
+    value = trim(value)
+    if not value or value:find('[%z\1-\31\127]') then return nil, ('invalid %s'):format(field) end
+    local ok, length = pcall(utf8.len, value)
+    if not ok or not length or length < minimum or length > maximum then
+        return nil, ('%s must be between %d and %d characters'):format(field, minimum, maximum)
+    end
+    return value
+end
+
+local function validBirthdate(value)
+    if type(value) ~= 'string' then return false end
+    local year, month, day = value:match('^(%d%d%d%d)%-(%d%d)%-(%d%d)$')
+    year, month, day = tonumber(year), tonumber(month), tonumber(day)
+    if not year or month < 1 or month > 12 then return false end
+    local days = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+    if year % 400 == 0 or (year % 4 == 0 and year % 100 ~= 0) then days[2] = 29 end
+    if day < 1 or day > days[month] then return false end
+    return value <= os.date('!%Y-%m-%d')
+end
+
+local function normalizeCharinfo(raw)
+    raw = type(raw) == 'table' and raw or {}
+    local firstname, err = boundedText(raw.firstname, 'first name', 1, 24)
+    if not firstname then return nil, err end
+    local lastname
+    lastname, err = boundedText(raw.lastname, 'last name', 1, 24)
+    if not lastname then return nil, err end
+
+    local birthdate = raw.birthdate or '1990-01-01'
+    if not validBirthdate(birthdate) then return nil, 'birth date must be a valid non-future YYYY-MM-DD date' end
+
+    local gender = tonumber(raw.gender == nil and 0 or raw.gender)
+    if gender ~= 0 and gender ~= 1 then return nil, 'gender must be 0 or 1' end
+
+    local nationality
+    nationality, err = boundedText(raw.nationality or 'USA', 'nationality', 2, 32)
+    if not nationality then return nil, err end
+
+    return {
+        firstname = firstname,
+        lastname = lastname,
+        birthdate = birthdate,
+        gender = gender,
+        nationality = nationality,
+        phone = tostring(math.random(1000000, 9999999)),
+    }
+end
+
+local function createCharacterUnlocked(src, charinfo, cid)
+    if bySource[src] then return nil, 'source already logged in' end
+    local normalizedCharinfo, validationErr = normalizeCharinfo(charinfo)
+    if not normalizedCharinfo then return nil, validationErr end
+    local license = Core.identity.primary(src)
+    if not license then return nil, 'could not resolve primary identifier' end
+
+    Core.users.recordDiscord(src)
+    local maxCharacters = Core.users.getMaxCharacters(license)
+    local existing = Core.persistence._listCharacters(license)
+    local taken = {}
+    for _, character in ipairs(existing) do taken[character.cid] = true end
+
+    if cid ~= nil then
+        cid = tonumber(cid)
+        if not cid or cid ~= math.floor(cid) or cid < 1 or cid > maxCharacters or taken[cid] then
+            return nil, 'requested character slot is unavailable'
+        end
+    elseif #existing >= maxCharacters then
+        return nil, 'character limit reached'
+    else
+        for candidate = 1, maxCharacters do
+            if not taken[candidate] then
+                cid = candidate
+                break
+            end
+        end
+    end
+
+    assert(cid ~= nil, 'createCharacter: failed to compute a free slot')
+
+    local citizenid = Core.identity.generateCitizenId()
+    local data = PI.freshData(citizenid, license, cid, normalizedCharinfo)
+
+    data.metadata.starterItems = {}
+    local starterItems = QBCore and QBCore.Shared and QBCore.Shared.StarterItems or {}
+    for _, starterItem in pairs(starterItems) do
+        if type(starterItem) == 'table' and type(starterItem.item) == 'string' then
+            data.metadata.starterItems[starterItem.item] = true
+        end
+    end
+
+    local ok, err = Core.persistence._insertNew(citizenid, license, cid, data)
+    if not ok then return nil, err end
+
+    Core.identity.recordIdentifiers(citizenid, Core.identity.getIdentifiers(src))
+
+    local player = {
+        source = src, citizenid = citizenid, license = license, cid = cid,
+        PlayerData = data, _dirty = {}, _encoded = {}, _pendingOps = {}, _seq = 0,
+    }
+    Core.persistence._seedEncoded(player)
+    local adopted, adoptErr = adopt(src, player)
+    if not adopted then return nil, adoptErr end
+    return citizenid
+end
+
+function Core.player.createCharacter(src, charinfo, cid)
+    if bySource[src] then return nil, 'source already logged in' end
+    if creatingCharacter[src] then return nil, 'character creation already in progress' end
+    creatingCharacter[src] = true
+    local results = table.pack(pcall(createCharacterUnlocked, src, charinfo, cid))
+    creatingCharacter[src] = nil
+    if not results[1] then error(results[2], 0) end
+    return table.unpack(results, 2, results.n)
+end
+
+---Log a player out only after the final player save is confirmed durable.
+---@param src integer
+---@param options table|nil Trusted kora_housing/core callers may supply an exterior position.
+---@return boolean, string|nil
+function Core.player.logout(src, options)
+    local player = bySource[src]
+    if not player then return false end
+    if player._loggingOut then return false, 'player logout is in progress' end
+    if options ~= nil and type(options) ~= 'table' then return false, 'invalid logout options' end
+    local position = options and options.position
+    if position ~= nil then
+        local caller = GetInvokingResource() or GetCurrentResourceName()
+        if caller ~= 'kora_housing' and caller ~= GetCurrentResourceName() then
+            return false, 'logout position is restricted to housing'
+        end
+        if type(position) ~= 'table' or not Kora.util.isFiniteNumber(position.x)
+            or not Kora.util.isFiniteNumber(position.y) or not Kora.util.isFiniteNumber(position.z)
+            or (position.h ~= nil and not Kora.util.isFiniteNumber(position.h)) then
+            return false, 'invalid logout position'
+        end
+        position = { x = position.x, y = position.y, z = position.z, h = position.h or 0.0 }
+    end
+    local session = sourceSessions[src] or 0
+    local function current()
+        return bySource[src] == player and byCitizenId[player.citizenid] == player
+            and (sourceSessions[src] or 0) == session
+    end
+    if Core.persistence._hasColumnOperation and Core.persistence._hasColumnOperation(player.citizenid) then
+        return false, 'player data is busy'
+    end
+    if Core.persistence._persistentColumnsAvailable then
+        local available, err = Core.persistence._persistentColumnsAvailable(player.citizenid)
+        if not available then return false, err end
+    end
+    if not current() then return false, 'player session changed' end
+    if Core.persistence._beginOfflineWrite and not Core.persistence._beginOfflineWrite(player.citizenid) then
+        return false, 'player data is busy'
+    end
+    player._loggingOut = true
+    local previousPosition = Core.util.deepClone(player.PlayerData.position)
+    local called, saved, err = pcall(function()
+        if position then
+            local changed, changeErr = Core.player.setPath(src, { 'position' }, position,
+                { silent = true, _logoutWriteToken = logoutWriteToken })
+            if not changed then return false, changeErr end
+        end
+        return Core.persistence._saveForLogout(player, position ~= nil)
+    end)
+    local sameSession = current()
+    if not called or saved ~= true or not sameSession then
+        if position and sameSession then
+            Core.player.setPath(src, { 'position' }, previousPosition,
+                { silent = true, _logoutWriteToken = logoutWriteToken })
+        end
+        player._loggingOut = nil
+        if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
+        return false, not sameSession and 'player session changed' or tostring(err or saved or 'player save failed')
+    end
+    Player(src).state:set('kora_core:loggedIn', false, true)
+    Player(src).state:set('isLoggedIn', false, true)
+    TriggerClientEvent('QBCore:Client:OnPlayerUnload', src)
+    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
+    if bySource[src] == player then bySource[src] = nil end
+    if byCitizenId[player.citizenid] == player then
+        byCitizenId[player.citizenid] = nil
+        Core.replication._forget(player)
+        Core.persistence._forget(player)
+    end
+    player._loggingOut = nil
+    if Core.persistence._endOfflineWrite then Core.persistence._endOfflineWrite(player.citizenid) end
+    return true
+end
+
+---@param src integer
+---@param reason string|nil
+function Core.player.dropPlayer(src, reason)
+    local player = bySource[src]
+    if not player then return end
+    Core.persistence.saveNow(player)
+    TriggerEvent('QBCore:Server:PlayerDropped', src, reason)
+    TriggerEvent('QBCore:Server:OnPlayerUnload', src)
+    if bySource[src] == player then bySource[src] = nil end
+    if byCitizenId[player.citizenid] == player then byCitizenId[player.citizenid] = nil end
+    Core.replication._forget(player)
+    Core.persistence._forget(player)
+    TriggerEvent('kora_core:server:playerDropped', src, player.citizenid, reason)
+end
+
+AddEventHandler('playerDropped', function(reason)
+    sourceSessions[source] = (sourceSessions[source] or 0) + 1
+    Core.player.dropPlayer(source, reason)
+end)
+
+AddEventHandler('playerJoining', function()
+    sourceSessions[source] = (sourceSessions[source] or 0) + 1
+end)
+
+local coreReady = false
+function Core.player.isCoreReady() return coreReady end
+CreateThread(function() Wait(0); coreReady = true end)
