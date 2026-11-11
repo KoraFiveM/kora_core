@@ -4,7 +4,7 @@ lua54 'yes'
 
 name 'kora_core'
 author 'Jamie'
-version '1.0.0'
+version '0.1.0'
 description 'Player/framework core built on kora_lib, persisted through kora_sql'
 
 dependency 'kora_lib'
