@@ -1,6 +1,6 @@
 {
   "resource": "kora_core",
-  "standardsRevision": "2026-11-12.1",
+  "standardsRevision": "2026-11-12.2",
   "realms": {
     "client": [
       "compat/client/qb-core-events.lua",
@@ -183,5 +183,7 @@
     "docs/*",
     "__pycache__/*",
     "modules/lookup/data/*"
-  ]
+  ],
+  "project": "Kora Framework",
+  "copyright": "Copyright © 2026 Kora Framework"
 }
