@@ -1,0 +1,10 @@
+---@class CoreDispatchAlert
+---@field jobs string[] Job names to notify (on-duty members only).
+---@field title string|nil
+---@field message string|nil
+---@field coords table|nil  -- {x,y,z} or vector3/vector4
+---@field code string|nil
+---@field blip table|nil    -- {sprite,color,scale,duration}, consumed by the receiving job resource's own client code
+---@field sound string|nil
+---@field radius number|nil
+---@field data table|nil    -- freeform, passed through untouched

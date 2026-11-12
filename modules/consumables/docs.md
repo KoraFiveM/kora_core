@@ -1,0 +1,28 @@
+# Consumables module
+
+## Overview
+Bridges kora_inventory's `usingItem` hook to `Kora.status`/`Kora.fx` and hunger/thirst/stress metadata, driven entirely by an item's shared `.effect` table. Server only. Functions are defined on `Core.consumables` and exported flat as `exports.kora_core:<fn>`.
+
+## API
+
+### `Core.consumables.isRegistered()`
+Whether the kora_inventory `usingItem` hook is currently registered.
+
+#### Returns
+- `boolean`
+
+#### Example
+```lua
+if not exports.kora_core:isRegistered() then
+    print('kora_inventory effect bridge is not active')
+end
+```
+
+## Notes
+- **Data-driven, not per-item code.** Give an item (in `shared/items.lua`, or any resource's own item registration) an `effect` table and this module applies it automatically whenever the item is used through kora_inventory:
+  ```lua
+  effect = { hungerDelta = 10, thirstDelta = -5, stressDelta = -2 }
+  ```
+- **Cosmetic/status only.** This never denies a use and never runs real gameplay logic (healing HP, curing an overdose, etc.) — that stays in the item's own `Core.inventory.createUseable` handler (`exports.kora_core:createUseable`), registered independently.
+- **Enable/disable via `Config.consumables.enabled`.** When `false`, the hook is never registered.
+- **Requires kora_inventory.** If kora_inventory isn't running, `isRegistered()` returns `false` until it starts; registration is retried on kora_inventory's `onResourceStart`.
