@@ -1,6 +1,6 @@
 ---
 title: player_vehicles compatibility
-sidebar_position: 13
+sidebar_position: 10
 ---
 
 # Stock `player_vehicles` compatibility

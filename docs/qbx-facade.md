@@ -1,6 +1,6 @@
 ---
 title: qbx facade (opt-in)
-sidebar_position: 11
+sidebar_position: 8
 ---
 
 # qbx facade (opt-in)

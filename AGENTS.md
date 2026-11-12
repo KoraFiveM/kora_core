@@ -107,6 +107,10 @@ collision (see kora_lib AGENTS.md).
 
 User-facing documentation lives in `docs/` (Markdown, published via the Kora Docusaurus site, kora_docs_next). Read `docs/index.md` first for an overview of features, configuration, commands, exports, events and database usage.
 
+Feature and behaviour changes must update the matching docs in the same change.
+
+Docs layout: `docs/index.md` (hub, features table, documentation map), `installation.md`, `how-to-use.md`, `commands.md` (all commands, key mappings, stock qb-core commands), `api/` (one page per module: player, money, jobs, metadata, characters, inventory, garage, jail, permissions, registry, persistence incl. database tables, replication, events/callbacks/state bags, configuration, compatibility, compat-helpers, system; `api/index.md` also holds the export quick reference) and topic pages (`items.md`, `default-commands.md`, `qbx-facade.md`, `vehicle-spawn.md`, `vehicles-compat.md`, `troubleshooting.md`). Each api page has the legacy-style reference first and a "code-derived" section after it; update the page that matches the module you change.
+
 When you add, change, or remove a feature, config option, command, export, event, item, permission, or database table/column, update the matching page in `docs/` in the same change. Keep docs accurate to the code; do not document behaviour that does not exist.
 
 Docs rules: plain Markdown with `title`/`sidebar_position` front matter (no `id`/`slug`), relative links only between docs pages, assets inside `docs/`, fenced code blocks with a language, and no raw `<`, `>`, `{`, `}` outside code (pages are parsed as MDX). The release version comes from `fxmanifest.lua`'s `version` field.

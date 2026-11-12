@@ -1,11 +1,11 @@
 ---
 title: Items and seed data
-sidebar_position: 8
+sidebar_position: 6
 ---
 
 # Items and seed data
 
-kora_core seeds its [shared registries](./features/shared-registries.md) at boot. You
+kora_core seeds its [shared registries](./api/registry.md) at boot. You
 do not need to add any item to another resource for kora_core to work. Other
 resources add or replace records at runtime with `registerShared` (or
 `Kora.shared.register` on the server).
@@ -33,7 +33,7 @@ resources add or replace records at runtime with `registerShared` (or
 ```
 
 `effect` is read by the consumable effects hook (see
-[Inventory](./features/inventory.md#consumable-effects)); none of the seeded items
+[Inventory](./api/inventory.md#consumable-effects)); none of the seeded items
 set it.
 
 ## Seeded items

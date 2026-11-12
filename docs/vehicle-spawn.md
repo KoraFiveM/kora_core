@@ -1,6 +1,6 @@
 ---
 title: Vehicle spawn callbacks
-sidebar_position: 12
+sidebar_position: 9
 ---
 
 # Stock vehicle spawn callbacks
