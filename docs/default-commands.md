@@ -1,6 +1,6 @@
 ---
 title: Default qb-core commands
-sidebar_position: 10
+sidebar_position: 7
 ---
 
 # Stock qb-core default commands

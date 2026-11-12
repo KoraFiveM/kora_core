@@ -1,9 +1,31 @@
 ---
-title: Exports
-sidebar_position: 5
+title: "API reference"
+sidebar_position: 1
 ---
 
-# Exports
+# API reference
+
+| Module | Namespace | Realms |
+| --- | --- | --- |
+| [Player data and lifecycle](./player.md) | `exports.kora_core` | server, client |
+| [Money, accounts and transactions](./money.md) | `exports.kora_core` | server |
+| [Jobs, gangs, duty, paycheck and dispatch](./jobs.md) | `exports.kora_core` | server, client |
+| [Metadata, needs and development mode](./metadata.md) | `exports.kora_core` | server, client |
+| [Characters and multicharacter](./characters.md) | `exports.kora_core` | server, client |
+| [Inventory gateway, usable items and consumables](./inventory.md) | `exports.kora_core` | server, client |
+| [Garage and owned vehicles](./garage.md) | `exports.kora_core` | server, client |
+| [Jail](./jail.md) | `exports.kora_core` | server, client |
+| [Permissions, commands and logging](./permissions.md) | `exports.kora_core` | server |
+| [Shared registries and utilities](./registry.md) | `exports.kora_core` | server, client |
+| [Persistence and schema](./persistence.md) | `exports.kora_core` | server |
+| [Replication and the client mirror](./replication.md) | `exports.kora_core` | server, client |
+| [Events, callbacks and state bags](./events.md) | `events` | server, client |
+| [Configuration](./configuration.md) | `Config` | server, client |
+| [Compatibility](./compatibility.md) | `qb-core` | server, client |
+| [Compatibility helper exports](./compat-helpers.md) | `exports.kora_core` | server, client |
+| [Locales, pause menu and other client systems](./system.md) | `exports.kora_core` | server, client |
+
+## Export quick reference (code-derived)
 
 `build/finalise.lua` publishes every public function of every module as a flat
 export: `exports.kora_core:<name>(...)`. Names are unique per realm (a collision
@@ -22,13 +44,13 @@ Conventions:
 The legacy `qb-core` and `qbx_core` exports are listed on the
 [Compatibility](./compatibility.md#exports) page.
 
-## Server exports
+### Server exports
 
-### Player and characters
+#### Player and characters
 
 | Export | Returns | Notes |
 | --- | --- | --- |
-| `setPath(src, path, value, opts)` | `true` or `false, err` | The mutation funnel. `opts.silent` skips replication. [Details](./features/player.md#writing-the-funnel) |
+| `setPath(src, path, value, opts)` | `true` or `false, err` | The mutation funnel. `opts.silent` skips replication. [Details](./player.md#writing-the-funnel) |
 | `getPlayer(src)` | table or `nil` | Deep copy of PlayerData. |
 | `getPlayerByCitizenId(citizenid)` | table or `nil` | Deep copy for an online character. |
 | `getPlayerData(src, path)` | any | Value at `path` (tables copied), whole copy when `path` is `nil`. |
@@ -56,7 +78,7 @@ local data = exports.kora_core:getPlayer(source)
 if data then print(data.citizenid, data.job.name) end
 ```
 
-### Persistence
+#### Persistence
 
 | Export | Returns | Notes |
 | --- | --- | --- |
@@ -70,7 +92,7 @@ if data then print(data.citizenid, data.job.name) end
 | `abortPlayerColumnOperation(token)` | `true` or `false, err` | Yields. |
 | `getPlayerColumnOperations()` | table array | Yields. Raises when storage is unavailable. |
 
-### Money
+#### Money
 
 | Export | Returns | Notes |
 | --- | --- | --- |
@@ -90,13 +112,13 @@ if data then print(data.citizenid, data.job.name) end
 | `isPhysicalCash(account)` | boolean | |
 | `migratePhysicalCash(src)` | `true` or `false, err` | |
 | `syncState(src)` | none | Republishes `kora_core:money:<account>` state bags. |
-| `transaction(src, definition)` | `true` or `false, err` | [Details](./features/money.md#transactions) |
+| `transaction(src, definition)` | `true` or `false, err` | [Details](./money.md#transactions) |
 
 ```lua
 local ok, err = exports.kora_core:transferMoney(fromSrc, toSrc, 'bank', 100, 'trade')
 ```
 
-### Jobs, gangs, paychecks and dispatch
+#### Jobs, gangs, paychecks and dispatch
 
 | Export | Returns | Notes |
 | --- | --- | --- |
@@ -121,7 +143,7 @@ local ok, err = exports.kora_core:transferMoney(fromSrc, toSrc, 'bank', 100, 'tr
 local onDutyLeo = exports.kora_core:getPlayersByJobType('leo', true)
 ```
 
-### Metadata, needs, development, jail
+#### Metadata, needs, development, jail
 
 | Export | Returns | Notes |
 | --- | --- | --- |
@@ -137,10 +159,10 @@ local onDutyLeo = exports.kora_core:getPlayersByJobType('leo', true)
 | `getRemaining(src)` | integer | Seconds. |
 | `isJailed(src)` | boolean | |
 
-### Inventory
+#### Inventory
 
 With the inventory provider started, these forward to its export of the same name.
-[Details](./features/inventory.md)
+[Details](./inventory.md)
 
 | Export | Returns |
 | --- | --- |
@@ -167,7 +189,7 @@ With the inventory provider started, these forward to its export of the same nam
 | `dropTake(src, dropId, slot, amount)` | `true` or `false, err` |
 | `isRegistered()` | boolean (consumable effects hook) |
 
-### Shared registries
+#### Shared registries
 
 | Export | Returns |
 | --- | --- |
@@ -181,7 +203,7 @@ With the inventory provider started, these forward to its export of the same nam
 | `onSharedChange(name, handler)` | id or `nil, err` |
 | `offSharedChange(name, id)` | none |
 
-### Garage
+#### Garage
 
 | Export | Returns |
 | --- | --- |
@@ -197,7 +219,7 @@ With the inventory provider started, these forward to its export of the same nam
 | `saveVehicleProperties(plate, properties)` | `true` or `false, err` |
 | `deleteVehicle(plate)` | boolean |
 
-### Identity, users, permissions, commands, logging, callbacks
+#### Identity, users, permissions, commands, logging, callbacks
 
 | Export | Returns |
 | --- | --- |
@@ -223,12 +245,12 @@ With the inventory provider started, these forward to its export of the same nam
 | `getLogStats()` | table |
 | `createCallback(name, handler)` | none; `handler(source, reply, ...)` on both callback transports |
 
-### Utilities (also on the client)
+#### Utilities (also on the client)
 
 `round`, `trim`, `splitStr`, `randomStr`, `randomInt`, `randomAlnum`, `deepClone`,
-`pathGet`, `pathSet`. See [Identity and utilities](./features/identity-utilities.md#utilities-both-realms).
+`pathGet`, `pathSet`. See [Identity and utilities](./system.md#utilities-both-realms).
 
-### Compatibility helpers
+#### Compatibility helpers
 
 The compat layer's helpers are exported as a side effect of living on
 `Core.compat`. They exist for kora_core's own legacy layer; other resources should
@@ -239,7 +261,7 @@ not depend on them: `buildOfflinePlayer`, `buildLoadedPlayer`,
 `canonicalSharedNamespace`, `populateLegacyConfig` (the shared ones are also
 exported on the client).
 
-## Client exports
+### Client exports
 
 | Export | Returns | Notes |
 | --- | --- | --- |
