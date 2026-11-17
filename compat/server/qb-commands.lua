@@ -319,7 +319,8 @@ register('job', Kora.lang('CommandHelp.job'), {}, false, 'user', function(src)
     local player = src ~= 0 and F.GetPlayer(src)
     if not player then return end
     local job = player.PlayerData.job
-    reply(src, Kora.lang('Commands.job_status', tostring(job.label), tostring(job.grade.name), tostring(job.onduty)))
+    local onDuty = Kora.lang(job.onduty and 'Commands.yes' or 'Commands.no')
+    reply(src, Kora.lang('Commands.job_status', tostring(job.label), tostring(job.grade.name), onDuty))
 end)
 
 register('gang', Kora.lang('CommandHelp.gang'), {}, false, 'user', function(src)
@@ -347,7 +348,10 @@ local function roleCommand(name, help, kind, apply)
         end
         local ok, err = apply(id, role, Core.compat.fromLegacyGradeLevel(grade))
         audit(src, name, { target = id, [kind] = role, grade = grade, ok = ok and true or false })
-        if not ok then reply(src, Kora.lang('Commands.set_role_failed', kind, tostring(err)), 'error') end
+        if not ok then
+            local what = kind == 'job' and Kora.lang('Commands.set_role_job') or Kora.lang('Commands.set_role_gang')
+            reply(src, Kora.lang('Commands.set_role_failed', what, tostring(err)), 'error')
+        end
     end)
 end
 

@@ -2,8 +2,8 @@ local LANGUAGE_NAMES = {
     ar = 'العربية', da = 'Dansk', de = 'Deutsch', en = 'English', es = 'Español',
     et = 'Eesti', fi = 'Suomi', fr = 'Français', is = 'Íslenska', it = 'Italiano',
     ja = '日本語', lt = 'Lietuvių', nl = 'Nederlands', pt = 'Português',
-    ['pt-br'] = 'Português (Brasil)', ro = 'Română', sk = 'Slovenčina', th = 'ไทย',
-    tr = 'Türkçe', vn = 'Tiếng Việt',
+    ['pt-br'] = 'Português (Brasil)', ro = 'Română', ru = 'Русский', sk = 'Slovenčina', th = 'ไทย',
+    tr = 'Türkçe', ua = 'Українська', vn = 'Tiếng Việt',
 }
 
 local function languageName(code)

@@ -331,7 +331,7 @@ Shows the caller's own job (label, grade name, duty) or gang (label, grade name)
 
 **Result**
 
-A notification such as "Job: Police | Grade: Officer | Duty: true".
+A notification such as "Job: Police | Grade: Officer | Duty: yes".
 
 ### `/setjob <id> <job> <grade>, /setgang <id> <gang> <grade>`
 
