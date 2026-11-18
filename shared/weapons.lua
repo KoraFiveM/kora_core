@@ -50,7 +50,7 @@ local damageSettings = {
 
 local function weapon(name, label, ammotype, weight, weapontype, image)
     local damage = damageSettings[name] or {}
-    image = image or name .. '.png'
+    image = image or name .. '.webp'
     return {
         name = name,
         label = label,
@@ -64,7 +64,6 @@ local function weapon(name, label, ammotype, weight, weapontype, image)
         unique = true,
         useable = true,
         image = image,
-        imageUrl = KoraCoreSeed.imageUrl(name, image),
         shouldClose = true,
     }
 end
@@ -190,12 +189,12 @@ KoraCoreSeed.weapons = {
     weapon('weapon_fertilizercan', 'Fertilizer Can', 'AMMO_FERTILIZERCAN', 1800, 'Equipment'),
     weapon('weapon_parachute', 'Parachute', nil, 1000, 'Equipment', 'parachute.webp'),
 
-    { name = 'weapon_bread', label = 'Baguette', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_bread.png', unique = true, useable = false, description = 'Bread...?' },
-    { name = 'weapon_briefcase', label = 'Briefcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase.png', unique = true, useable = false, description = 'A briefcase for storing important documents' },
-    { name = 'weapon_briefcase_02', label = 'Suitcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase_02.png', unique = true, useable = false, description = 'Wonderfull for nice vacation to Liberty City' },
-    { name = 'weapon_garbagebag', label = 'Garbage Bag', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_garbagebag.png', unique = true, useable = false, description = 'A garbage bag' },
-    { name = 'weapon_handcuffs', label = 'Handcuffs', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_handcuffs.png', unique = true, useable = false, description = 'A pair of lockable linked metal rings for securing a prisoner\'s wrists' },
-    { name = 'weapon_remotesniper', label = 'Remote Sniper', weight = 1000, type = 'weapon', ammotype = 'AMMO_SNIPER_REMOTE', image = 'weapon_remotesniper.png', unique = true, useable = false, description = 'A portable high-precision, long-range rifle' },
+    { name = 'weapon_bread', label = 'Baguette', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_bread.webp', unique = true, useable = false, description = 'Bread...?' },
+    { name = 'weapon_briefcase', label = 'Briefcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase.webp', unique = true, useable = false, description = 'A briefcase for storing important documents' },
+    { name = 'weapon_briefcase_02', label = 'Suitcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase_02.webp', unique = true, useable = false, description = 'Wonderfull for nice vacation to Liberty City' },
+    { name = 'weapon_garbagebag', label = 'Garbage Bag', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_garbagebag.webp', unique = true, useable = false, description = 'A garbage bag' },
+    { name = 'weapon_handcuffs', label = 'Handcuffs', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_handcuffs.webp', unique = true, useable = false, description = 'A pair of lockable linked metal rings for securing a prisoner\'s wrists' },
+    { name = 'weapon_remotesniper', label = 'Remote Sniper', weight = 1000, type = 'weapon', ammotype = 'AMMO_SNIPER_REMOTE', image = 'weapon_remotesniper.webp', unique = true, useable = false, description = 'A portable high-precision, long-range rifle' },
 }
 
 do

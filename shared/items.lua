@@ -1,23 +1,5 @@
 KoraCoreSeed = KoraCoreSeed or {}
 
-KoraCoreSeed.itemImageBaseUrl = KoraCoreSeed.itemImageBaseUrl
-    or 'https://cdn.koraframe.work/inventory/'
-
-function KoraCoreSeed.imageUrl(name, image)
-    local filename = type(image) == 'string' and image ~= '' and image or name
-    if type(filename) ~= 'string' or filename == '' then
-        return nil
-    end
-
-    if filename:match('^https?://') or filename:match('^nui://') then
-        return filename
-    end
-
-    filename = filename:match('([^/]+)$') or filename
-    filename = filename:gsub('%.[%w]+$', '')
-    return KoraCoreSeed.itemImageBaseUrl .. filename .. '.webp'
-end
-
 KoraCoreSeed.ammoItems = {
     AMMO_PISTOL = 'pistol_ammo',
     AMMO_SMG = 'smg_ammo',
@@ -49,7 +31,6 @@ local function ammo(name, label, ammoType, weight, rounds, image)
         ammoType = ammoType,
         rounds = rounds,
         image = image,
-        imageUrl = KoraCoreSeed.imageUrl(name, image),
     }
 end
 
@@ -63,7 +44,6 @@ local function item(name, label, weight, image, unique, useable, shouldClose, de
         weight = weight,
         type = 'item',
         image = image,
-        imageUrl = KoraCoreSeed.imageUrl(name, image),
         unique = unique or nil,
         useable = useable or nil,
         shouldClose = shouldClose,

@@ -22,8 +22,7 @@ resources add or replace records at runtime with `registerShared` (or
     useable = true,
     shouldClose = true,             -- close the inventory UI on use
     description = 'Refreshing.',
-    image = 'water_bottle.png',     -- legacy file name
-    imageUrl = 'https://...',       -- optional browser-ready URL
+    image = 'water_bottle.png',     -- image file name resolved by the inventory
     -- optional:
     container = true,               -- e.g. backpack
     ammoType = 'AMMO_PISTOL',       -- ammo items
@@ -44,9 +43,8 @@ set it.
   `weaponlicense`), physical `cash`, crafting materials (`metalscrap`, `plastic`,
   `copper`, `rubber`, `iron`, `aluminum`, `steel`, `glass`, ...), and items used by
   Kora job and activity resources (fishing, metal detecting, mining, robberies).
-  `imageUrl` values point to `https://cdn.koraframe.work/inventory/` and use each
-  item's `image` filename (or its item name when no image is set), with a `.webp`
-  extension.
+  Artwork is resolved by kora_inventory from the `image` filename, local
+  `kora_inventory/images` files, and its configured CDN fallback.
 - Ammo items built by the `ammo()` helper: `pistol_ammo`, `smg_ammo`,
   `shotgun_ammo`, `rifle_ammo`, `mg_ammo`, `snp_ammo`, `taser_cartridge`,
   `flare_ammo`, `musket_ammo`, `rpg_ammo`, `grenade_launcher_ammo`,
@@ -68,7 +66,7 @@ provider.
 `shared/weapons.lua` defines the `weapons` registry: GTA weapons with `name`
 (for example `weapon_pistol`), `label`, `weight`, `type = 'weapon'`,
 `weapontype`, `ammotype`, `ammoItem` (the matching ammo item), `damageModifier`,
-`disableCriticalHits`, `image`, `imageUrl`, `unique = true`, and a few special
+`disableCriticalHits`, `image`, `unique = true`, and a few special
 weapon items (`weapon_bread`, `weapon_briefcase`, `weapon_handcuffs`, ...). Stock
 qb-core weapon items fill gaps. Weapons always count as unique in the fallback
 inventory. The legacy `QBCore.Shared.Weapons` view is keyed by weapon hash and adds

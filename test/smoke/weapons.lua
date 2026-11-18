@@ -60,14 +60,12 @@ h.test('Ammu-Nation core families and their magazines resolve through registries
     end
 end)
 
-h.test('core image URLs use the Kora inventory image CDN', function()
-    local base = 'https://cdn.koraframe.work/inventory/'
-    h.assertEqual(KoraCoreSeed.itemImageBaseUrl, base)
-    h.assertEqual(KoraCoreSeed.imageUrl('weapon_pistol'), base .. 'weapon_pistol.webp')
-    h.assertEqual(KoraCoreSeed.imageUrl('pistol_ammo', '9mm_ammo_box.webp'), base .. '9mm_ammo_box.webp')
-    h.assertEqual(KoraCoreSeed.imageUrl('cash'), base .. 'cash.webp')
-    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').imageUrl, KoraCoreSeed.imageUrl('weapon_pistol'))
-    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').imageUrl, KoraCoreSeed.imageUrl('pistol_ammo', '9mm_ammo_box.webp'))
+h.test('core item and weapon definitions leave image resolution to kora_inventory', function()
+    h.assertEqual(KoraCoreSeed.imageUrl, nil)
+    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').imageUrl, nil)
+    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').imageUrl, nil)
+    h.assertEqual(Core.registry.getShared('weapons', 'weapon_pistol').image, 'weapon_pistol.webp')
+    h.assertEqual(Core.registry.getShared('items', 'pistol_ammo').image, '9mm_ammo_box.webp')
 end)
 
 h.test('every mapped specialised ammunition item is valid kora_inventory stock', function()
