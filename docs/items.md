@@ -44,8 +44,9 @@ set it.
   `weaponlicense`), physical `cash`, crafting materials (`metalscrap`, `plastic`,
   `copper`, `rubber`, `iron`, `aluminum`, `steel`, `glass`, ...), and items used by
   Kora job and activity resources (fishing, metal detecting, mining, robberies).
-  `imageUrl` values point to an external image repository for the items listed in
-  `KoraCoreSeed.itemImagePaths`.
+  `imageUrl` values point to `https://cdn.koraframe.work/inventory/` and use each
+  item's `image` filename (or its item name when no image is set), with a `.webp`
+  extension.
 - Ammo items built by the `ammo()` helper: `pistol_ammo`, `smg_ammo`,
   `shotgun_ammo`, `rifle_ammo`, `mg_ammo`, `snp_ammo`, `taser_cartridge`,
   `flare_ammo`, `musket_ammo`, `rpg_ammo`, `grenade_launcher_ammo`,

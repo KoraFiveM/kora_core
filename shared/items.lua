@@ -1,114 +1,21 @@
 KoraCoreSeed = KoraCoreSeed or {}
 
 KoraCoreSeed.itemImageBaseUrl = KoraCoreSeed.itemImageBaseUrl
-    or 'https://raw.githubusercontent.com/aifazi/items-images/main/'
-KoraCoreSeed.itemImagePaths = {
-    bread = 'ingredients/bread.webp',
-    id_card = 'license/id_card.webp',
-    lockpick = 'tools/lockpicks/lockpick.webp',
-    mg_ammo = 'weapons/ammo/mg_ammo.webp',
-    phone = 'tech/phone/phone.webp',
-    pistol_ammo = 'weapons/ammo/pistol_ammo.webp',
-    rifle_ammo = 'weapons/ammo/rifle_ammo.webp',
-    sandwich = 'food/cafe/sandwich.webp',
-    shotgun_ammo = 'weapons/ammo/shotgun_ammo.webp',
-    smg_ammo = 'weapons/ammo/smg_ammo.webp',
-    water_bottle = 'drinks/softdrinks/water_bottle.webp',
-    weapon_advancedrifle = 'weapons/weapon_advancedrifle.webp',
-    weapon_appistol = 'weapons/pistol/weapon_appistol.webp',
-    weapon_assaultrifle = 'weapons/ar/weapon_assaultrifle.webp',
-    weapon_assaultrifle_mk2 = 'weapons/ar/weapon_assaultrifle_mk2.webp',
-    weapon_assaultshotgun = 'weapons/shotgun/weapon_assaultshotgun.webp',
-    weapon_assaultsmg = 'weapons/smg/weapon_assaultsmg.webp',
-    weapon_autoshotgun = 'weapons/shotgun/weapon_autoshotgun.webp',
-    weapon_ball = 'weapons/throwables/weapon_ball.webp',
-    weapon_bat = 'weapons/meele/weapon_bat.webp',
-    weapon_battleaxe = 'weapons/meele/weapon_battleaxe.webp',
-    weapon_bottle = 'weapons/meele/weapon_bottle.webp',
-    weapon_bullpuprifle = 'weapons/weapon_bullpuprifle.webp',
-    weapon_bullpuprifle_mk2 = 'weapons/weapon_bullpuprifle_mk2.webp',
-    weapon_bullpupshotgun = 'weapons/shotgun/weapon_bullpupshotgun.webp',
-    weapon_carbinerifle = 'weapons/weapon_carbinerifle.webp',
-    weapon_carbinerifle_mk2 = 'weapons/weapon_carbinerifle_mk2.webp',
-    weapon_ceramicpistol = 'weapons/pistol/weapon_ceramicpistol.webp',
-    weapon_combatmg = 'weapons/weapon_combatmg.webp',
-    weapon_combatmg_mk2 = 'weapons/weapon_combatmg_mk2.webp',
-    weapon_combatpdw = 'weapons/weapon_combatpdw.webp',
-    weapon_combatpistol = 'weapons/pistol/weapon_combatpistol.webp',
-    weapon_compactlauncher = 'weapons/launcher/weapon_compactlauncher.webp',
-    weapon_compactrifle = 'weapons/weapon_compactrifle.webp',
-    weapon_crowbar = 'weapons/meele/weapon_crowbar.webp',
-    weapon_dagger = 'weapons/meele/weapon_dagger.webp',
-    weapon_dbshotgun = 'weapons/shotgun/weapon_dbshotgun.webp',
-    weapon_doubleaction = 'weapons/pistol/weapon_doubleaction.webp',
-    weapon_fireextinguisher = 'weapons/meele/weapon_fireextinguisher.webp',
-    weapon_firework = 'weapons/launcher/weapon_firework.webp',
-    weapon_flare = 'weapons/throwables/weapon_flare.webp',
-    weapon_flaregun = 'weapons/pistol/weapon_flaregun.webp',
-    weapon_flashlight = 'weapons/meele/weapon_flashlight.webp',
-    weapon_golfclub = 'weapons/meele/weapon_golfclub.webp',
-    weapon_grenade = 'weapons/throwables/weapon_grenade.webp',
-    weapon_grenadelauncher = 'weapons/launcher/weapon_grenadelauncher.webp',
-    weapon_gusenberg = 'weapons/weapon_gusenberg.webp',
-    weapon_hammer = 'weapons/meele/weapon_hammer.webp',
-    weapon_hatchet = 'weapons/meele/weapon_hatchet.webp',
-    weapon_hazardcan = 'weapons/weapon_hazardcan.webp',
-    weapon_heavypistol = 'weapons/pistol/weapon_heavypistol.webp',
-    weapon_heavyshotgun = 'weapons/weapon_heavyshotgun.webp',
-    weapon_heavysniper = 'weapons/sniper/weapon_heavysniper.webp',
-    weapon_heavysniper_mk2 = 'weapons/sniper/weapon_heavysniper_mk2.webp',
-    weapon_hominglauncher = 'weapons/launcher/weapon_hominglauncher.webp',
-    weapon_knife = 'weapons/meele/weapon_knife.webp',
-    weapon_knuckle = 'weapons/meele/weapon_knuckle.webp',
-    weapon_machete = 'weapons/meele/weapon_machete.webp',
-    weapon_machinepistol = 'weapons/pistol/weapon_machinepistol.webp',
-    weapon_marksmanpistol = 'weapons/pistol/weapon_marksmanpistol.webp',
-    weapon_marksmanrifle = 'weapons/weapon_marksmanrifle.webp',
-    weapon_marksmanrifle_mk2 = 'weapons/weapon_marksmanrifle_mk2.webp',
-    weapon_mg = 'weapons/weapon_mg.webp',
-    weapon_microsmg = 'weapons/weapon_microsmg.webp',
-    weapon_minigun = 'weapons/weapon_minigun.webp',
-    weapon_minismg = 'weapons/weapon_minismg.webp',
-    weapon_molotov = 'weapons/throwables/weapon_molotov.webp',
-    weapon_musket = 'weapons/weapon_musket.webp',
-    weapon_navyrevolver = 'weapons/pistol/weapon_navyrevolver.webp',
-    weapon_nightstick = 'weapons/meele/weapon_nightstick.webp',
-    weapon_petrolcan = 'weapons/weapon_petrolcan.webp',
-    weapon_pipebomb = 'weapons/throwables/weapon_pipebomb.webp',
-    weapon_pistol = 'weapons/pistol/weapon_pistol.webp',
-    weapon_pistol50 = 'weapons/pistol/weapon_pistol50.webp',
-    weapon_pistol_mk2 = 'weapons/pistol/weapon_pistol_mk2.webp',
-    weapon_poolcue = 'weapons/meele/weapon_poolcue.webp',
-    weapon_proxmine = 'weapons/throwables/weapon_proxmine.webp',
-    weapon_pumpshotgun = 'weapons/shotgun/weapon_pumpshotgun.webp',
-    weapon_pumpshotgun_mk2 = 'weapons/shotgun/weapon_pumpshotgun_mk2.webp',
-    weapon_railgun = 'weapons/weapon_railgun.webp',
-    weapon_raycarbine = 'weapons/weapon_raycarbine.webp',
-    weapon_rayminigun = 'weapons/weapon_rayminigun.webp',
-    weapon_raypistol = 'weapons/pistol/weapon_raypistol.webp',
-    weapon_revolver = 'weapons/pistol/weapon_revolver.webp',
-    weapon_revolver_mk2 = 'weapons/pistol/weapon_revolver_mk2.webp',
-    weapon_rpg = 'weapons/launcher/weapon_rpg.webp',
-    weapon_sawnoffshotgun = 'weapons/shotgun/weapon_sawnoffshotgun.webp',
-    weapon_smg = 'weapons/weapon_smg.webp',
-    weapon_smg_mk2 = 'weapons/weapon_smg_mk2.webp',
-    weapon_sniperrifle = 'weapons/sniper/weapon_sniperrifle.webp',
-    weapon_snowball = 'weapons/throwables/weapon_snowball.webp',
-    weapon_snspistol = 'weapons/pistol/weapon_snspistol.webp',
-    weapon_snspistol_mk2 = 'weapons/pistol/weapon_snspistol_mk2.webp',
-    weapon_specialcarbine = 'weapons/weapon_specialcarbine.webp',
-    weapon_specialcarbine_mk2 = 'weapons/weapon_specialcarbine_mk2.webp',
-    weapon_stickybomb = 'weapons/throwables/weapon_stickybomb.webp',
-    weapon_stone_hatchet = 'weapons/meele/weapon_stone_hatchet.webp',
-    weapon_switchblade = 'weapons/meele/weapon_switchblade.webp',
-    weapon_vintagepistol = 'weapons/pistol/weapon_vintagepistol.webp',
-    weapon_wrench = 'weapons/meele/weapon_wrench.webp',
-    weaponlicense = 'license/weaponlicense.webp',
-}
+    or 'https://cdn.koraframe.work/inventory/'
 
-function KoraCoreSeed.imageUrl(name)
-    local path = KoraCoreSeed.itemImagePaths[name]
-    return path and (KoraCoreSeed.itemImageBaseUrl .. path) or nil
+function KoraCoreSeed.imageUrl(name, image)
+    local filename = type(image) == 'string' and image ~= '' and image or name
+    if type(filename) ~= 'string' or filename == '' then
+        return nil
+    end
+
+    if filename:match('^https?://') or filename:match('^nui://') then
+        return filename
+    end
+
+    filename = filename:match('([^/]+)$') or filename
+    filename = filename:gsub('%.[%w]+$', '')
+    return KoraCoreSeed.itemImageBaseUrl .. filename .. '.webp'
 end
 
 KoraCoreSeed.ammoItems = {
@@ -142,7 +49,7 @@ local function ammo(name, label, ammoType, weight, rounds, image)
         ammoType = ammoType,
         rounds = rounds,
         image = image,
-        imageUrl = KoraCoreSeed.imageUrl(name),
+        imageUrl = KoraCoreSeed.imageUrl(name, image),
     }
 end
 
@@ -156,7 +63,7 @@ local function item(name, label, weight, image, unique, useable, shouldClose, de
         weight = weight,
         type = 'item',
         image = image,
-        imageUrl = KoraCoreSeed.imageUrl(name),
+        imageUrl = KoraCoreSeed.imageUrl(name, image),
         unique = unique or nil,
         useable = useable or nil,
         shouldClose = shouldClose,
@@ -197,8 +104,8 @@ KoraCoreSeed.items = {
     ammo('smg_ammo',              'SMG Magazine',         'AMMO_SMG',                   300,  30,  '38_special_ammo_box.webp'),
     ammo('shotgun_ammo',          'Shotgun Shell Box',    'AMMO_SHOTGUN',               360,  12,  '44_magnum_ammo_box.webp'),
     ammo('rifle_ammo',            'Rifle Magazine',       'AMMO_RIFLE',                 360,  30,  '556_nato_ammo_box.webp'),
-    ammo('mg_ammo',               'MG Belt',              'AMMO_MG',                    900,  100, '762_nato_ammo_box.webp'),
-    ammo('snp_ammo',              'Sniper Cartridge Box', 'AMMO_SNIPER',                420,  10,  '50_ae_ammo_box.webp'),
+    ammo('mg_ammo',               'MG Belt',              'AMMO_MG',                    900,  100, '762_ammo_box.webp'),
+    ammo('snp_ammo',              'Sniper Cartridge Box', 'AMMO_SNIPER',                420,  10, '50ae_ammo_box.webp'),
     ammo('taser_cartridge',       'Taser Cartridge',      'AMMO_STUNGUN',               80,   1,   'taser_cartridge.webp'),
     ammo('flare_ammo',            'Flare Cartridge',      'AMMO_FLARE',                 120,  1,   'weapon_flare.webp'),
     ammo('musket_ammo',           'Musket Ball',          'AMMO_MUSKET',                70,   1),
@@ -220,7 +127,7 @@ KoraCoreSeed.items = {
     item('coke_powder',              'Coke powder',                   1000,  'coke_powder.webp',               nil,   nil,   true,  'refined powder of the coca plant'),
     item('cut_coke',                 'Cut coke',                      1000,  'cut_coke.webp',                  nil,   nil,   true,  'cocaine ready to be bagged up'),
     item('crack_rock',               'Crack Rock',                    1,     'crack_rock.webp',                nil,   nil,   true,  'A small rock of crack.'),
-    item('crack_bag',                'Bag of Crack',                  1,     'crack_bag.webp',                 nil,   nil,   true,  'A bag containing crack.'),
+    item('crack_bag',                'Bag of Crack',                  1,     'crack_baggy.webp',                 nil,   nil,   true,  'A bag containing crack.'),
     item('empty_vial',               'Empty Vial',                    1,     'empty_vial.webp',                nil,   nil,   true,  'An empty glass vial.'),
     item('heroin_powder',            'Heroin Powder',                 1,     'heroin_powder.webp',             nil,   nil,   true,  'A small amount of heroin powder.'),
     item('heroin_syringe',           'Heroin Syringe',                1,     'heroin_syringe.webp',            nil,   nil,   true,  'A syringe containing heroin.'),
@@ -345,7 +252,6 @@ KoraCoreSeed.items = {
     item('coke_small_brick',         'Coke Package',                  350,   'coke_brick_small.webp',          true,  nil,   true,  'Small package of cocaine, mostly used for deals and takes a lot of space'),
     item('cokebaggy',                'Bag of Coke',                   0,     'cocaine_baggy.webp',             nil,   true,  true,  'To get happy real quick'),
     item('comp_attachment',          'Compensator',                   1000,  'comp_attachment.webp',           nil,   true,  true,  'A compensator for a weapon'),
-    item('crack_baggy',              'Bag of Crack',                  0,     'crack_baggy.webp',               nil,   true,  true,  'To get happy faster'),
     item('dendrogyra_coral',         'Dendrogyra',                    1000,  'dendrogyra_coral.webp',          nil,   nil,   true,  'Its also known as pillar coral'),
     item('diamond',                  'Diamond',                       100,   'diamond.webp',                   nil,   nil,   true,  'A diamond seems like the jackpot to me!'),
     item('diamond_ring',             'Diamond Ring',                  1500,  'diamond_ring.webp',              nil,   nil,   true,  'A diamond ring seems like the jackpot to me!'),
