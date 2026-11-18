@@ -131,7 +131,7 @@ KoraCoreSeed.ammoItems = {
     AMMO_EMPLAUNCHER = 'emp_round',
 }
 
-local function ammo(name, label, ammoType, weight, rounds)
+local function ammo(name, label, ammoType, weight, rounds, image)
     return {
         name = name,
         label = label,
@@ -143,14 +143,14 @@ local function ammo(name, label, ammoType, weight, rounds)
         description = ('%d-round %s.'):format(rounds, label:lower()),
         ammoType = ammoType,
         rounds = rounds,
-        image = name .. '.png',
+        image = image,
         imageUrl = KoraCoreSeed.imageUrl(name),
     }
 end
 
 KoraCoreSeed.items = {
-    { name = 'water_bottle', label = 'Water',    weight = 500,  type = 'item', image = 'water_bottle.png', imageUrl = KoraCoreSeed.imageUrl('water_bottle'), unique = false, useable = true,  shouldClose = true,  description = 'Refreshing.' },
-    { name = 'sandwich',     label = 'Sandwich', weight = 220,  type = 'item', image = 'sandwich.png',     imageUrl = KoraCoreSeed.imageUrl('sandwich'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
+    { name = 'water_bottle', label = 'Water',    weight = 500,  type = 'item', image = 'water_bottle.webp', imageUrl = KoraCoreSeed.imageUrl('water_bottle'), unique = false, useable = true,  shouldClose = true,  description = 'Refreshing.' },
+    { name = 'sandwich',     label = 'Sandwich', weight = 220,  type = 'item', image = 'sandwich.png',      imageUrl = KoraCoreSeed.imageUrl('sandwich'), unique = false, useable = true,  shouldClose = true,  description = 'Filling.' },
     { name = 'beer',          label = 'Beer',          weight = 350, type = 'item', image = 'beer.png',          imageUrl = KoraCoreSeed.imageUrl('beer'),          unique = false, useable = true, shouldClose = true, description = 'An alcoholic drink.' },
     { name = 'whiskey',       label = 'Whiskey',       weight = 400, type = 'item', image = 'whiskey.png',       imageUrl = KoraCoreSeed.imageUrl('whiskey'),       unique = false, useable = true, shouldClose = true, description = 'Strong stuff.' },
     { name = 'weed',          label = 'Weed',          weight = 20,  type = 'item', image = 'weed.png',          imageUrl = KoraCoreSeed.imageUrl('weed'),          unique = false, useable = true, shouldClose = true, description = 'Best used off duty.' },

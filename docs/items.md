@@ -52,10 +52,10 @@ set it.
   `smoke_grenade_ammo`, `minigun_ammo`, `firework_ammo`, `railgun_ammo`,
   `homing_missile`, `emp_round`. `KoraCoreSeed.ammoItems` maps GTA ammo types to
   these names.
-- `shared/upstream/items.lua`: the stock qb-core item list. A stock item is added
-  only when Kora does not define it; when it does, the stock record only fills
-  fields Kora left empty. Stock items with `type = 'weapon'` go to the `weapons`
-  registry instead.
+- `shared/upstream/items.lua`: stock QBCore item entries whose keys are absent from
+  `shared/items.lua`. Kora's definitions remain canonical for overlaps; this file
+  contributes the remaining stock items. Stock `type = 'weapon'` entries go to
+  the `weapons` registry instead.
 
 Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
 `driver_license`, one each. kora_core only records them in
