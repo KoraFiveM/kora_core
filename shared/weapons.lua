@@ -48,8 +48,9 @@ local damageSettings = {
     weapon_smokegrenade = { modifier = 0.1, disableCriticalHits = true },
 }
 
-local function weapon(name, label, ammotype, weight, weapontype)
+local function weapon(name, label, ammotype, weight, weapontype, image)
     local damage = damageSettings[name] or {}
+    image = image or name .. '.png'
     return {
         name = name,
         label = label,
@@ -62,8 +63,8 @@ local function weapon(name, label, ammotype, weight, weapontype)
         disableCriticalHits = damage.disableCriticalHits == true,
         unique = true,
         useable = true,
-        image = name .. '.png',
-        imageUrl = KoraCoreSeed.imageUrl(name),
+        image = image,
+        imageUrl = KoraCoreSeed.imageUrl(name, image),
         shouldClose = true,
     }
 end
@@ -187,7 +188,7 @@ KoraCoreSeed.weapons = {
     weapon('weapon_fireextinguisher', 'Fire Extinguisher', 'AMMO_FIREEXTINGUISHER', 6000, 'Equipment'),
     weapon('weapon_hazardcan', 'Hazardous Jerry Can', 'AMMO_HAZARDCAN', 1800, 'Equipment'),
     weapon('weapon_fertilizercan', 'Fertilizer Can', 'AMMO_FERTILIZERCAN', 1800, 'Equipment'),
-    weapon('weapon_parachute', 'Parachute', nil, 1000, 'Equipment'),
+    weapon('weapon_parachute', 'Parachute', nil, 1000, 'Equipment', 'parachute.webp'),
 
     { name = 'weapon_bread', label = 'Baguette', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_bread.png', unique = true, useable = false, description = 'Bread...?' },
     { name = 'weapon_briefcase', label = 'Briefcase', weight = 1000, type = 'weapon', ammotype = nil, image = 'weapon_briefcase.png', unique = true, useable = false, description = 'A briefcase for storing important documents' },
