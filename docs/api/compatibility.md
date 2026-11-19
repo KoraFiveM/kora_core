@@ -368,7 +368,7 @@ Every key that switches or tunes a converted behavior, with the shipped default.
 
 | Legacy call | Becomes |
 | --- | --- |
-| `QBCore.Shared.StarterItems` | `{ phone, id_card, driver_license }, each `&#123; amount = 1, item = name &#125;`` |
+| `QBCore.Shared.StarterItems` | `{ phone, id_card, driver_license, phone_sim }, each `&#123; amount = 1, item = name &#125;`` |
 | `QBCore.Shared.MaleNoGloves` | `Set of component-3 drawable indices meaning no gloves for the male freemode ped` |
 | `QBCore.Shared.FemaleNoGloves` | `Same set for the female freemode ped` |
 | `QBCore.Shared.ForceJobDefaultDutyAtLogin` | `true. Read only by CheckPlayerData when validating a legacy job; Kora login duty still follows Config.jobs.defaultDuty` |
@@ -873,7 +873,7 @@ Config is a shared script; these are the keys the client realm reads, with the s
 
 | Legacy call | Becomes |
 | --- | --- |
-| `QBCore.Shared.StarterItems` | `{ phone, id_card, driver_license }, each `&#123; amount = 1, item = name &#125;`` |
+| `QBCore.Shared.StarterItems` | `{ phone, id_card, driver_license, phone_sim }, each `&#123; amount = 1, item = name &#125;`` |
 | `QBCore.Shared.MaleNoGloves` | `Set of component-3 drawables meaning no gloves (male)` |
 | `QBCore.Shared.FemaleNoGloves` | `Same set for the female ped` |
 | `QBCore.Shared.ForceJobDefaultDutyAtLogin` | `true` |
