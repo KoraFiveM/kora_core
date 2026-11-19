@@ -33,11 +33,7 @@ function QBCore.Shared.IsFunction(value)
     return false
 end
 
-QBCore.Shared.StarterItems = {
-    phone = { amount = 1, item = 'phone' },
-    id_card = { amount = 1, item = 'id_card' },
-    driver_license = { amount = 1, item = 'driver_license' },
-}
+QBCore.Shared.StarterItems = Config.starterItems
 
 QBCore.Shared.MaleNoGloves = {
     [0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
