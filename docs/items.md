@@ -57,7 +57,7 @@ set it.
   the `weapons` registry instead.
 
 Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
-`driver_license`, one each. kora_core only records them in
+`driver_license`, `phone_sim`, one each, set in `Config.starterItems` in `config.lua`. kora_core only records them in
 `metadata.starterItems` of new characters; granting is left to the inventory
 provider.
 
