@@ -169,12 +169,16 @@ local function emitVehicleInfo(event, vehicle, seat)
         seat = seat,
         name = modelName,
         modelName = modelName,
-        netId = DoesEntityExist(vehicle) and VehToNet(vehicle) or 0,
+        netId = DoesEntityExist(vehicle) and NetworkGetEntityIsNetworked(vehicle) and VehToNet(vehicle) or 0,
         event = event,
     })
 end
 
+-- kora_lib's start event also arrives during the initial join; registering twice doubled every VehicleInfo.
+local vehicleCacheWatched = false
 local function watchVehicleCache()
+    if vehicleCacheWatched then return end
+    vehicleCacheWatched = true
     Kora.cache.onChange('seat', function(seat)
         if seat ~= false then lastVehicleSeat = seat end
     end)
@@ -210,6 +214,9 @@ AddEventHandler('onClientResourceStart', function(resource)
     local seat = Kora.cache.seat()
     if seat then lastVehicleSeat = seat end
     watchVehicleCache()
+end)
+AddEventHandler('onClientResourceStop', function(resource)
+    if resource == 'kora_lib' then vehicleCacheWatched = false end
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()

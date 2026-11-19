@@ -79,6 +79,9 @@ h.test('a kora_lib restart re-registers the vehicle bridge listeners', function(
     TriggerEvent('onClientResourceStart', 'kora_target')
     h.assertEqual(#registered, 0, 'other resources starting do not re-register')
     TriggerEvent('onClientResourceStart', 'kora_lib')
+    h.assertEqual(#registered, 0, 'a kora_lib start without a stop (initial join) must not register twice')
+    TriggerEvent('onClientResourceStop', 'kora_lib')
+    TriggerEvent('onClientResourceStart', 'kora_lib')
     Kora.cache.onChange = onChange
     table.sort(registered)
     h.assertEqual(table.concat(registered, ','), 'enteringVehicle,seat,vehicle')

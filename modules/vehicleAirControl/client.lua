@@ -48,7 +48,11 @@ local function refresh()
     startWorker(vehicle, generation)
 end
 
+-- kora_lib's start event also arrives during the initial join; only re-register after kora_lib really stopped.
+local cacheWatched = false
 local function watchCache()
+    if cacheWatched then return end
+    cacheWatched = true
     Kora.cache.onChange('seat', function(value)
         seat = value
         refresh()
@@ -68,4 +72,8 @@ AddEventHandler('onClientResourceStart', function(resource)
     vehicle, seat = Kora.cache.vehicle(), Kora.cache.seat()
     watchCache()
     refresh()
+end)
+
+AddEventHandler('onClientResourceStop', function(resource)
+    if resource == 'kora_lib' then cacheWatched = false end
 end)
