@@ -5,10 +5,19 @@ sidebar_position: 6
 
 # Items and seed data
 
-kora_core seeds its [shared registries](./api/registry.md) at boot. You
-do not need to add any item to another resource for kora_core to work. Other
-resources add or replace records at runtime with `registerShared` (or
-`Kora.shared.register` on the server).
+kora_core seeds its [shared registries](./api/registry.md) at boot.
+The bundled item catalogue is installed with kora_inventory. Core reads its
+data files before the inventory starts and clients receive the records through
+the registry snapshot. Install both resources to use the bundled items and
+restart kora_core to reload edits to the catalogue.
+
+Core also accepts custom definitions in `shared/items.lua` and
+`shared/upstream/items.lua`. Definitions in the first file can add items or
+override fields on bundled Kora items. The second file accepts the stock
+keyed QBCore format and fills gaps in the Kora definitions. Core can register
+custom items and serve the same registry API without kora_inventory installed.
+Server resources can also add or replace records at runtime with
+`registerShared` or `Kora.shared.register`.
 
 ## Item record
 
@@ -24,6 +33,9 @@ resources add or replace records at runtime with `registerShared` (or
     description = 'Refreshing.',
     image = 'water_bottle.png',     -- image file name resolved by the inventory
     -- optional:
+    gridWidth = 1,                 -- width in inventory cells
+    gridHeight = 1,                -- height in inventory cells
+    dropProp = 'prop_ld_flow_bottle', -- optional model for trunk cargo
     container = true,               -- e.g. backpack
     ammoType = 'AMMO_PISTOL',       -- ammo items
     rounds = 30,                    -- ammo items
@@ -37,24 +49,26 @@ set it.
 
 ## Seeded items
 
-- `shared/items.lua`: Kora's own items, including food and drink (`water_bottle`,
-  `sandwich`, `bread`, `soda`, `beer`, `whiskey`, `chocolate_bar`), identity and
-  utility items (`phone`, `id_card`, `vehiclekey`, `lockpick`, `backpack`,
-  `weaponlicense`), physical `cash`, crafting materials (`metalscrap`, `plastic`,
+- `kora_inventory/data/items.lua`: identity and utility items (`phone`, `id_card`,
+  `vehiclekey`, `lockpick`, `backpack`), physical `cash`, crafting materials (`metalscrap`, `plastic`,
   `copper`, `rubber`, `iron`, `aluminum`, `steel`, `glass`, ...), and items used by
   Kora job and activity resources (fishing, metal detecting, mining, robberies).
   Artwork is resolved by kora_inventory from the `image` filename, local
   `kora_inventory/images` files, and its configured CDN fallback.
-- Ammo items built by the `ammo()` helper: `pistol_ammo`, `smg_ammo`,
+- `kora_inventory/data/food.lua`: food such as `sandwich`, `bread`, and `chocolate_bar`.
+- `kora_inventory/data/dranks.lua`: drinks such as `water_bottle`, `soda`, and `beer`.
+- `kora_inventory/data/weapons.lua`: attachments, weapon supplies, and ammo such as
+  `pistol_ammo`, `smg_ammo`,
   `shotgun_ammo`, `rifle_ammo`, `mg_ammo`, `snp_ammo`, `taser_cartridge`,
   `flare_ammo`, `musket_ammo`, `rpg_ammo`, `grenade_launcher_ammo`,
   `smoke_grenade_ammo`, `minigun_ammo`, `firework_ammo`, `railgun_ammo`,
   `homing_missile`, `emp_round`. `KoraCoreSeed.ammoItems` maps GTA ammo types to
   these names.
-- `shared/upstream/items.lua`: stock QBCore item entries whose keys are absent from
-  `shared/items.lua`. Kora's definitions remain canonical for overlaps; this file
-  contributes the remaining stock items. Stock `type = 'weapon'` entries go to
-  the `weapons` registry instead.
+- `kora_inventory/data/qb-items.lua`: bundled stock QBCore items. The
+  Kora catalogue supplies the preferred definitions for overlapping entries.
+  Stock `type = 'weapon'` entries are seeded separately from
+  `kora_core/shared/upstream/items.lua`.
+
 
 Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
 `driver_license`, one each. kora_core only records them in

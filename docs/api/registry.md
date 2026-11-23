@@ -1214,7 +1214,7 @@ can read locally and that resources can change at runtime:
 
 | Registry | Key field | Seeded from |
 | --- | --- | --- |
-| `items` | `name` | `shared/items.lua` plus stock qb-core items that are not already defined |
+| `items` | `name` | Inventory-owned `data/items.lua`, `data/weapons.lua`, `data/food.lua`, `data/dranks.lua`, and `data/qb-items.lua`, plus custom definitions from core's legacy item files |
 | `vehicles` | `model` | `shared/vehicles.lua` |
 | `jobs` | `name` | `shared/jobs.lua` plus stock qb-core jobs that are not already defined |
 | `gangs` | `name` | `shared/gangs.lua` plus stock qb-core gangs that are not already defined |

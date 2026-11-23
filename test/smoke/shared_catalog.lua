@@ -13,7 +13,25 @@ function joaat(name)
 end
 
 dofile('config.lua')
-for _, name in ipairs({ 'items', 'weapons', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
+function LoadResourceFile(resource, path)
+    h.assertEqual(resource, 'kora_inventory')
+    local file = assert(io.open('../kora_inventory/' .. path, 'rb'))
+    local source = file:read('*a')
+    file:close()
+    return source
+end
+
+for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
+for _, name in ipairs({ 'items', 'jobs', 'gangs' }) do dofile('shared/upstream/' .. name .. '.lua') end
+-- Simulate existing server overrides in each of the original seed formats.
+KoraCoreSeed.items = {
+    { name = 'phone', label = 'Custom phone' },
+    { name = 'legacy_native', label = 'Legacy native', weight = 10, type = 'item' },
+}
+QBCoreUpstream.items.legacy_qb = { label = 'Legacy QB', weight = 15, type = 'item' }
+QBCoreUpstream.items.water = { label = 'Custom stock water', type = 'item' }
+dofile('shared/upstream/merge.lua')
+dofile('shared/weapons.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
 dofile('modules/registry/server.lua')
@@ -31,6 +49,20 @@ h.test('all pinned inventory names resolve to canonical native records', functio
     h.assertEqual(items.markedbills.weight, 1000)
     h.assertEqual(items.weed_brick.label, 'Weed Brick')
     h.assertTrue(items.coke_brick ~= nil and items.weed_whitewidow_seed ~= nil)
+end)
+
+h.test('bundled items merge with original seed formats before registry and QB consumers start', function()
+    h.assertEqual(items.phone.label, 'Custom phone')
+    h.assertEqual(items.phone.dropProp, 'prop_npc_phone_02')
+    h.assertEqual(items.water.label, 'Custom stock water')
+    h.assertEqual(items.legacy_native.label, 'Legacy native')
+    h.assertEqual(items.legacy_qb.label, 'Legacy QB')
+    h.assertEqual(items.water_bottle.dropProp, 'prop_ld_flow_bottle')
+    h.assertEqual(items.sandwich.dropProp, 'prop_sandwich_01')
+    h.assertEqual(items.bandage.dropProp, 'prop_ld_health_pack')
+    h.assertEqual(items.cash.dropProp, 'prop_cash_pile_01')
+    h.assertEqual(items.backpack.gridWidth, 2)
+    h.assertEqual(items.backpack.gridHeight, 2)
 end)
 
 h.test('native configured values and ammunition mappings keep precedence', function()

@@ -14,6 +14,7 @@ Kora Core is the player and framework core of the Kora stack: characters, Player
 - A MySQL database reachable through the `mysql_connection_string` convar (read by Kora SQL). The tables are created on boot, so no SQL import is needed.
 - `lua54 'yes'` (already set in the manifest) and a FiveM server build that supports it.
 - OneSync, because vehicles are created with server-side natives (`CreateVehicleServerSetter`, `CreateVehicle` with the networked flag).
+- Install the matching `kora_inventory` release alongside core to include the bundled items. Core reads the catalogue at boot, before inventory starts.
 - `kora_inventory` is the default inventory provider (`Config.inventory.provider`). Without a started provider the legacy in-resource inventory engine answers instead, as long as `Config.inventory.allowLegacyFallback` is `true` (the default).
 
 ## Install Kora Core
