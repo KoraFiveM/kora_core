@@ -74,7 +74,7 @@ local function mergeNativeItems(bundled, legacy)
     return bundled
 end
 
-local bundledItems = {}
+local bundledItems, bundledWeapons = {}, {}
 for _, path in ipairs({
     'data/items.lua',
     'data/weapons.lua',
@@ -82,10 +82,12 @@ for _, path in ipairs({
     'data/dranks.lua',
 }) do
     for _, record in ipairs(inventoryData(path)) do
-        bundledItems[#bundledItems + 1] = record
+        local target = record.type == 'weapon' and bundledWeapons or bundledItems
+        target[#target + 1] = record
     end
 end
 KoraCoreSeed.items = mergeNativeItems(bundledItems, KoraCoreSeed.items)
+KoraCoreSeed.inventoryWeapons = bundledWeapons
 local upstreamItems = inventoryData('data/qb-items.lua')
 for name, definition in pairs(QBCoreUpstream.items) do
     upstreamItems[name] = definition

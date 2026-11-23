@@ -59,11 +59,13 @@ KoraCoreSeed.items = {
 
 -- Several plain Lua module tests load only this file, without the boot merge.
 if not LoadResourceFile and #KoraCoreSeed.items == 0 then
+    KoraCoreSeed.inventoryWeapons = {}
     for _, path in ipairs({ 'data/items.lua', 'data/weapons.lua', 'data/food.lua', 'data/dranks.lua' }) do
         local catalogue = loadfile('../kora_inventory/' .. path)
         if catalogue then
             for _, record in ipairs(catalogue()) do
-                KoraCoreSeed.items[#KoraCoreSeed.items + 1] = record
+                local target = record.type == 'weapon' and KoraCoreSeed.inventoryWeapons or KoraCoreSeed.items
+                target[#target + 1] = record
             end
         end
     end

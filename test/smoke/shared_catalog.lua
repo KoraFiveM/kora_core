@@ -31,6 +31,10 @@ KoraCoreSeed.items = {
 QBCoreUpstream.items.legacy_qb = { label = 'Legacy QB', weight = 15, type = 'item' }
 QBCoreUpstream.items.water = { label = 'Custom stock water', type = 'item' }
 dofile('shared/upstream/merge.lua')
+KoraCoreSeed.weapons = {
+    { name = 'weapon_smg', damageModifier = 0.7, disableCriticalHits = false },
+    { name = 'weapon_legacy_fixture', label = 'Legacy weapon', type = 'weapon' },
+}
 dofile('shared/weapons.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
@@ -63,6 +67,35 @@ h.test('bundled items merge with original seed formats before registry and QB co
     h.assertEqual(items.cash.dropProp, 'prop_cash_pile_01')
     h.assertEqual(items.backpack.gridWidth, 2)
     h.assertEqual(items.backpack.gridHeight, 2)
+end)
+
+h.test('inventory weapon definitions load into the weapons registry and leave supplies in items', function()
+    local weaponCount = 0
+    for _, definition in ipairs(dofile('../kora_inventory/data/weapons.lua')) do
+        local registry = definition.type == 'weapon' and 'weapons' or 'items'
+        local live = Core.registry.getShared(registry, definition.name)
+        h.assertTrue(live ~= nil, definition.name .. ' missing from ' .. registry)
+        h.assertEqual(live.weight, definition.weight, definition.name .. ' lost its catalogue weight')
+        h.assertEqual(live.label, definition.label, definition.name .. ' lost its catalogue label')
+        if registry == 'weapons' then
+            weaponCount = weaponCount + 1
+            h.assertEqual(Core.registry.getShared('items', definition.name), nil)
+        end
+    end
+    h.assertTrue(weaponCount >= 116, 'inventory weapon catalogue unexpectedly incomplete')
+    h.assertEqual(KoraCoreSeed.inventoryWeapons, nil, 'staging table must be cleared')
+end)
+
+h.test('legacy weapon overrides preserve bundled fields and add core-local weapons', function()
+    local smg = Core.registry.getShared('weapons', 'weapon_smg')
+    h.assertEqual(smg.ammotype, 'AMMO_SMG')
+    h.assertEqual(smg.ammoItem, 'smg_ammo')
+    h.assertEqual(smg.damageModifier, 0.7)
+    h.assertEqual(smg.disableCriticalHits, false)
+    h.assertEqual(weapons[joaat('weapon_smg')].damageModifier, 0.7)
+    local legacy = Core.registry.getShared('weapons', 'weapon_legacy_fixture')
+    h.assertTrue(legacy ~= nil)
+    h.assertEqual(items.weapon_legacy_fixture, legacy)
 end)
 
 h.test('native configured values and ammunition mappings keep precedence', function()

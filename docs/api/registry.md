@@ -1218,7 +1218,7 @@ can read locally and that resources can change at runtime:
 | `vehicles` | `model` | `shared/vehicles.lua` |
 | `jobs` | `name` | `shared/jobs.lua` plus stock qb-core jobs that are not already defined |
 | `gangs` | `name` | `shared/gangs.lua` plus stock qb-core gangs that are not already defined |
-| `weapons` | `name` | `shared/weapons.lua` plus stock qb-core weapon items |
+| `weapons` | `name` | GTA weapon items from inventory's `data/weapons.lua`, Core defaults and overrides from `shared/weapons.lua`, and stock qb-core fallback weapon items |
 | `locations` | `key` | `shared/locations.lua` |
 
 When a kora record and a stock record share a name, the kora record wins and only

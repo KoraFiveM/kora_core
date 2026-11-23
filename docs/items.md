@@ -57,7 +57,7 @@ set it.
   `kora_inventory/images` files, and its configured CDN fallback.
 - `kora_inventory/data/food.lua`: food such as `sandwich`, `bread`, and `chocolate_bar`.
 - `kora_inventory/data/dranks.lua`: drinks such as `water_bottle`, `soda`, and `beer`.
-- `kora_inventory/data/weapons.lua`: attachments, weapon supplies, and ammo such as
+- `kora_inventory/data/weapons.lua` contains GTA weapon items, attachments, supplies, and ammo such as
   `pistol_ammo`, `smg_ammo`,
   `shotgun_ammo`, `rifle_ammo`, `mg_ammo`, `snp_ammo`, `taser_cartridge`,
   `flare_ammo`, `musket_ammo`, `rpg_ammo`, `grenade_launcher_ammo`,
@@ -77,14 +77,20 @@ provider.
 
 ## Weapons
 
-`shared/weapons.lua` defines the `weapons` registry: GTA weapons with `name`
-(for example `weapon_pistol`), `label`, `weight`, `type = 'weapon'`,
-`weapontype`, `ammotype`, `ammoItem` (the matching ammo item), `damageModifier`,
-`disableCriticalHits`, `image`, `unique = true`, and a few special
-weapon items (`weapon_bread`, `weapon_briefcase`, `weapon_handcuffs`, ...). Stock
-qb-core weapon items fill gaps. Weapons always count as unique in the fallback
-inventory. The legacy `QBCore.Shared.Weapons` view is keyed by weapon hash and adds
-stock `weapontype`/`damagereason` fields.
+Edit `kora_inventory/data/weapons.lua` to change the bundled GTA weapon items,
+including `weapon_pistol`, `weapon_bread`, `weapon_briefcase`, and
+`weapon_handcuffs`. Core places records with `type = 'weapon'` in its live
+`weapons` registry and keeps ammunition, supplies, and attachments in `items`.
+The usable weapon definitions carry `weapontype` and `ammotype` as applicable,
+and Core fills in the matching `ammoItem`, `damageModifier`, and
+`disableCriticalHits` defaults. Weapons always count as unique in Core's fallback
+inventory.
+
+Server-specific records in Core's `shared/weapons.lua` can replace fields on
+bundled weapons or add new ones. Stock qb-core weapon items fill gaps while
+retaining their stock weights and flags when the inventory catalogue is absent
+or an older release contains only weapon supplies. Core also owns the static
+damage metadata used by the hash-keyed `QBCore.Shared.Weapons` view.
 
 ## Vehicles
 
