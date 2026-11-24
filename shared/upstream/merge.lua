@@ -89,6 +89,12 @@ end
 KoraCoreSeed.items = mergeNativeItems(bundledItems, KoraCoreSeed.items)
 KoraCoreSeed.inventoryWeapons = bundledWeapons
 local upstreamItems = inventoryData('data/qb-items.lua')
+if LoadResourceFile and IsDuplicityVersion() and #bundledItems == 0 and #bundledWeapons == 0 and next(upstreamItems) == nil then
+    Kora.logging.error(
+        'registry.inventory_catalogue_missing',
+        'No bundled items loaded from kora_inventory/data. Install the matching kora_inventory resource and restart kora_core.'
+    )
+end
 for name, definition in pairs(QBCoreUpstream.items) do
     upstreamItems[name] = definition
 end
