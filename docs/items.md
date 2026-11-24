@@ -56,10 +56,25 @@ set it.
   contributes the remaining stock items. Stock `type = 'weapon'` entries go to
   the `weapons` registry instead.
 
-Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
-`driver_license`, `phone_sim`, one each, set in `Config.starterItems` in `config.lua`. kora_core only records them in
-`metadata.starterItems` of new characters; granting is left to the inventory
-provider.
+## Starter items
+
+New characters are eligible for one each of `phone`, `id_card`, and
+`driver_license` by default. Set the list in `Config.starterItems` in
+`config.lua`. kora_core records eligibility in `metadata.starterItems` at
+character creation. A resource such as kora_cityhall grants the items.
+
+If you run `kora_phone` and its handset and SIM items are registered in your
+inventory, replace `Config.starterItems` with the following to give new
+characters a standard handset and SIM:
+
+```lua
+Config.starterItems = {
+    phone_standard = { amount = 1, item = 'phone_standard' },
+    id_card = { amount = 1, item = 'id_card' },
+    driver_license = { amount = 1, item = 'driver_license' },
+    phone_sim = { amount = 1, item = 'phone_sim' },
+}
+```
 
 ## Weapons
 

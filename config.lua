@@ -54,10 +54,9 @@ Config.inventory = {
 
 -- Items handed to new characters (granted by kora_cityhall).
 Config.starterItems = {
-    phone = { amount = 1, item = 'phone_standard' },
+    phone = { amount = 1, item = 'phone' },
     id_card = { amount = 1, item = 'id_card' },
     driver_license = { amount = 1, item = 'driver_license' },
-    phone_sim = { amount = 1, item = 'phone_sim' },
 }
 
 Config.jobs = {

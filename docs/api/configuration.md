@@ -24,6 +24,7 @@ Group, what it controls, and the module that reads it.
 | `Config.money` | Accounts, defaults, negative balances, transaction tax. | modules/money, modules/player/shared.lua, modules/paycheck |
 | `Config.replication` | Resync rate limit. | modules/replication |
 | `Config.inventory` | Weight and slots, stack rule, provider, ground drop expiry. | modules/inventory, modules/money, modules/persistence |
+| `Config.starterItems` | Item definitions used to record eligibility for new characters. | compat/shared/coreobject.lua, modules/player/server.lua |
 | `Config.jobs` | Default job and grade, paycheck interval. | modules/player/shared.lua, modules/paycheck |
 | `Config.dispatch` | Legacy dispatch events. | modules/dispatch |
 | `Config.needs` | Hunger and thirst decay and damage. | modules/needs (server and client) |
@@ -135,6 +136,12 @@ Read by modules/inventory (server, shared), modules/money and modules/persistenc
 | `Config.inventory.allowLegacyFallback` | boolean | Default `true`. Staged-rollout fallback to the built-in inventory when the provider is unavailable. False requires the provider. |
 | `Config.inventory.dropTTL` | integer (ms) | Default `1800000` (30 minutes). Lifetime of an uncollected ground drop. |
 | `Config.inventory.dropSweepInterval` | integer (ms) | Default `300000` (5 minutes). Time between sweeps that expire old drops. |
+
+#### Config.starterItems
+
+Defaults to one each of `phone`, `id_card`, and `driver_license`. The
+compatibility layer exposes this table as `QBCore.Shared.StarterItems`.
+See [Starter items](../items.md#starter-items) for the optional kora_phone setup.
 
 #### Config.jobs
 
