@@ -1214,11 +1214,11 @@ can read locally and that resources can change at runtime:
 
 | Registry | Key field | Seeded from |
 | --- | --- | --- |
-| `items` | `name` | Inventory-owned `data/items.lua`, `data/weapons.lua`, `data/food.lua`, `data/dranks.lua`, and `data/qb-items.lua`, plus custom definitions from core's legacy item files |
+| `items` | `name` | `shared/items.lua` and stock QBCore item records from `shared/upstream/items.lua` |
 | `vehicles` | `model` | `shared/vehicles.lua` |
 | `jobs` | `name` | `shared/jobs.lua` plus stock qb-core jobs that are not already defined |
 | `gangs` | `name` | `shared/gangs.lua` plus stock qb-core gangs that are not already defined |
-| `weapons` | `name` | GTA weapon items from inventory's `data/weapons.lua`, Core defaults and overrides from `shared/weapons.lua`, and stock qb-core fallback weapon items |
+| `weapons` | `name` | GTA weapons from `shared/weapons.lua` and stock QBCore weapon records from `shared/upstream/items.lua` |
 | `locations` | `key` | `shared/locations.lua` |
 
 When a kora record and a stock record share a name, the kora record wins and only

@@ -54,8 +54,7 @@ shared_scripts {
     'shared/vehicles.lua',
     'shared/jobs.lua',
     'shared/gangs.lua',
-    -- Core loads the installed inventory catalogue and layers the local legacy
-    -- definitions over it. Canonical qb-core records still fill gaps.
+    -- Stock qb-core records fill gaps in Core's native definitions.
     'shared/upstream/items.lua',
     'shared/upstream/jobs.lua',
     'shared/upstream/gangs.lua',

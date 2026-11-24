@@ -94,12 +94,7 @@ end
 ---@return table items ordered list of merged item records (deduplicated by name)
 ---@return table weapons ordered list of weapon registry records
 function M.loadRegistry(root)
-    local env = setmetatable({
-        IsDuplicityVersion = function() return true end,
-        LoadResourceFile = function(resource, path)
-            return readFile(root .. '/../' .. resource .. '/' .. path)
-        end,
-    }, { __index = _G })
+    local env = setmetatable({}, { __index = _G })
     local loaded = {}
     for _, rel in ipairs({ 'shared/items.lua', 'shared/upstream/items.lua' }) do
         loaded[rel] = runIn(env, root .. '/' .. rel)

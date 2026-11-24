@@ -12,10 +12,10 @@ no DB, no network, read-only on its inputs.
 names, for the migrator), `report.json`, `report.md`.
 
 ## How the registry is built
-The generator loads the bundled catalogue from the sibling `kora_inventory/data/` directory, core's legacy item files, and the repo's own
-`shared/upstream/merge.lua` and `shared/weapons.lua` into a private Lua environment, then
-dedupes by name (last wins), exactly like `Core.registry.registerShared`. `--root` can point
-at another tree with the same `shared/` layout (the test fixture does).
+The generator loads the item and weapon definitions from Core's `shared/`
+directory into a private Lua environment and applies the same upstream merge
+as Core. It deduplicates items by name with the last record taking precedence.
+`--root` can point at another tree with the same `shared/` layout.
 
 ## Items resources register at runtime (`--resource-items`)
 Some resources (e.g. kora_cards) do not ship their items in the registry seed: they define
@@ -62,7 +62,7 @@ Only the stock file is read, for names; nothing is copied.
   Every stock item that ox code names (`armour`, `bandage`, `clothing`, `garbage`,
   `identification`, `mastercard`, `paperbag`, `parachute`, `phone`, and the `init.lua` loot-table
   items `burger`, `sprunk`, `mustard`, `panties`) is defined in the kora registry
-  (`kora_inventory/data/`); the report warns if one is ever missing. `money`/`black_money` are
+  (`shared/items.lua` or `shared/upstream/items.lua`); the report warns if one is ever missing. `money`/`black_money` are
   covered by the generator's reserved entries.
 
 ## Missing-item scan (heuristic)

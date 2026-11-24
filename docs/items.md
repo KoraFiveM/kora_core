@@ -5,19 +5,14 @@ sidebar_position: 6
 
 # Items and seed data
 
-kora_core seeds its [shared registries](./api/registry.md) at boot.
-The bundled item catalogue is installed with kora_inventory. Core reads its
-data files before the inventory starts and clients receive the records through
-the registry snapshot. Install both resources to use the bundled items and
-restart kora_core to reload edits to the catalogue.
+kora_core ships the full item and weapon catalogue and seeds its
+[shared registries](./api/registry.md) at boot. The catalogue is available
+with or without kora_inventory. Clients receive their live records through the
+registry snapshot.
 
-Core also accepts custom definitions in `shared/items.lua` and
-`shared/upstream/items.lua`. Definitions in the first file can add items or
-override fields on bundled Kora items. The second file accepts the stock
-keyed QBCore format and fills gaps in the Kora definitions. Core can register
-custom items and serve the same registry API without kora_inventory installed.
-Server resources can also add or replace records at runtime with
-`registerShared` or `Kora.shared.register`.
+Edit the seed files below and restart kora_core to reload them. Server resources
+can add or replace records at runtime with `registerShared` or
+`Kora.shared.register`.
 
 ## Item record
 
@@ -49,26 +44,22 @@ set it.
 
 ## Seeded items
 
-- `kora_inventory/data/items.lua`: identity and utility items (`phone`, `id_card`,
-  `vehiclekey`, `lockpick`, `backpack`), physical `cash`, crafting materials (`metalscrap`, `plastic`,
-  `copper`, `rubber`, `iron`, `aluminum`, `steel`, `glass`, ...), and items used by
-  Kora job and activity resources (fishing, metal detecting, mining, robberies).
-  Artwork is resolved by kora_inventory from the `image` filename, local
-  `kora_inventory/images` files, and its configured CDN fallback.
-- `kora_inventory/data/food.lua`: food such as `sandwich`, `bread`, and `chocolate_bar`.
-- `kora_inventory/data/dranks.lua`: drinks such as `water_bottle`, `soda`, and `beer`.
-- `kora_inventory/data/weapons.lua` contains GTA weapon items, attachments, supplies, and ammo such as
+- `shared/items.lua` contains identity and utility items, physical `cash`,
+  crafting materials, and items used by Kora jobs and activities. It also
+  contains food, drinks, weapon attachments, supplies, and ammo such as
   `pistol_ammo`, `smg_ammo`,
   `shotgun_ammo`, `rifle_ammo`, `mg_ammo`, `snp_ammo`, `taser_cartridge`,
   `flare_ammo`, `musket_ammo`, `rpg_ammo`, `grenade_launcher_ammo`,
   `smoke_grenade_ammo`, `minigun_ammo`, `firework_ammo`, `railgun_ammo`,
   `homing_missile`, `emp_round`. `KoraCoreSeed.ammoItems` maps GTA ammo types to
   these names.
-- `kora_inventory/data/qb-items.lua`: bundled stock QBCore items. The
-  Kora catalogue supplies the preferred definitions for overlapping entries.
-  Stock `type = 'weapon'` entries are seeded separately from
-  `kora_core/shared/upstream/items.lua`.
+- `shared/weapons.lua` contains GTA weapon items and QBCore damage metadata.
+- `shared/upstream/items.lua` contains stock QBCore item and weapon records in
+  their keyed format. Core fills missing fields in native definitions and adds
+  stock-only records to the appropriate registry.
 
+kora_inventory resolves artwork from each definition's `image` filename,
+local `kora_inventory/images` files, and its configured CDN fallback.
 
 Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
 `driver_license`, one each. kora_core only records them in
@@ -77,7 +68,7 @@ provider.
 
 ## Weapons
 
-Edit `kora_inventory/data/weapons.lua` to change the bundled GTA weapon items,
+Edit `shared/weapons.lua` to change the bundled GTA weapon items,
 including `weapon_pistol`, `weapon_bread`, `weapon_briefcase`, and
 `weapon_handcuffs`. Core places records with `type = 'weapon'` in its live
 `weapons` registry and keeps ammunition, supplies, and attachments in `items`.
@@ -86,11 +77,8 @@ and Core fills in the matching `ammoItem`, `damageModifier`, and
 `disableCriticalHits` defaults. Weapons always count as unique in Core's fallback
 inventory.
 
-Server-specific records in Core's `shared/weapons.lua` can replace fields on
-bundled weapons or add new ones. Stock qb-core weapon items fill gaps while
-retaining their stock weights and flags when the inventory catalogue is absent
-or an older release contains only weapon supplies. Core also owns the static
-damage metadata used by the hash-keyed `QBCore.Shared.Weapons` view.
+Stock-only weapons retain their stock weights and flags. Core also owns the
+static damage metadata used by the hash-keyed `QBCore.Shared.Weapons` view.
 
 ## Vehicles
 

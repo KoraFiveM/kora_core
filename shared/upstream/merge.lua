@@ -42,63 +42,6 @@ local function splitUpstreamWeapons(target, upstream)
 end
 
 assert(KoraCoreSeed and QBCoreUpstream, 'shared seed tables must load before the qb-core compatibility merge')
-local function inventoryData(path)
-    if LoadResourceFile then
-        -- Client registries receive these records in the server snapshot.
-        if not IsDuplicityVersion() then return {} end
-        local source = LoadResourceFile('kora_inventory', path)
-        if not source then return {} end
-        return assert(load(source, '@kora_inventory/' .. path, 't'))()
-    end
-
-    local catalogue = loadfile('../kora_inventory/' .. path)
-    return catalogue and catalogue() or {}
-end
-
-local function mergeNativeItems(bundled, legacy)
-    local index = {}
-    for _, record in ipairs(bundled) do
-        index[record.name] = record
-    end
-    for _, record in ipairs(legacy) do
-        local existing = index[record.name]
-        if existing then
-            for field, value in pairs(record) do
-                existing[field] = value
-            end
-        else
-            bundled[#bundled + 1] = record
-            index[record.name] = record
-        end
-    end
-    return bundled
-end
-
-local bundledItems, bundledWeapons = {}, {}
-for _, path in ipairs({
-    'data/items.lua',
-    'data/weapons.lua',
-    'data/food.lua',
-    'data/dranks.lua',
-}) do
-    for _, record in ipairs(inventoryData(path)) do
-        local target = record.type == 'weapon' and bundledWeapons or bundledItems
-        target[#target + 1] = record
-    end
-end
-KoraCoreSeed.items = mergeNativeItems(bundledItems, KoraCoreSeed.items)
-KoraCoreSeed.inventoryWeapons = bundledWeapons
-local upstreamItems = inventoryData('data/qb-items.lua')
-if LoadResourceFile and IsDuplicityVersion() and #bundledItems == 0 and #bundledWeapons == 0 and next(upstreamItems) == nil then
-    Kora.logging.error(
-        'registry.inventory_catalogue_missing',
-        'No bundled items loaded from kora_inventory/data. Install the matching kora_inventory resource and restart kora_core.'
-    )
-end
-for name, definition in pairs(QBCoreUpstream.items) do
-    upstreamItems[name] = definition
-end
-QBCoreUpstream.items = upstreamItems
 
 KoraCoreSeed.upstreamWeapons = splitUpstreamWeapons(KoraCoreSeed.items, QBCoreUpstream.items)
 mergeRegistry(KoraCoreSeed.items, QBCoreUpstream.items)

@@ -14,27 +14,17 @@ end
 
 dofile('config.lua')
 function LoadResourceFile(resource, path)
-    h.assertEqual(resource, 'kora_inventory')
-    local file = assert(io.open('../kora_inventory/' .. path, 'rb'))
-    local source = file:read('*a')
-    file:close()
-    return source
+    error(('unexpected resource file read: %s/%s'):format(resource, path))
 end
 
 for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
 for _, name in ipairs({ 'items', 'jobs', 'gangs' }) do dofile('shared/upstream/' .. name .. '.lua') end
--- Simulate existing server overrides in each of the original seed formats.
-KoraCoreSeed.items = {
-    { name = 'phone', label = 'Custom phone' },
-    { name = 'legacy_native', label = 'Legacy native', weight = 10, type = 'item' },
-}
+-- Simulate local additions to the bundled definitions.
+KoraCoreSeed.items[#KoraCoreSeed.items + 1] = { name = 'legacy_native', label = 'Legacy native', weight = 10, type = 'item' }
+QBCoreUpstream.items.phone = { label = 'Stock phone', testStockField = true, type = 'item' }
 QBCoreUpstream.items.legacy_qb = { label = 'Legacy QB', weight = 15, type = 'item' }
-QBCoreUpstream.items.water = { label = 'Custom stock water', type = 'item' }
+QBCoreUpstream.items.weapon_legacy_fixture = { label = 'Legacy weapon', type = 'weapon' }
 dofile('shared/upstream/merge.lua')
-KoraCoreSeed.weapons = {
-    { name = 'weapon_smg', damageModifier = 0.7, disableCriticalHits = false },
-    { name = 'weapon_legacy_fixture', label = 'Legacy weapon', type = 'weapon' },
-}
 dofile('shared/weapons.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
@@ -43,7 +33,8 @@ dofile('compat/shared/coreobject.lua')
 local expected = dofile('test/fixtures/kora_core_catalog.lua')
 local items, weapons = QBCore.Shared.Items, QBCore.Shared.Weapons
 
-h.test('all pinned inventory names resolve to canonical native records', function()
+h.test('all pinned inventory names resolve through Core with Inventory missing', function()
+    h.assertEqual(GetResourceState('kora_inventory'), 'missing')
     h.assertEqual(#expected.items, 323)
     for _, name in ipairs(expected.items) do
         local canonical = Core.registry.getShared('items', name) or Core.registry.getShared('weapons', name)
@@ -55,10 +46,12 @@ h.test('all pinned inventory names resolve to canonical native records', functio
     h.assertTrue(items.coke_brick ~= nil and items.weed_whitewidow_seed ~= nil)
 end)
 
-h.test('bundled items merge with original seed formats before registry and QB consumers start', function()
-    h.assertEqual(items.phone.label, 'Custom phone')
+h.test('native items take precedence and stock records fill missing fields', function()
+    h.assertEqual(items.phone.label, 'Phone')
     h.assertEqual(items.phone.dropProp, 'prop_npc_phone_02')
-    h.assertEqual(items.water.label, 'Custom stock water')
+    h.assertEqual(items.phone.testStockField, true)
+    h.assertEqual(items.water.label, 'Bottle of Water')
+    h.assertEqual(items.hot_dog.label, 'Hot Dog')
     h.assertEqual(items.legacy_native.label, 'Legacy native')
     h.assertEqual(items.legacy_qb.label, 'Legacy QB')
     h.assertEqual(items.water_bottle.dropProp, 'prop_ld_flow_bottle')
@@ -69,33 +62,24 @@ h.test('bundled items merge with original seed formats before registry and QB co
     h.assertEqual(items.backpack.gridHeight, 2)
 end)
 
-h.test('inventory weapon definitions load into the weapons registry and leave supplies in items', function()
-    local weaponCount = 0
-    for _, definition in ipairs(dofile('../kora_inventory/data/weapons.lua')) do
-        local registry = definition.type == 'weapon' and 'weapons' or 'items'
-        local live = Core.registry.getShared(registry, definition.name)
-        h.assertTrue(live ~= nil, definition.name .. ' missing from ' .. registry)
-        h.assertEqual(live.weight, definition.weight, definition.name .. ' lost its catalogue weight')
-        h.assertEqual(live.label, definition.label, definition.name .. ' lost its catalogue label')
-        if registry == 'weapons' then
-            weaponCount = weaponCount + 1
-            h.assertEqual(Core.registry.getShared('items', definition.name), nil)
-        end
+h.test('Core weapon seed preserves footprints and leaves supplies in items', function()
+    h.assertTrue(Core.registry.countShared('weapons') >= 116, 'weapon catalogue unexpectedly incomplete')
+    for _, weapon in ipairs(Core.registry.allShared('weapons')) do
+        h.assertEqual(Core.registry.getShared('items', weapon.name), nil)
     end
-    h.assertTrue(weaponCount >= 116, 'inventory weapon catalogue unexpectedly incomplete')
-    h.assertEqual(KoraCoreSeed.inventoryWeapons, nil, 'staging table must be cleared')
+    local rifle = Core.registry.getShared('weapons', 'weapon_carbinerifle')
+    h.assertEqual(rifle.gridWidth, 4)
+    h.assertEqual(rifle.gridHeight, 2)
+    local scope = Core.registry.getShared('items', 'advscope_attachment')
+    h.assertEqual(scope.gridWidth, 2)
+    h.assertEqual(scope.gridHeight, 1)
 end)
 
-h.test('legacy weapon overrides preserve bundled fields and add core-local weapons', function()
-    local smg = Core.registry.getShared('weapons', 'weapon_smg')
-    h.assertEqual(smg.ammotype, 'AMMO_SMG')
-    h.assertEqual(smg.ammoItem, 'smg_ammo')
-    h.assertEqual(smg.damageModifier, 0.7)
-    h.assertEqual(smg.disableCriticalHits, false)
-    h.assertEqual(weapons[joaat('weapon_smg')].damageModifier, 0.7)
+h.test('custom stock-format weapons are exposed alongside native weapons', function()
     local legacy = Core.registry.getShared('weapons', 'weapon_legacy_fixture')
-    h.assertTrue(legacy ~= nil)
+    h.assertEqual(legacy.label, 'Legacy weapon')
     h.assertEqual(items.weapon_legacy_fixture, legacy)
+    h.assertEqual(weapons[joaat('weapon_legacy_fixture')].label, legacy.label)
 end)
 
 h.test('native configured values and ammunition mappings keep precedence', function()
