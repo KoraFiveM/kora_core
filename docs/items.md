@@ -124,8 +124,8 @@ earlier kora_core installs. Each file may define its corresponding table using
 Imports run once on the server at startup. They add new records and fill
 missing top-level fields. Values already present in the native catalogue,
 including `false` flags and complete job or gang grade tables, take precedence.
-Set the global duty-at-login policy in Core's config. Edit the native seed to
-change a bundled value.
+Each job's default duty comes from its `defaultDuty` field. Edit the native
+seed to change a bundled value.
 
 To add a grantable weapon, define it as an item with `type = "weapon"` in
 `items.lua`. Optional `weapons.lua` records supplement matching weapon entries
