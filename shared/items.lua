@@ -57,13 +57,18 @@ local function item(name, label, weight, image, unique, useable, shouldClose, de
     }
 end
 
+-- item(name, label, weight, image, unique, useable, shouldClose, description, options)
+-- The optional final table holds container, dropProp, gridWidth and gridHeight overrides.
 KoraCoreSeed.items = {
+    -- Everyday items
     item('phone',                    'Phone',                         190,   'phone.webp',                     true,  true,  false, 'Smartphone.', { dropProp = 'prop_npc_phone_02' }),
     item('id_card',                  'ID Card',                       0,     'id_card.webp',                   true,  true,  false, 'Identification.', { dropProp = 'p_ld_id_card_01' }),
     item('lockpick',                 'Lockpick',                      160,   'lockpick.webp',                  false, true,  true,  'For locked things.'),
     item('vehiclekey',               'Vehicle Key',                   20,    'vehiclekey.webp',                true,  true,  false, 'A key assigned to a vehicle.', { dropProp = 'prop_cs_keys_01' }),
     item('backpack',                 'Backpack',                      1500,  'backpack.webp',                  true,  true,  false, 'A personal carry pack.', { container = true, dropProp = 'p_michael_backpack_s', gridWidth = 2, gridHeight = 2 }),
     item('cash',                     'Cash',                          0,     'cash.webp',                      false, false, true,  'Physical money.', { dropProp = 'prop_cash_pile_01' }),
+
+    -- Recycling and crafting materials
     item('metalscrap',               'Metal Scrap',                   100,   'metalscrap.webp',                false, false, true,  'Salvaged mixed metal.'),
     item('plastic',                  'Plastic',                       100,   'plastic.webp',                   false, false, true,  'Sorted recyclable plastic.'),
     item('copper',                   'Copper',                        100,   'copper.webp',                    false, false, true,  'Recovered copper.'),
@@ -78,6 +83,7 @@ KoraCoreSeed.items = {
     item('electronics_kit',          'Electronics Kit',               650,   'electronic_kit.webp',            nil,   nil,   true,  'Packaged wiring and components for electronic repairs.', { gridWidth = 2, gridHeight = 1 }),
     item('vehicle_repair_kit',       'Vehicle Repair Kit',            1800,  'vehicle_repair_kit.webp',        nil,   nil,   true,  'Workshop supplies for repairing a damaged vehicle.', { dropProp = 'prop_tool_box_04', gridWidth = 2, gridHeight = 2 }),
 
+    -- Drugs and processing supplies
     item('baking_soda',              'Baking soda',                   1000,  'baking_soda.webp',               nil,   nil,   true,  'I can use this for cakes or maybe something else'),
     item('gram_bag',                 'Gram Bag',                      1,     'gram_bag.webp',                  nil,   nil,   true,  'A small bag containing a gram.'),
     item('coca_leaf',                'Coca leaf',                     1000,  'coca_leaf.webp',                 nil,   nil,   true,  'A plant that may give you a little rush when processed'),
@@ -85,7 +91,7 @@ KoraCoreSeed.items = {
     item('coke_powder',              'Coke powder',                   1000,  'coke_powder.webp',               nil,   nil,   true,  'refined powder of the coca plant'),
     item('cut_coke',                 'Cut coke',                      1000,  'cut_coke.webp',                  nil,   nil,   true,  'cocaine ready to be bagged up'),
     item('crack_rock',               'Crack Rock',                    1,     'crack_rock.webp',                nil,   nil,   true,  'A small rock of crack.'),
-    item('crack_bag',                'Bag of Crack',                  1,     'crack_baggy.webp',                 nil,   nil,   true,  'A bag containing crack.'),
+    item('crack_bag',                'Bag of Crack',                  1,     'crack_baggy.webp',               nil,   nil,   true,  'A bag containing crack.'),
     item('empty_vial',               'Empty Vial',                    1,     'empty_vial.webp',                nil,   nil,   true,  'An empty glass vial.'),
     item('heroin_powder',            'Heroin Powder',                 1,     'heroin_powder.webp',             nil,   nil,   true,  'A small amount of heroin powder.'),
     item('heroin_syringe',           'Heroin Syringe',                1,     'heroin_syringe.webp',            nil,   nil,   true,  'A syringe containing heroin.'),
@@ -118,6 +124,8 @@ KoraCoreSeed.items = {
     item('shrooms',                  'Shrooms',                       100,   'shrooms.webp',                   nil,   true,  false, ''),
     item('cactus_bulb',              'Cactus Bulb',                   100,   'cactus_bulb.webp',               nil,   nil,   false, ''),
     item('dried_mescaline',          'Dried Mescaline',               100,   'dried_mescaline.webp',           nil,   true,  false, ''),
+
+    -- Fishing and magnet fishing
     item('bass',                     'Bass',                          100,   'bass.webp',                      nil,   nil,   false, 'A feisty freshwater bass, hooked fresh from the water.', { gridWidth = 2, gridHeight = 1 }),
     item('blue_fish',                'Blue Fish',                     100,   'blue_fish.webp',                 nil,   nil,   false, 'A slick, silvery bluefish with a sharp bite.', { gridWidth = 2, gridHeight = 1 }),
     item('catfish',                  'Catfish',                       100,   'catfish.webp',                   nil,   nil,   false, 'A whiskered bottom-feeder pulled up from the murky depths.', { gridWidth = 2, gridHeight = 1 }),
@@ -156,6 +164,7 @@ KoraCoreSeed.items = {
     item('white_bass',               'White Bass',                    100,   'white_bass.webp',                nil,   nil,   false, 'A silvery white bass caught from open water.', { gridWidth = 2, gridHeight = 1 }),
     item('worm',                     'Worm',                          100,   'worm.webp',                      nil,   nil,   false, 'A wriggling worm, perfect for baiting a hook.'),
 
+    -- Metal detecting
     item('antique_coin',             'Antique Coin',                  100,   'antique_coin.webp',              nil,   nil,   false, ''),
     item('bobby_pin',                'Bobby Pin',                     100,   'bobby_pin.webp',                 nil,   nil,   false, ''),
     item('bottle_cap',               'Bottle Cap',                    100,   'bottle_cap.webp',                nil,   nil,   false, ''),
@@ -173,6 +182,8 @@ KoraCoreSeed.items = {
     item('ruby_ring_md',             'Found Ruby Ring ',              100,   'ruby_ring_md.webp',              nil,   nil,   false, ''),
     item('silver_ring_md',           ' Found Silver Ring',            100,   'silver_ring_md.webp',            nil,   nil,   false, ''),
     item('toy_car',                  'Toy Car',                       100,   'toy_car.webp',                   nil,   nil,   false, ''),
+
+    -- Artwork and electronics
     item('art_1',                    'Portrait Of A Lady',            100,   'art_1.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('art_2',                    'Rainy City Scape',              100,   'art_2.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('art_3',                    'The Commuters',                 100,   'art_3.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
@@ -187,6 +198,7 @@ KoraCoreSeed.items = {
     item('qbr_monitor',              'Monitor',                       100,   'kora_monitor.webp',              nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('qbr_speakers',             'Speakers',                      100,   'kora_speakers.webp',             nil,   nil,   false, '', { gridWidth = 2, gridHeight = 2 }),
 
+    -- General supplies
     item('advancedlockpick',         'Advanced Lockpick',             500,   'advanced_lockpick.webp',         nil,   true,  true,  'If you lose your keys a lot this is very useful... Also useful to open your beers'),
     item('advancedrepairkit',        'Advanced Repairkit',            4000,  'advanced_repair_kit.webp',       nil,   true,  true,  'A nice toolbox with stuff to repair your vehicle', { dropProp = 'prop_tool_box_04', gridWidth = 3, gridHeight = 2 }),
     item('aluminumoxide',            'Aluminium Powder',              100,   'aluminum_oxide.webp',            nil,   nil,   false, 'Some powder to mix with'),
@@ -253,6 +265,8 @@ KoraCoreSeed.items = {
     item('tirerepairkit',            'Tire Repair Kit',               1000,  'tire_repair_kit.webp',           nil,   true,  true,  'A kit to repair your tires', { dropProp = 'prop_tool_box_02', gridWidth = 2, gridHeight = 2 }),
     item('trojan_usb',               'Trojan USB',                    0,     'trojan_usb.webp',                nil,   nil,   true,  'Handy software to shut down some systems'),
     item('tunerlaptop',              'Tunerchip',                     2000,  'tuner_laptop.webp',              true,  true,  true,  'With this tunerchip you can get your car on steroids... If you know what you\'re doing', { dropProp = 'prop_laptop_lester', gridWidth = 2, gridHeight = 2 }),
+
+    -- Vehicle parts
     item('veh_armor',                'Armor',                         1000,  'veh_armor.webp',                 nil,   true,  true,  'Upgrade vehicle armor', { gridWidth = 3, gridHeight = 2 }),
     item('veh_brakes',               'Brakes',                        1000,  'veh_brakes.webp',                nil,   true,  true,  'Upgrade vehicle brakes', { gridWidth = 2, gridHeight = 2 }),
     item('veh_engine',               'Engine',                        1000,  'veh_engine.webp',                nil,   true,  true,  'Upgrade vehicle engine', { gridWidth = 3, gridHeight = 2 }),
@@ -268,6 +282,8 @@ KoraCoreSeed.items = {
     item('veh_wheels',               'Wheels',                        1000,  'veh_wheels.webp',                nil,   true,  true,  'Upgrade vehicle wheels', { gridWidth = 2, gridHeight = 2 }),
     item('veh_xenons',               'Xenons',                        1000,  'veh_xenons.webp',                nil,   true,  true,  'Upgrade vehicle xenons', { gridWidth = 2, gridHeight = 1 }),
     item('walkstick',                'Walking Stick',                 1000,  'walkstick.webp',                 nil,   true,  true,  'Walking stick for ya\'ll grannies out there.. HAHA', { gridWidth = 3, gridHeight = 1 }),
+
+    -- Weapon tints
     item('weapontint_0',             'Default Tint',                  1000,  'weapontint_0.webp',              nil,   true,  true,  'Default/Black Weapon Tint'),
     item('weapontint_1',             'Green Tint',                    1000,  'weapontint_1.webp',              nil,   true,  true,  'Green Weapon Tint'),
     item('weapontint_2',             'Gold Tint',                     1000,  'weapontint_2.webp',              nil,   true,  true,  'Gold Weapon Tint'),
@@ -310,6 +326,8 @@ KoraCoreSeed.items = {
     item('weapontint_mk2_8',         'Classic Brown & Black Tint',    1000,  'weapontint_mk2_8.webp',          nil,   true,  true,  'Classic Brown & Black Weapon Tint for MK2 Weapons'),
     item('weapontint_mk2_9',         'Red Contrast Tint',             1000,  'weapontint_mk2_9.webp',          nil,   true,  true,  'Red Contrast Weapon Tint for MK2 Weapons'),
     item('xtcbaggy',                 'Bag of XTC',                    0,     'xtc_baggy.webp',                 nil,   true,  true,  'Pop those pills baby'),
+
+    -- Legacy artwork and electronics entries
     item('art_1',                    'Portrait Of A Lady',            100,   'art_1.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('art_2',                    'Rainy City Scape',              100,   'art_2.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('art_3',                    'The Commuters',                 100,   'art_3.webp',                     nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
@@ -323,12 +341,15 @@ KoraCoreSeed.items = {
     item('qbr_laptop',               'Laptop',                        100,   'kora_laptop.webp',               nil,   nil,   false, '', { dropProp = 'prop_laptop_lester', gridWidth = 2, gridHeight = 2 }),
     item('qbr_monitor',              'Monitor',                       100,   'kora_monitor.webp',              nil,   nil,   false, '', { gridWidth = 3, gridHeight = 2 }),
     item('qbr_speakers',             'Speakers',                      100,   'kora_speakers.webp',             nil,   nil,   false, '', { gridWidth = 2, gridHeight = 2 }),
+
+    -- Other legacy items
     item('armour',                   'Bulletproof Vest',              3000,  'armor.webp',                     true,  true,  true,  'Body armour.', { gridWidth = 2, gridHeight = 2 }),
     item('identification',           'Identification',                0,     'id_card.webp',                   true,  nil,   true,  'An ID card; its metadata carries the holder details.'),
     item('garbage',                  'Garbage',                       0,     'garbage.webp',                   nil,   nil,   true,  'Trash; its metadata carries the kind.', { dropProp = 'prop_cs_street_binbag_01', gridWidth = 2, gridHeight = 2 }),
     item('paperbag',                 'Paper Bag',                     1,     'paperbag.webp',                  true,  nil,   false, 'A small paper bag.', { container = true, dropProp = 'prop_paper_bag_small' }),
     item('sprunk',                   'Sprunk',                        350,   'sprunk.webp',                    nil,   true,  true,  'A fizzy drink.'),
 
+    -- Mining and jewelry
     item('amethyst_necklace_gold',   'Amethyst necklace gold',        1000,  'amethyst_necklace_gold.webp',    nil,   nil,   true),
     item('amethyst_necklace_silver', 'Amethyst necklace silver',      1000,  'amethyst_necklace_silver.webp',  nil,   nil,   true),
     item('amethyst_ring_gold',       'Amethyst ring gold',            1000,  'amethyst_ring_gold.webp',        nil,   nil,   true),
@@ -340,7 +361,7 @@ KoraCoreSeed.items = {
     item('basalt',                   'Basalt',                        100,   'basalt.webp',                    nil,   nil,   true),
     item('bauxite',                  'Bauxite',                       100,   'bauxite.webp',                   nil,   nil,   true),
     item('bronze_ignot',             'Bronze ingot',                  200,   'bronze_ignot.webp',              nil,   nil,   true),
-    item('bronze_pickaxe',           'Bronze pickaxe',                1000,  'bronze_pickaxe.webp',            true,  nil,   true, nil, { gridWidth = 3, gridHeight = 1 }),
+    item('bronze_pickaxe',           'Bronze pickaxe',                1000,  'bronze_pickaxe.webp',            true,  nil,   true,  nil, { gridWidth = 3, gridHeight = 1 }),
     item('carbon',                   'Carbon',                        100,   'carbon.webp',                    nil,   nil,   true),
     item('carbonatite',              'Carbonatite',                   100,   'carbonatite.webp',               nil,   nil,   true),
     item('copper_ore',               'Copper ore',                    100,   'copper_ore.webp',                nil,   nil,   true),
@@ -357,10 +378,10 @@ KoraCoreSeed.items = {
     item('gold_ore',                 'Gold ore',                      100,   'gold_ore.webp',                  nil,   nil,   true),
     item('iron_ingot',               'Iron ingot',                    100,   'iron_ingot.webp',                nil,   nil,   true),
     item('iron_ore',                 'Iron ore',                      100,   'iron_ore.webp',                  nil,   nil,   true),
-    item('iron_pickaxe',             'Iron pickaxe',                  1000,  'iron_pickaxe.webp',              true,  nil,   true, nil, { gridWidth = 3, gridHeight = 1 }),
+    item('iron_pickaxe',             'Iron pickaxe',                  1000,  'iron_pickaxe.webp',              true,  nil,   true,  nil, { gridWidth = 3, gridHeight = 1 }),
     item('obsidian',                 'Obsidian',                      100,   'obsidian.webp',                  nil,   nil,   true),
     item('obsidian_ignot',           'Obsidian ingot',                100,   'obsidian_ignot.webp',            nil,   nil,   true),
-    item('obsidian_pickaxe',         'Obsidian pickaxe',              1000,  'obsidian_pickaxe.webp',          true,  nil,   true, nil, { gridWidth = 3, gridHeight = 1 }),
+    item('obsidian_pickaxe',         'Obsidian pickaxe',              1000,  'obsidian_pickaxe.webp',          true,  nil,   true,  nil, { gridWidth = 3, gridHeight = 1 }),
     item('opal_necklace_gold',       'Opal necklace gold',            200,   'opal_necklace_gold.webp',        nil,   nil,   true),
     item('opal_necklace_silver',     'Opal necklace silver',          200,   'opal_necklace_silver.webp',      nil,   nil,   true),
     item('opal_ring_gold',           'Opal ring gold',                200,   'opal_ring_gold.webp',            nil,   nil,   true),
@@ -387,10 +408,10 @@ KoraCoreSeed.items = {
     item('silver_ingot',             'Silver ingot',                  100,   'silver_ingot.webp',              nil,   nil,   true),
     item('silver_ore',               'Silver ore',                    100,   'silver_ore.webp',                nil,   nil,   true),
     item('steel_ingot',              'Steel ingot',                   100,   'steel_ingot.webp',               nil,   nil,   true),
-    item('steel_pickaxe',            'Steel pickaxe',                 1000,  'steel_pickaxe.webp',             true,  nil,   true, nil, { gridWidth = 3, gridHeight = 1 }),
+    item('steel_pickaxe',            'Steel pickaxe',                 1000,  'steel_pickaxe.webp',             true,  nil,   true,  nil, { gridWidth = 3, gridHeight = 1 }),
     item('stone',                    'Stone',                         100,   'stone.webp',                     nil,   nil,   true),
     item('tin_ore',                  'Tin ore',                       100,   'tin_ore.webp',                   nil,   nil,   true),
-    item('titanium_pickaxe',         'Titanium pickaxe',              1000,  'titanium_pickaxe.webp',          true,  nil,   true, nil, { gridWidth = 3, gridHeight = 1 }),
+    item('titanium_pickaxe',         'Titanium pickaxe',              1000,  'titanium_pickaxe.webp',          true,  nil,   true,  nil, { gridWidth = 3, gridHeight = 1 }),
     item('topaz_necklace_gold',      'Topaz necklace gold',           200,   'topaz_necklace_gold.webp',       nil,   nil,   true),
     item('topaz_necklace_silver',    'Topaz necklace silver',         200,   'topaz_necklace_silver.webp',     nil,   nil,   true),
     item('topaz_ring_gold',          'Topaz ring gold',               200,   'topaz_ring_gold.webp',           nil,   nil,   true),
@@ -402,26 +423,28 @@ KoraCoreSeed.items = {
     item('uncut_sapphire',           'Uncut sapphire',                100,   'uncut_sapphire.webp',            nil,   nil,   true),
     item('zinc_ingot',               'Zinc ingot',                    100,   'zinc_ingot.webp',                nil,   nil,   true),
     item('zinc_ore',                 'Zinc ore',                      100,   'zinc_ore.webp',                  nil,   nil,   true),
-    item('zinc_sheet',               'Zinc sheet',                    100,   'zinc_sheet.webp',                nil,   nil,   true, nil, { gridWidth = 2, gridHeight = 1 }),
+    item('zinc_sheet',               'Zinc sheet',                    100,   'zinc_sheet.webp',                nil,   nil,   true,  nil, { gridWidth = 2, gridHeight = 1 }),
 
-    -- Ammunition and weapon supplies
+    -- Ammunition
     ammo('pistol_ammo',           'Pistol Magazine',      'AMMO_PISTOL',                180,  12,  '9mm_ammo_box.webp'),
     ammo('smg_ammo',              'SMG Magazine',         'AMMO_SMG',                   300,  30,  '38_special_ammo_box.webp'),
     ammo('shotgun_ammo',          'Shotgun Shell Box',    'AMMO_SHOTGUN',               360,  12,  '44_magnum_ammo_box.webp'),
     ammo('rifle_ammo',            'Rifle Magazine',       'AMMO_RIFLE',                 360,  30,  '556_nato_ammo_box.webp'),
     ammo('mg_ammo',               'MG Belt',              'AMMO_MG',                    900,  100, '762_ammo_box.webp', { gridWidth = 2, gridHeight = 1 }),
-    ammo('snp_ammo',              'Sniper Cartridge Box', 'AMMO_SNIPER',                420,  10, '50ae_ammo_box.webp'),
+    ammo('snp_ammo',              'Sniper Cartridge Box', 'AMMO_SNIPER',                420,  10,  '50ae_ammo_box.webp'),
     ammo('taser_cartridge',       'Taser Cartridge',      'AMMO_STUNGUN',               80,   1,   'taser_cartridge.webp'),
     ammo('flare_ammo',            'Flare Cartridge',      'AMMO_FLARE',                 120,  1,   'weapon_flare.webp'),
     ammo('musket_ammo',           'Musket Ball',          'AMMO_MUSKET',                70,   1),
-    ammo('rpg_ammo',              'Rocket',               'AMMO_RPG',                   2200, 1, nil, { gridWidth = 3, gridHeight = 1 }),
+    ammo('rpg_ammo',              'Rocket',               'AMMO_RPG',                   2200, 1,   nil, { gridWidth = 3, gridHeight = 1 }),
     ammo('grenade_launcher_ammo', '40mm Grenade',         'AMMO_GRENADELAUNCHER',       600,  1),
     ammo('smoke_grenade_ammo',    '40mm Smoke Grenade',   'AMMO_GRENADELAUNCHER_SMOKE', 450,  1),
     ammo('minigun_ammo',          'Minigun Belt',         'AMMO_MINIGUN',               1800, 100, nil, { gridWidth = 2, gridHeight = 2 }),
-    ammo('firework_ammo',         'Firework Rocket',      'AMMO_FIREWORK',              500,  1, nil, { gridWidth = 2, gridHeight = 1 }),
-    ammo('railgun_ammo',          'Railgun Charge',       'AMMO_RAILGUN',               750,  1, nil, { gridWidth = 2, gridHeight = 1 }),
-    ammo('homing_missile',        'Homing Missile',       'AMMO_HOMINGLAUNCHER',        2400, 1, nil, { gridWidth = 3, gridHeight = 1 }),
-    ammo('emp_round',             'EMP round',            'AMMO_EMPLAUNCHER',           1000, 1, nil, { gridWidth = 2, gridHeight = 1 }),
+    ammo('firework_ammo',         'Firework Rocket',      'AMMO_FIREWORK',              500,  1,   nil, { gridWidth = 2, gridHeight = 1 }),
+    ammo('railgun_ammo',          'Railgun Charge',       'AMMO_RAILGUN',               750,  1,   nil, { gridWidth = 2, gridHeight = 1 }),
+    ammo('homing_missile',        'Homing Missile',       'AMMO_HOMINGLAUNCHER',        2400, 1,   nil, { gridWidth = 3, gridHeight = 1 }),
+    ammo('emp_round',             'EMP round',            'AMMO_EMPLAUNCHER',           1000, 1,   nil, { gridWidth = 2, gridHeight = 1 }),
+
+    -- Weapon accessories and supplies
     item('weaponlicense',            'Weapon Licence',                0,     'weapons_license.webp',           true,  nil,   false, 'A valid weapon licence.'),
     item('advscope_attachment',      'Advanced Scope',                1000,  'advanced_scope_attachment.webp', nil,   true,  true,  'An advanced scope for a weapon', { gridWidth = 2, gridHeight = 1 }),
     item('attachment_bench',         'Attachment Workbench',          15000, 'attworkbench.webp',              true,  true,  false, 'A workbench for crafting attachments.', { gridWidth = 3, gridHeight = 2 }),
@@ -463,22 +486,22 @@ KoraCoreSeed.items = {
     item('zebracamo_attachment',     'Zebra Camo',                    1000,  'zebracamo_attachment.webp',      nil,   true,  true,  'A zebra camo for a weapon'),
 
     -- Food
-    item('sandwich',       'Sandwich',                220,  'sandwich.webp', false, true, true,  'Filling.', { dropProp = 'prop_sandwich_01' }),
-    item('bread',          'Bread',                   120,  'bread.webp', false, true, true,  'Filling.'),
-    item('chocolate_bar',  'Chocolate Bar',           80,   'chocolate_bar.webp', false, true, true,  'A quick snack.', { dropProp = 'prop_choc_ego' }),
-    item('grape',          'Grape',                   100,  'grape.webp', false, true, false, 'Mmmmh yummie, grapes'),
-    item('tosti',          'Grilled Cheese Sandwich', 200,  'tosti.webp', false, true, true,  'Nice to eat', { dropProp = 'prop_sandwich_01' }),
-    item('burger',         'Burger',                  220,  'burger.webp', false, true, true,  'A burger.', { dropProp = 'prop_cs_burger_01' }),
-    item('mustard',        'Mustard',                 500,  'mustard.webp', false, true, true,  'A bottle of mustard.', { dropProp = 'v_ret_247_mustard' }),
+    item('sandwich',                 'Sandwich',                      220,   'sandwich.webp',                  false, true,  true,  'Filling.', { dropProp = 'prop_sandwich_01' }),
+    item('bread',                    'Bread',                         120,   'bread.webp',                     false, true,  true,  'Filling.'),
+    item('chocolate_bar',            'Chocolate Bar',                 80,    'chocolate_bar.webp',             false, true,  true,  'A quick snack.', { dropProp = 'prop_choc_ego' }),
+    item('grape',                    'Grape',                         100,   'grape.webp',                     false, true,  false, 'Mmmmh yummie, grapes'),
+    item('tosti',                    'Grilled Cheese Sandwich',       200,   'tosti.webp',                     false, true,  true,  'Nice to eat', { dropProp = 'prop_sandwich_01' }),
+    item('burger',                   'Burger',                        220,   'burger.webp',                    false, true,  true,  'A burger.', { dropProp = 'prop_cs_burger_01' }),
+    item('mustard',                  'Mustard',                       500,   'mustard.webp',                   false, true,  true,  'A bottle of mustard.', { dropProp = 'v_ret_247_mustard' }),
 
     -- Drinks
-    item('water_bottle',   'Water',                   500,  'water_bottle.webp', false, true, true,  'Refreshing.', { dropProp = 'prop_ld_flow_bottle' }),
-    item('beer',           'Beer',                    350,  'beer.webp', false, true, true,  'An alcoholic drink.', { dropProp = 'prop_cs_beer_bot_01' }),
-    item('whiskey',        'Whiskey',                 400,  'whiskey.webp', false, true, true,  'Strong stuff.', { dropProp = 'prop_cs_whiskey_bottle' }),
-    item('soda',           'Soda',                    350,  'ecola.webp', false, true, true,  'Sweet and fizzy.', { dropProp = 'prop_ecola_can' }),
-    item('coffee',         'Coffee',                  200,  'coffee.webp', false, true, true,  'Pump 4 Caffeine', { dropProp = 'p_amb_coffeecup_01' }),
-    item('grapejuice',     'Grape Juice',             200,  'grape_juice.webp', false, true, false, 'Grape juice is said to be healthy'),
-    item('kurkakola',      'Cola',                    500,  'ecola.webp', false, true, true,  'For all the thirsty out there', { dropProp = 'prop_ecola_can' }),
-    item('vodka',          'Vodka',                   500,  'vodka_bottle.webp', false, true, true,  'For all the thirsty out there'),
-    item('wine',           'Wine',                    300,  'wine.webp', false, true, false, 'Some good wine to drink on a fine evening', { dropProp = 'prop_wine_bot_01' }),
+    item('water_bottle',             'Water',                         500,   'water_bottle.webp',              false, true,  true,  'Refreshing.', { dropProp = 'prop_ld_flow_bottle' }),
+    item('beer',                     'Beer',                          350,   'beer.webp',                      false, true,  true,  'An alcoholic drink.', { dropProp = 'prop_cs_beer_bot_01' }),
+    item('whiskey',                  'Whiskey',                       400,   'whiskey.webp',                   false, true,  true,  'Strong stuff.', { dropProp = 'prop_cs_whiskey_bottle' }),
+    item('soda',                     'Soda',                          350,   'ecola.webp',                     false, true,  true,  'Sweet and fizzy.', { dropProp = 'prop_ecola_can' }),
+    item('coffee',                   'Coffee',                        200,   'coffee.webp',                    false, true,  true,  'Pump 4 Caffeine', { dropProp = 'p_amb_coffeecup_01' }),
+    item('grapejuice',               'Grape Juice',                   200,   'grape_juice.webp',               false, true,  false, 'Grape juice is said to be healthy'),
+    item('kurkakola',                'Cola',                          500,   'ecola.webp',                     false, true,  true,  'For all the thirsty out there', { dropProp = 'prop_ecola_can' }),
+    item('vodka',                    'Vodka',                         500,   'vodka_bottle.webp',              false, true,  true,  'For all the thirsty out there'),
+    item('wine',                     'Wine',                          300,   'wine.webp',                      false, true,  false, 'Some good wine to drink on a fine evening', { dropProp = 'prop_wine_bot_01' }),
 }
