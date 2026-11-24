@@ -54,9 +54,8 @@ set it.
   `homing_missile`, `emp_round`. `KoraCoreSeed.ammoItems` maps GTA ammo types to
   these names.
 - `shared/weapons.lua` contains GTA weapon items and QBCore damage metadata.
-- `shared/upstream/items.lua` contains stock QBCore item and weapon records in
-  their keyed format. Core fills missing fields in native definitions and adds
-  stock-only records to the appropriate registry.
+  The native catalogue includes the stock QBCore definitions Core previously
+  shipped separately.
 
 kora_inventory resolves artwork from each definition's `image` filename,
 local `kora_inventory/images` files, and its configured CDN fallback.
@@ -77,8 +76,8 @@ and Core fills in the matching `ammoItem`, `damageModifier`, and
 `disableCriticalHits` defaults. Weapons always count as unique in Core's fallback
 inventory.
 
-Stock-only weapons retain their stock weights and flags. Core also owns the
-static damage metadata used by the hash-keyed `QBCore.Shared.Weapons` view.
+Core also owns the static damage metadata used by the hash-keyed
+`QBCore.Shared.Weapons` view.
 
 ## Vehicles
 
@@ -101,19 +100,41 @@ Kora jobs (`shared/jobs.lua`, one-based grade arrays):
 | `bodyshop` | Bodyshop | `bodyshop` | off | Detailer, Painter, Owner (boss) |
 | `tow` | Recovery | `recovery` | off | Driver, Operator, Owner (boss) |
 
-Stock qb-core jobs that Kora does not define are added from
-`shared/upstream/jobs.lua`: `bus`, `judge`, `lawyer`, `news`, `trucker`,
-`garbage`, `vineyard`, `hotdog`, `realestate`, `taxi`, `cardealer`, `beeker`,
-`bennys`. Jobs without a `type` get `none`.
+The same job file includes `bus`, `judge`, `lawyer`, `news`, `trucker`, `garbage`,
+`vineyard`, `hotdog`, `realestate`, `taxi`, `cardealer`, `mechanic2`, `mechanic3`,
+`beeker` and `bennys`. Jobs without a `type` get `none`.
 
-Gangs: `none`, `ballas`, `vagos` from `shared/gangs.lua`, plus stock `lostmc`,
-`cartel`, `families` and `triads`.
+`shared/gangs.lua` includes `none`, `ballas`, `vagos`, `cartel`, `families`,
+`lostmc` and `triads`.
 
 ## Locations
 
 `shared/locations.lua` seeds the `locations` registry (key `key`):
 `spawn_legion`, `spawn_pillbox`, `garage_legion`, each with `label`, `x`, `y`, `z`,
 `h`. The legacy view is `QBCore.Shared.Locations`, used by `/tp <location>`.
+
+## Importing a former qb-core catalogue
+
+Copy any of `items.lua`, `jobs.lua`, `gangs.lua`, `vehicles.lua` or `weapons.lua`
+from your former qb-core `shared/` directory into `kora_core/shared/upstream/`
+and restart kora_core. This also accepts the keyed `QBCoreUpstream` files from
+earlier kora_core installs. Each file may define its corresponding table using
+`QBCore.Shared`, `QBShared` or `QBCoreUpstream`.
+
+Imports run once on the server at startup. They add new records and fill
+missing top-level fields. Values already present in the native catalogue,
+including `false` flags and complete job or gang grade tables, take precedence.
+Set the global duty-at-login policy in Core's config. Edit the native seed to
+change a bundled value.
+
+To add a grantable weapon, define it as an item with `type = "weapon"` in
+`items.lua`. Optional `weapons.lua` records supplement matching weapon entries
+with metadata. Core's built-in damage causes remain visible in the legacy weapon
+view.
+
+An absent file is optional. Core logs an invalid file with its path and reason
+and continues loading the native catalogue and other imports. The resulting
+registries are synchronized to clients through the usual snapshot.
 
 ## Generating an ox_inventory item file
 

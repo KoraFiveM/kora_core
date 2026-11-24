@@ -13,8 +13,9 @@ names, for the migrator), `report.json`, `report.md`.
 
 ## How the registry is built
 The generator loads the item and weapon definitions from Core's `shared/`
-directory into a private Lua environment and applies the same upstream merge
-as Core. It deduplicates items by name with the last record taking precedence.
+directory into a private Lua environment and applies Core's importer to an
+optional `shared/upstream/items.lua` file. It deduplicates items by name with
+the last record taking precedence.
 `--root` can point at another tree with the same `shared/` layout.
 
 ## Items resources register at runtime (`--resource-items`)

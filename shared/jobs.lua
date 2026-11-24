@@ -60,4 +60,123 @@ KoraCoreSeed.jobs = {
             { name = 'Owner',     payment = 100, isboss = true },
         },
     },
+
+    {
+        name = 'beeker', label = 'Beeker\'s Garage', defaultDuty = true, offDutyPay = false, type = 'mechanic',
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Novice', payment = 75 },
+            ['2'] = { name = 'Experienced', payment = 100 },
+            ['3'] = { name = 'Advanced', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'bennys', label = 'Benny\'s Original Motor Works', defaultDuty = true, offDutyPay = false, type = 'mechanic',
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Novice', payment = 75 },
+            ['2'] = { name = 'Experienced', payment = 100 },
+            ['3'] = { name = 'Advanced', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'bus', label = 'Bus', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Driver', payment = 50 },
+        },
+    },
+    {
+        name = 'cardealer', label = 'Vehicle Dealer', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Showroom Sales', payment = 75 },
+            ['2'] = { name = 'Business Sales', payment = 100 },
+            ['3'] = { name = 'Finance', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'garbage', label = 'Garbage', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Collector', payment = 50 },
+        },
+    },
+    {
+        name = 'hotdog', label = 'Hotdog', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Sales', payment = 50 },
+        },
+    },
+    {
+        name = 'judge', label = 'Honorary', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Judge', payment = 100 },
+        },
+    },
+    {
+        name = 'lawyer', label = 'Law Firm', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Associate', payment = 50 },
+        },
+    },
+    {
+        name = 'mechanic2', label = 'LS Customs', defaultDuty = true, offDutyPay = false, type = 'mechanic',
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Novice', payment = 75 },
+            ['2'] = { name = 'Experienced', payment = 100 },
+            ['3'] = { name = 'Advanced', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'mechanic3', label = 'LS Customs', defaultDuty = true, offDutyPay = false, type = 'mechanic',
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Novice', payment = 75 },
+            ['2'] = { name = 'Experienced', payment = 100 },
+            ['3'] = { name = 'Advanced', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'news', label = 'Weazel News', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Journalist', payment = 50 },
+        },
+    },
+    {
+        name = 'realestate', label = 'Real Estate', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'House Sales', payment = 75 },
+            ['2'] = { name = 'Business Sales', payment = 100 },
+            ['3'] = { name = 'Broker', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'taxi', label = 'Taxi', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Recruit', payment = 50 },
+            ['1'] = { name = 'Driver', payment = 75 },
+            ['2'] = { name = 'Event Driver', payment = 100 },
+            ['3'] = { name = 'Sales', payment = 125 },
+            ['4'] = { name = 'Manager', payment = 150, isboss = true },
+        },
+    },
+    {
+        name = 'trucker', label = 'Trucker', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Driver', payment = 50 },
+        },
+    },
+    {
+        name = 'vineyard', label = 'Vineyard', defaultDuty = true, offDutyPay = false,
+        grades = {
+            ['0'] = { name = 'Picker', payment = 50 },
+        },
+    },
 }

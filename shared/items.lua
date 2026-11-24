@@ -504,4 +504,49 @@ KoraCoreSeed.items = {
     item('kurkakola',                'Cola',                          500,   'ecola.webp',                     false, true,  true,  'For all the thirsty out there', { dropProp = 'prop_ecola_can' }),
     item('vodka',                    'Vodka',                         500,   'vodka_bottle.webp',              false, true,  true,  'For all the thirsty out there'),
     item('wine',                     'Wine',                          300,   'wine.webp',                      false, true,  false, 'Some good wine to drink on a fine evening', { dropProp = 'prop_wine_bot_01' }),
+
+    {
+        name = 'ambeer', label = 'Ambeer', weight = 100, type = 'item', image = 'ambeer.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_dusche', label = ' Dusche Logger', weight = 100, type = 'item', image = 'beer_dusche.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_logger', label = 'Logger', weight = 100, type = 'item', image = 'beer_logger.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_pisswaser', label = 'Pisswaser', weight = 100, type = 'item', image = 'beer_pisswaser.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_pisswaser2', label = 'Pisswaser light', weight = 100, type = 'item', image = 'beer_pisswaser2.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_pisswaser3', label = 'Pisswaser N/A', weight = 100, type = 'item', image = 'beer_pisswaser3.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'beer_pisswaser4', label = 'Pisswaser Dark', weight = 100, type = 'item', image = 'beer_pisswaser4.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'chips', label = 'Chips', weight = 100, type = 'item', image = 'chips.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'egg_sandwich', label = 'Egg Sandwich', weight = 100, type = 'item', image = 'egg_sandwhich.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'hot_dog', label = 'Hot Dog', weight = 100, type = 'item', image = 'hot_dog.webp',
+        unique = false, useable = true, shouldClose = false, description = '',
+    },
+    {
+        name = 'water', label = 'Bottle of Water', weight = 500, type = 'item', image = 'water_bottle.webp',
+        unique = false, useable = true, shouldClose = true, description = 'For all the thirsty out there',
+    },
 }

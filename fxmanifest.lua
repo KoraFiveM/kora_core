@@ -54,11 +54,6 @@ shared_scripts {
     'shared/vehicles.lua',
     'shared/jobs.lua',
     'shared/gangs.lua',
-    -- Stock qb-core records fill gaps in Core's native definitions.
-    'shared/upstream/items.lua',
-    'shared/upstream/jobs.lua',
-    'shared/upstream/gangs.lua',
-    'shared/upstream/merge.lua',
     'shared/weapons.lua',
     'shared/locations.lua',
     'modules/util/shared.lua',
@@ -96,6 +91,7 @@ shared_scripts {
 --   build/finalise.lua  absolutely last -- flattens Core.<module>.<fn> to exports
 server_scripts {
     '@kora_sql/init.lua',
+    'shared/upstream/import.lua', -- optional operator data before the server registers seeds
     'modules/registry/server.lua',
     'modules/identity/server.lua',
     'modules/users/server.lua',

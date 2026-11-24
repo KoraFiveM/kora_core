@@ -1214,16 +1214,15 @@ can read locally and that resources can change at runtime:
 
 | Registry | Key field | Seeded from |
 | --- | --- | --- |
-| `items` | `name` | `shared/items.lua` and stock QBCore item records from `shared/upstream/items.lua` |
+| `items` | `name` | `shared/items.lua` |
 | `vehicles` | `model` | `shared/vehicles.lua` |
-| `jobs` | `name` | `shared/jobs.lua` plus stock qb-core jobs that are not already defined |
-| `gangs` | `name` | `shared/gangs.lua` plus stock qb-core gangs that are not already defined |
-| `weapons` | `name` | GTA weapons from `shared/weapons.lua` and stock QBCore weapon records from `shared/upstream/items.lua` |
+| `jobs` | `name` | `shared/jobs.lua` |
+| `gangs` | `name` | `shared/gangs.lua` |
+| `weapons` | `name` | `shared/weapons.lua` |
 | `locations` | `key` | `shared/locations.lua` |
 
-When a kora record and a stock record share a name, the kora record wins and only
-missing fields are filled from the stock record. The seed data is described on the
-[Items](../items.md) page.
+Optional legacy seed files in `shared/upstream/` add records and fill missing
+fields at startup. See [Importing a former qb-core catalogue](../items.md#importing-a-former-qb-core-catalogue).
 
 Each registry is a dense array plus a key index. Removal swaps the last record into
 the removed position, so array order changes after a removal; always key off the

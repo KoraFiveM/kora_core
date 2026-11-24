@@ -95,23 +95,19 @@ end
 ---@return table weapons ordered list of weapon registry records
 function M.loadRegistry(root)
     local env = setmetatable({}, { __index = _G })
-    local loaded = {}
-    for _, rel in ipairs({ 'shared/items.lua', 'shared/upstream/items.lua' }) do
-        loaded[rel] = runIn(env, root .. '/' .. rel)
-    end
-    assert(loaded['shared/items.lua'] or loaded['shared/upstream/items.lua'],
-        'no shared/items.lua or shared/upstream/items.lua under ' .. root)
-
-    env.KoraCoreSeed = env.KoraCoreSeed or {}
-    env.QBCoreUpstream = env.QBCoreUpstream or {}
-    env.KoraCoreSeed.items = env.KoraCoreSeed.items or {}
-    env.QBCoreUpstream.items = env.QBCoreUpstream.items or {}
-    for _, k in ipairs({ 'jobs', 'gangs' }) do
-        env.KoraCoreSeed[k] = env.KoraCoreSeed[k] or {}
-        env.QBCoreUpstream[k] = env.QBCoreUpstream[k] or {}
-    end
-    assert(runIn(env, repoRoot .. '/shared/upstream/merge.lua'), 'shared/upstream/merge.lua not found')
+    local nativeItems = runIn(env, root .. '/shared/items.lua')
     runIn(env, root .. '/shared/weapons.lua')
+    env.KoraCoreSeed = env.KoraCoreSeed or {}
+    env.KoraCoreSeed.items = env.KoraCoreSeed.items or {}
+    local legacyPath = 'shared/upstream/items.lua'
+    local legacyItems = readFile(root .. '/' .. legacyPath)
+    assert(nativeItems or legacyItems, 'no shared/items.lua or shared/upstream/items.lua under ' .. root)
+    local importLegacy = dofile(repoRoot .. '/shared/upstream/import.lua')
+    importLegacy(env.KoraCoreSeed, function(path)
+        if path == legacyPath then return legacyItems end
+    end, function(path, reason)
+        error(('%s/%s: %s'):format(root, path, reason), 0)
+    end)
 
     local items, index = {}, {}
     for _, record in ipairs(env.KoraCoreSeed.items) do
