@@ -28,6 +28,7 @@
       "compat/server/qb-spawn.lua",
       "compat/server/qb-vehicles.lua",
       "compat/server/qbx.lua",
+      "kora_versioncheck.lua",
       "modules/commands/server.lua",
       "modules/consumables/server.lua",
       "modules/dependencySupervisor/server.lua",
