@@ -1,7 +1,8 @@
 local h = dofile('test/harness.lua')
 dofile('test/mocks.lua').install({ client = true })
 dofile('config.lua')
-for _, name in ipairs({ 'items', 'weapons', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
+for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
+dofile('shared/weapons.lua')
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
 dofile('modules/registry/client.lua')

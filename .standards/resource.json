@@ -53,6 +53,7 @@
       "modules/persistence/server.lua",
       "modules/player/server.lua",
       "modules/registry/server.lua",
+      "shared/upstream/import.lua",
       "modules/replication/server.lua",
       "modules/transaction/server.lua",
       "modules/users/server.lua"
@@ -74,10 +75,6 @@
       "shared/locale.lua",
       "shared/locale_text.lua",
       "shared/locations.lua",
-      "shared/upstream/gangs.lua",
-      "shared/upstream/items.lua",
-      "shared/upstream/jobs.lua",
-      "shared/upstream/merge.lua",
       "shared/vehicles.lua",
       "shared/weapons.lua",
       "types.lua"

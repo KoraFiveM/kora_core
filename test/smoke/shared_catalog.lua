@@ -13,15 +13,72 @@ function joaat(name)
 end
 
 dofile('config.lua')
-for _, name in ipairs({ 'items', 'weapons', 'vehicles', 'jobs', 'gangs', 'locations' }) do dofile('shared/' .. name .. '.lua') end
+local optionalFiles = {
+    ['shared/upstream/items.lua'] = [[
+        QBCore.Shared.Items = {
+            phone = { label = 'Stock phone', testStockField = true, shouldClose = true, type = 'item' },
+            renamed_fixture = { name = 'legacy_qb', label = 'Legacy QB', weight = 15, type = 'item' },
+            weapon_legacy_fixture = { label = 'Legacy weapon', type = 'weapon' },
+        }
+    ]],
+    ['shared/upstream/jobs.lua'] = [[
+        QBShared.ForceJobDefaultDutyAtLogin = false
+        QBShared.Jobs = {
+            police = { defaultDuty = true, grades = { ['0'] = { name = 'Recruit', payment = 1000 } } },
+            reporter = { label = 'Reporter', grades = { ['0'] = { name = 'Journalist', payment = 50 } } },
+        }
+    ]],
+    ['shared/upstream/gangs.lua'] = [[
+        QBCoreUpstream.gangs = {
+            valid_before_error = { label = 'Valid', grades = { ['0'] = { name = 'Recruit' } } },
+            invalid = false,
+        }
+    ]],
+    ['shared/upstream/vehicles.lua'] = [[
+        QBCore.Shared.Vehicles = QBCore.Shared.Vehicles or {}
+        QBCore.Shared.VehicleHashes = QBCore.Shared.VehicleHashes or {}
+        local models = { { model = 'asbo', price = 999 }, { model = 'legacycar', price = 100 } }
+        for _, model in ipairs(models) do
+            model.hash = joaat(model.model)
+            QBCore.Shared.Vehicles[model.model] = model
+            QBCore.Shared.VehicleHashes[model.hash] = model
+        end
+    ]],
+    ['shared/upstream/weapons.lua'] = [[
+        QBShared.Weapons = {
+            [joaat('weapon_legacy_fixture')] = { name = 'weapon_legacy_fixture', damagereason = 'Legacy reason' },
+            [joaat('weapon_pistol')] = { name = 'weapon_pistol', damagereason = 'Different reason' },
+            [joaat('weapon_damage_only_fixture')] = { name = 'weapon_damage_only_fixture', damagereason = 'Died' },
+        }
+    ]],
+}
+local fileReads, warnings = {}, {}
+function LoadResourceFile(resource, path)
+    h.assertEqual(resource, 'kora_core')
+    h.assertTrue(optionalFiles[path] ~= nil, 'unexpected resource file read: ' .. path)
+    fileReads[#fileReads + 1] = path
+    return optionalFiles[path]
+end
+local logWarning = Kora.logging.warn
+Kora.logging.warn = function(event, message, context)
+    if event == 'registry.legacy_seed_import_failed' then warnings[#warnings + 1] = context end
+    logWarning(event, message, context)
+end
+
+for _, name in ipairs({ 'items', 'vehicles', 'jobs', 'gangs', 'locations', 'weapons' }) do
+    dofile('shared/' .. name .. '.lua')
+end
+KoraCoreSeed.items[#KoraCoreSeed.items + 1] = { name = 'legacy_native', label = 'Legacy native', weight = 10, type = 'item' }
 dofile('modules/util/shared.lua')
 dofile('modules/registry/shared.lua')
-dofile('modules/registry/server.lua')
 dofile('compat/shared/coreobject.lua')
+dofile('shared/upstream/import.lua')
+dofile('modules/registry/server.lua')
 local expected = dofile('test/fixtures/kora_core_catalog.lua')
 local items, weapons = QBCore.Shared.Items, QBCore.Shared.Weapons
 
-h.test('all pinned inventory names resolve to canonical native records', function()
+h.test('all pinned inventory names resolve through Core with Inventory missing', function()
+    h.assertEqual(GetResourceState('kora_inventory'), 'missing')
     h.assertEqual(#expected.items, 323)
     for _, name in ipairs(expected.items) do
         local canonical = Core.registry.getShared('items', name) or Core.registry.getShared('weapons', name)
@@ -31,6 +88,70 @@ h.test('all pinned inventory names resolve to canonical native records', functio
     h.assertEqual(items.markedbills.weight, 1000)
     h.assertEqual(items.weed_brick.label, 'Weed Brick')
     h.assertTrue(items.coke_brick ~= nil and items.weed_whitewidow_seed ~= nil)
+end)
+
+h.test('native items take precedence and stock records fill missing fields', function()
+    h.assertEqual(items.phone.label, 'Phone')
+    h.assertEqual(items.phone.dropProp, 'prop_npc_phone_02')
+    h.assertEqual(items.phone.testStockField, true)
+    h.assertEqual(items.phone.shouldClose, false)
+    h.assertEqual(items.renamed_fixture, nil)
+    h.assertEqual(items.water.label, 'Bottle of Water')
+    h.assertEqual(items.hot_dog.label, 'Hot Dog')
+    h.assertEqual(items.legacy_native.label, 'Legacy native')
+    h.assertEqual(items.legacy_qb.label, 'Legacy QB')
+    h.assertEqual(items.water_bottle.dropProp, 'prop_ld_flow_bottle')
+    h.assertEqual(items.sandwich.dropProp, 'prop_sandwich_01')
+    h.assertEqual(items.bandage.dropProp, 'prop_ld_health_pack')
+    h.assertEqual(items.cash.dropProp, 'prop_cash_pile_01')
+    h.assertEqual(items.backpack.gridWidth, 2)
+    h.assertEqual(items.backpack.gridHeight, 2)
+end)
+
+h.test('Core weapon seed preserves footprints and leaves supplies in items', function()
+    h.assertTrue(Core.registry.countShared('weapons') >= 116, 'weapon catalogue unexpectedly incomplete')
+    for _, weapon in ipairs(Core.registry.allShared('weapons')) do
+        h.assertEqual(Core.registry.getShared('items', weapon.name), nil)
+    end
+    local rifle = Core.registry.getShared('weapons', 'weapon_carbinerifle')
+    h.assertEqual(rifle.gridWidth, 4)
+    h.assertEqual(rifle.gridHeight, 2)
+    local scope = Core.registry.getShared('items', 'advscope_attachment')
+    h.assertEqual(scope.gridWidth, 2)
+    h.assertEqual(scope.gridHeight, 1)
+end)
+
+h.test('custom stock-format weapons are exposed alongside native weapons', function()
+    local legacy = Core.registry.getShared('weapons', 'weapon_legacy_fixture')
+    h.assertEqual(legacy.label, 'Legacy weapon')
+    h.assertEqual(items.weapon_legacy_fixture, legacy)
+    h.assertEqual(weapons[joaat('weapon_legacy_fixture')].label, legacy.label)
+    h.assertEqual(weapons[joaat('weapon_legacy_fixture')].damagereason, 'Legacy reason')
+    h.assertEqual(weapons[joaat('weapon_pistol')].damagereason, KoraCoreSeed.legacyWeaponMetadata.weapon_pistol.damagereason)
+    h.assertEqual(Core.registry.getShared('weapons', 'weapon_damage_only_fixture'), nil)
+    h.assertEqual(items.weapon_damage_only_fixture, nil)
+end)
+
+h.test('legacy job and vehicle files use normal registry ownership and views', function()
+    local job = Core.registry.getShared('jobs', 'reporter')
+    h.assertEqual(job.grades[1].name, 'Journalist')
+    h.assertEqual(QBCore.Shared.Jobs.reporter.grades['0'].payment, 50)
+    h.assertEqual(QBCore.Shared.Jobs.police.defaultDuty, false)
+    h.assertEqual(QBCore.Shared.Jobs.police.grades['0'].name, 'Cadet')
+    h.assertEqual(QBCore.Shared.Vehicles.asbo.price, 4000)
+    h.assertEqual(QBCore.Shared.Vehicles.asbo.hash, joaat('asbo'))
+    h.assertEqual(QBCore.Shared.VehicleHashes[joaat('legacycar')].price, 100)
+    h.assertEqual(QBCoreUpstream, nil)
+    h.assertEqual(QBShared, nil)
+end)
+
+h.test('invalid legacy files log once and leave the native catalogue intact', function()
+    h.assertEqual(#fileReads, 5)
+    h.assertEqual(#warnings, 1)
+    h.assertEqual(warnings[1].path, 'shared/upstream/gangs.lua')
+    h.assertTrue(warnings[1].reason:find('invalid', 1, true) ~= nil)
+    h.assertTrue(Core.registry.getShared('gangs', 'ballas') ~= nil)
+    h.assertEqual(Core.registry.getShared('gangs', 'valid_before_error'), nil)
 end)
 
 h.test('native configured values and ammunition mappings keep precedence', function()
