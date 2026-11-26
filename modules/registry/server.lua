@@ -110,6 +110,14 @@ function Core.registry.registerManyShared(name, records)
         local key = record[r.keyField]
         if key ~= nil and Core.registry.registerShared(name, key, record) then n = n + 1 end
     end
+    -- Only the list part above is read. Name-keyed entries (e.g. ox-style
+    -- ['item'] = {...}) would otherwise be dropped with no trace.
+    for key, record in pairs(records) do
+        if type(key) ~= 'number' then
+            Kora.logging.warn('registry.seed_entry_skipped', 'Seed entry skipped: name-keyed entries are not read; use the list form (see docs/items.md)',
+                { registry = name, entry = tostring(key), label = type(record) == 'table' and tostring(record.label or '') or '' })
+        end
+    end
     return n
 end
 
