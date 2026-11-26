@@ -3,6 +3,8 @@
 ## Overview
 The player item shape remains the **legacy slot-keyed** `PlayerData.items[slot] = { slot, name, amount, info, type, unique, useable, image, imageUrl?, label, weight, … }`, persisted by kora_core through the player funnel. `image` remains the legacy local filename; optional `imageUrl` is a browser-ready source supplied by the shared item definition. kora_inventory is the inventory authority; kora_core's `Core.inventory` / `exports.kora_core:<fn>` surface dynamically forwards operations to it when started. This resource deliberately **does not provide `qb-inventory`**; kora_inventory will advertise that identity only after exact upstream compatibility is implemented and tested.
 
+Stock useables in `identity_cards.lua` cover `id_card` and `driver_license`: using either shows the card details (item `info`, with PlayerData fallbacks) via `chat:addMessage` to players within 3.0 m. Handlers re-register when the inventory provider starts so they reach kora_inventory through the gateway; another resource may overwrite them.
+
 For staged upgrades only, `Config.inventory.allowLegacyFallback=true` keeps the original funnel-backed implementation available while kora_inventory is absent and logs a one-time warning. Set it to `false` once kora_inventory is required to return a clear error instead. A started kora_inventory missing any required gateway export is always an error; kora_core never mixes providers per operation.
 
 ## API

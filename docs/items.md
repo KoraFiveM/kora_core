@@ -59,7 +59,9 @@ set it.
 Starter items (`QBCore.Shared.StarterItems`): `phone`, `id_card`,
 `driver_license`, one each. kora_core only records them in
 `metadata.starterItems` of new characters; granting is left to the inventory
-provider.
+provider. Using `id_card` or `driver_license` shows the card to nearby players
+through the stock useables in `modules/inventory/identity_cards.lua`
+(qb-inventory parity).
 
 ## Weapons
 
