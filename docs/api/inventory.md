@@ -63,7 +63,7 @@ Item definitions come from the registry (`items`, then `weapons`): `weight` is g
 
 `createUseable` records `{resource, handler}` per item name, tracked by owning resource so a restarted resource leaves no stale handlers. With the provider started the registration is forwarded to kora_inventory instead and the legacy table is not consulted by `useItem`.
 
-kora_core also registers stock handlers for the starter identity items `id_card` and `driver_license` (qb-inventory parity). Using either item sends a `chat:addMessage` card to every player within 3.0 m, reading fields from the item's `info` and filling gaps from the holder's `charinfo` / `citizenid`. Registration runs at load and again when the inventory provider starts so the gateway can forward into kora_inventory. A later resource may overwrite either handler (typical for an id-card NUI).
+kora_core also registers stock handlers for the starter identity items `id_card` and `driver_license` (qb-inventory parity). Using either item sends a `chat:addMessage` card to every player within 3.0 m, reading fields from the item's `info` and filling gaps from the holder's `charinfo` / `citizenid`. Handlers are registered on the inventory provider's own useables table (via `exports[provider]:createUseable`) once that provider is `started`, again on its `onResourceStart`, and with a short boot poll — kora_inventory never reads kora_core's legacy useables table. A later resource may overwrite either handler (typical for an id-card NUI).
 
 ### Consumables
 

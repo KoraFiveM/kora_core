@@ -132,20 +132,20 @@ h.test('players beyond 3.0 m do not receive the card', function()
     _G.GetEntityCoords = function(_) return { x = 0.0, y = 0.0, z = 0.0 } end
 end)
 
-h.test('provider onResourceStart re-registers the stock handlers', function()
+h.test('provider onResourceStart registers onto the live inventory export', function()
     local registered = {}
-    local previous = Core.inventory.createUseable
-    Core.inventory.createUseable = function(name, handler)
-        registered[#registered + 1] = name
-        return previous(name, handler)
-    end
+    handle.resourceStates.kora_inventory = 'started'
+    _G.exports.kora_inventory = {
+        createUseable = function(_, name, handler)
+            registered[name] = handler
+        end,
+    }
     handle.fireEvent('onResourceStart', nil, Config.inventory.provider or 'kora_inventory')
-    Core.inventory.createUseable = previous
-
-    local seen = {}
-    for _, name in ipairs(registered) do seen[name] = true end
-    h.assertTrue(seen.id_card == true)
-    h.assertTrue(seen.driver_license == true)
+    handle.drainTimeouts()
+    h.assertTrue(type(registered.id_card) == 'function')
+    h.assertTrue(type(registered.driver_license) == 'function')
+    handle.resourceStates.kora_inventory = 'missing'
+    _G.exports.kora_inventory = nil
 end)
 
 h.report('identity_cards')

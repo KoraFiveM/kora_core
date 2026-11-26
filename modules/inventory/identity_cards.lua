@@ -110,15 +110,62 @@ local function showDriverLicense(src, item)
     end
 end
 
+---kora_inventory only consults its OWN useables table. A registration that
+---lands on kora_core's legacy table while the provider is down is invisible
+---once the provider starts, so provider registration is what counts as success.
+---@return boolean registeredOnProvider
 local function register()
-    Core.inventory.createUseable('id_card', showIdCard)
-    Core.inventory.createUseable('driver_license', showDriverLicense)
+    local provider = providerName()
+    if GetResourceState(provider) ~= 'started' then
+        -- Unit tests / staged fallback only. Ignored by kora_inventory at runtime.
+        if Config.inventory and Config.inventory.allowLegacyFallback then
+            Core.inventory.createUseable('id_card', showIdCard)
+            Core.inventory.createUseable('driver_license', showDriverLicense)
+        end
+        return false
+    end
+
+    -- Prefer the documented native export (powers the NUI Use button).
+    -- Fall back through the gateway so ownership still hops correctly.
+    local ok, err = pcall(function()
+        exports[provider]:createUseable('id_card', showIdCard)
+        exports[provider]:createUseable('driver_license', showDriverLicense)
+    end)
+    if not ok then
+        ok, err = pcall(function()
+            Core.inventory.createUseable('id_card', showIdCard)
+            Core.inventory.createUseable('driver_license', showDriverLicense)
+        end)
+    end
+    if not ok then
+        Kora.logging.warn('inventory.identity_cards_register_failed', 'Stock identity card useables failed to register', {
+            provider = provider,
+            error = tostring(err),
+        })
+        return false
+    end
+    return true
 end
 
 register()
 
 AddEventHandler('onResourceStart', function(resourceName)
-    if resourceName == providerName() then
+    if resourceName ~= providerName() then return end
+    -- Defer one tick so the provider's export table is fully published.
+    SetTimeout(0, function()
         register()
-    end
+    end)
 end)
+
+-- Fresh boot safety net: kora_core always starts before kora_inventory, so the
+-- first register() above cannot hit the provider. Retry briefly after boot in
+-- case onResourceStart races the export publish.
+do
+    local attempts = 0
+    local function retry()
+        attempts = attempts + 1
+        if register() or attempts >= 50 then return end
+        SetTimeout(100, retry)
+    end
+    SetTimeout(0, retry)
+end
