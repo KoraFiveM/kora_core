@@ -82,6 +82,10 @@ H.test('a kora_lib restart re-registers the cache listeners and re-seeds the veh
     listeners = {}
     cache.vehicle, cache.seat = 12, -1
     TriggerEvent('onClientResourceStart', 'kora_lib')
+    H.assertEqual(next(listeners), nil, 'a kora_lib start without a stop (initial join) must not register twice')
+    for i = #threads, 1, -1 do table.remove(threads, i) end
+    TriggerEvent('onClientResourceStop', 'kora_lib')
+    TriggerEvent('onClientResourceStart', 'kora_lib')
     H.assertEqual(#threads, 1, 'the driver seat read from the new cache starts a worker')
     H.assertTrue(type(listeners.vehicle) == 'function' and type(listeners.seat) == 'function')
     setCache('vehicle', false)
