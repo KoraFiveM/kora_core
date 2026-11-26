@@ -103,7 +103,7 @@ Every key that switches or tunes a converted behavior, with the shipped default.
 
 | Legacy call | Becomes |
 | --- | --- |
-| `QBCore.Functions.Notify(source, text, 'success', 5000)` | `TriggerClientEvent('QBCore:Notify', source, text, type, length); the client handler forwards to Kora.notify.send` |
+| `QBCore.Functions.Notify(source, text, 'success', 5000)` | `TriggerClientEvent('QBCore:Notify', source, text, type, length); the client handler forwards to Kora.bridge.sendNotify` |
 | `QBCore.Functions.ExecuteSql(wait, query, cb)` | `Deprecated shim: prints a warning, ignores `wait`, runs Kora.sql.query(query, {}) in a thread and calls cb(rows). Use Kora.sql.query or exports.kora_sql:query` |
 | `QBCore.Functions.PaycheckInterval()` | `Config.jobs.paycheckInterval, default 300000 ms when unset` |
 | `QBCore.Functions.GetCoords(entity)` | `vector4(GetEntityCoords(entity), GetEntityHeading(entity))` |
@@ -472,7 +472,7 @@ Every key that switches or tunes a converted behavior, with the shipped default.
 | `TriggerClientEvent('qb-phone:client:RemoveBankMoney', source, amount)` | `Sent only when the bank account is reduced` |
 | `TriggerClientEvent('hud:client:UpdateNeeds', source, hunger, thirst)` | `Sent by the QBCore:UpdatePlayer handler` |
 | `TriggerClientEvent('hud:client:UpdateStress', source, value)` | `Sent after an accepted GainStress / RelieveStress` |
-| `TriggerClientEvent('QBCore:Notify', source, text, type, length)` | `Sent by Functions.Notify, Player.Functions.Notify, command replies and ToggleDuty; the client forwards to Kora.notify.send` |
+| `TriggerClientEvent('QBCore:Notify', source, text, type, length)` | `Sent by Functions.Notify, Player.Functions.Notify, command replies and ToggleDuty; the client forwards to Kora.bridge.sendNotify` |
 | `TriggerClientEvent('QBCore:Client:OnSharedUpdate', -1, 'Items', key, value)` | `Sent by AddItem, UpdateItem, RemoveItem, AddJob, ... (value nil on removal)` |
 | `TriggerClientEvent('QBCore:Client:OnSharedUpdateMultiple', -1, 'Items', records)` | `Sent by AddItems, AddJobs and AddGangs` |
 | `TriggerClientEvent('QBCore:Client:SharedUpdate', source, QBCore.Shared)` | `Opt-in: only when Config.compat.fireSharedUpdateAtLogin is true, at kora_core:server:playerLoaded. Default off` |
@@ -780,7 +780,7 @@ Config is a shared script; these are the keys the client realm reads, with the s
 
 | Legacy call | Becomes |
 | --- | --- |
-| `QBCore.Functions.Notify('text', 'success', 5000, icon)` | `Kora.notify.send({ type, message, duration = length or 5000, icon }). Types map: primary, inform, info, police, ambulance -> info; success, warning, error unchanged; anything else -> info. A table `&#123; text, caption &#125;` maps caption to the title; locale-reference tables are resolved through exports.kora_lib:locale_translate` |
+| `QBCore.Functions.Notify('text', 'success', 5000, icon)` | `Kora.bridge.sendNotify({ type, message, duration = length or 5000, icon }). Types map: primary, inform, info, police, ambulance -> info; success, warning, error unchanged; anything else -> info. A table `&#123; text, caption &#125;` maps caption to the title; locale-reference tables are resolved through exports.kora_lib:locale_translate` |
 | `QBCore.Functions.Progressbar('name', 'label', duration, useWhileDead, canCancel, disableControls, animation, prop, propTwo, onFinish, onCancel)` | `exports['progressbar']:Progress({ name, label, duration, useWhileDead, canCancel, controlDisables, animation, prop, propTwo }, cb, owner); onFinish or onCancel is called from the result. Requires a resource providing the progressbar export` |
 | `QBCore.Functions.DrawText(x, y, width, height, scale, r, g, b, a, text)` | `Ported stock screen-text draw (font 4). Not the same as exports['qb-core']:DrawText, which is the prompt family` |
 | `QBCore.Functions.DrawText3D(x, y, z, text)` | `Ported stock world-space text with a black backing rectangle` |
@@ -896,7 +896,7 @@ Config is a shared script; these are the keys the client realm reads, with the s
 
 | Legacy call | Becomes |
 | --- | --- |
-| `RegisterNetEvent('QBCore:Notify')` | `Calls QBCore.Functions.Notify(text, type, length, icon) so server-side notices reach Kora.notify.send` |
+| `RegisterNetEvent('QBCore:Notify')` | `Calls QBCore.Functions.Notify(text, type, length, icon) so server-side notices reach Kora.bridge.sendNotify` |
 | `RegisterNetEvent('QBCore:Client:OnPlayerLoaded')` | `Requests a replication resync if the mirror is still empty. The event itself is fired by the server` |
 | `RegisterNetEvent('QBCore:Client:OnPlayerUnload')` | `Empty handler (registered so the server trigger is network-safe); the replication module clears the mirror on the same event` |
 | `RegisterNetEvent('QBCore:Client:OnPlayerUpdated')` | `Never applies the payload. Key nil or 'all' calls Core.replication.reannounceFull(); 'job' and 'gang' re-fire QBCore:Client:OnJobUpdate / OnGangUpdate from the mirror (skipped when the replication module already fired them); other keys are ignored` |
@@ -1009,7 +1009,7 @@ Config is a shared script; these are the keys the client realm reads, with the s
 
 ### How it works
 
-compat/client/qb-core.lua mixes two strategies. Self-contained native helpers (vehicle properties, particles, ground and zone lookups) are ported near-verbatim from qb-core. The few that touch player or UI state forward to kora_lib or the replicated mirror: Notify to Kora.notify.send, entity lookups to Kora.world, HasItem to kora_inventory, GetPlayerData to QBCore.PlayerData. After the Functions table is built, each function is published as `exports['qb-core']:Name` with Kora.compat.provideExport, then GetCoreObject, GetShared, the GetShared* wrappers and the on-screen prompt exports. QBCore.PlayerData is the legacy-shaped mirror, updated in place by modules/replication/client.lua; the events that announce changes (QBCore:Player:SetPlayerData, OnJobUpdate, OnGangUpdate, OnPlayerUpdated) fire locally from there.
+compat/client/qb-core.lua mixes two strategies. Self-contained native helpers (vehicle properties, particles, ground and zone lookups) are ported near-verbatim from qb-core. The few that touch player or UI state forward to kora_lib or the replicated mirror: Notify to Kora.bridge.sendNotify, entity lookups to Kora.world, HasItem to kora_inventory, GetPlayerData to QBCore.PlayerData. After the Functions table is built, each function is published as `exports['qb-core']:Name` with Kora.compat.provideExport, then GetCoreObject, GetShared, the GetShared* wrappers and the on-screen prompt exports. QBCore.PlayerData is the legacy-shaped mirror, updated in place by modules/replication/client.lua; the events that announce changes (QBCore:Player:SetPlayerData, OnJobUpdate, OnGangUpdate, OnPlayerUpdated) fire locally from there.
 
 ### Terms used on this page
 

@@ -20,7 +20,7 @@ anywhere; here the server validates the request and creates the entity.
 
 Every request (accepted or refused, with the reason) is logged with
 `logEvent('vehicle', source, ...)`. `vehicleSpawn.grantKeys` gives the requester
-keys through `exports.kora_vehiclekeys:giveKeys(source, plate)` when that resource
+keys through `Kora.bridge.giveKeys(source, plate)` when that resource
 is started. `deleteOnDrop` removes a player's tracked vehicles when they leave.
 `SpawnVehicle` uses `QBCore.Functions.SpawnVehicle` (server `CreateVehicle`, waits
 until the requester owns the entity); `CreateVehicle` uses the `automobile` server

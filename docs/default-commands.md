@@ -20,7 +20,7 @@ Turn the whole set off with `Config.compat.defaultCommands = false` (default
 | `/togglepvp` | admin | Flips `QBCore.Config.Server.PVP`, broadcasts `QBCore:Client:PvpHasToggled`, replies to the caller, and tells players who log in while it is off. |
 | `/addpermission id level`, `/removepermission id level` | god | `QBCore.Functions.AddPermission`/`RemovePermission`; `level` must be one of `QBCore.Config.Server.Permissions` (`god`, `admin`, `mod`). The target's command suggestions are refreshed. |
 | `/openserver`, `/closeserver [reason]` | admin | Flips `QBCore.Config.Server.Closed`; closing kicks everyone without the whitelist permission (`admin`). New connections without it are refused while closed. |
-| `/car model` | admin | Spawns a networked vehicle with `QBCore.Functions.SpawnVehicle` on the server, warps the admin in (deleting the vehicle they were in, as stock) and grants keys through `exports.kora_vehiclekeys:giveKeys` when that resource is started. |
+| `/car model` | admin | Spawns a networked vehicle with `QBCore.Functions.SpawnVehicle` on the server, warps the admin in (deleting the vehicle they were in, as stock) and grants keys through `Kora.bridge.giveKeys` when that resource is started. |
 | `/dv` | admin | Deletes the occupied vehicle, else vehicles within 5 m. |
 | `/dvall`, `/dvp`, `/dvo` | admin | Delete all vehicles, peds or objects. `/dvp` spares player peds (stock would delete them). |
 | `/givemoney id type amount` | admin | `addMoney` (untaxed, reason `Admin give money`). |
