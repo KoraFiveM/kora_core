@@ -115,6 +115,7 @@ server_scripts {
     'modules/needs/server.lua',
     'modules/inventory/server.lua',
     'modules/inventory/gateway.lua',
+    'modules/inventory/identity_cards.lua',
     'modules/transaction/server.lua',
     'modules/multichar/server.lua',
     'modules/permissions/server.lua',

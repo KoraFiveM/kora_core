@@ -37,6 +37,7 @@
       "modules/garage/server.lua",
       "modules/identity/server.lua",
       "modules/inventory/gateway.lua",
+      "modules/inventory/identity_cards.lua",
       "modules/inventory/server.lua",
       "modules/jail/server.lua",
       "modules/jobs/server.lua",

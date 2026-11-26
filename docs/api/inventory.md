@@ -10,7 +10,7 @@ sidebar_position: 7
 
 kora_core owns the `PlayerData.items` persistence and replication funnel, but it is not the inventory authority when kora_inventory is running. `gateway.lua` wraps every inventory export: when the provider resource (`Config.inventory.provider`, default `kora_inventory`) is `started`, the call is forwarded to that resource's export of the same name and its return values come back unchanged. kora_core's own slot engine (the "legacy engine" in `server.lua`) only runs as a fallback.
 
-Namespace: `exports.kora_core` · Source: `modules/inventory/server.lua, gateway.lua, shared.lua; modules/consumables/server.lua`
+Namespace: `exports.kora_core` · Source: `modules/inventory/server.lua, gateway.lua, identity_cards.lua, shared.lua; modules/consumables/server.lua`
 
 ### Config.inventory.*
 
@@ -62,6 +62,8 @@ Item definitions come from the registry (`items`, then `weapons`): `weight` is g
 ### Usable items
 
 `createUseable` records `{resource, handler}` per item name, tracked by owning resource so a restarted resource leaves no stale handlers. With the provider started the registration is forwarded to kora_inventory instead and the legacy table is not consulted by `useItem`.
+
+kora_core also registers stock handlers for the starter identity items `id_card` and `driver_license` (qb-inventory parity). Using either item sends a `chat:addMessage` card to every player within 3.0 m, reading fields from the item's `info` and filling gaps from the holder's `charinfo` / `citizenid`. Handlers are registered on the inventory provider's own useables table (via `exports[provider]:createUseable`) once that provider is `started`, again on its `onResourceStart`, and with a short boot poll — kora_inventory never reads kora_core's legacy useables table. A later resource may overwrite either handler (typical for an id-card NUI).
 
 ### Consumables
 
