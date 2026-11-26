@@ -237,7 +237,7 @@ register('car', Kora.lang('CommandHelp.car'), { param('model', Kora.lang('Comman
 
     local plate = GetVehicleNumberPlateText(vehicle)
     if plate and GetResourceState('kora_vehiclekeys') == 'started' then
-        local ok, err = pcall(function() return exports.kora_vehiclekeys:giveKeys(src, plate) end)
+        local ok, err = pcall(function() return Kora.bridge.giveKeys(src, plate) end)
         if not ok then Kora.logging.warn('commands.car_grant_keys_failed', '/car could not grant keys', { error = tostring(err) }) end
     end
     audit(src, 'car', { model = model, plate = plate })

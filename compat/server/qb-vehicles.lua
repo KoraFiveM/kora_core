@@ -71,7 +71,7 @@ local function grantKeys(src, vehicle)
     if settings.grantKeys == false or GetResourceState('kora_vehiclekeys') ~= 'started' then return end
     local plate = GetVehicleNumberPlateText(vehicle)
     if type(plate) ~= 'string' or plate:match('^%s*$') then return end
-    local ok, err = pcall(function() return exports.kora_vehiclekeys:giveKeys(src, plate) end)
+    local ok, err = pcall(function() return Kora.bridge.giveKeys(src, plate) end)
     if not ok then Kora.logging.warn('vehicles.grant_keys_failed', 'Could not grant vehicle keys', { error = tostring(err) }) end
 end
 

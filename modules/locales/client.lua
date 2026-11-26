@@ -35,13 +35,13 @@ function Core.locales.openSelector()
 
     local set, err = Kora.locale.setLanguage(result.selectedId)
     if set then
-        Kora.notify.send({
+        Kora.bridge.sendNotify({
             title = Kora.lang('Language.title'),
             message = Kora.lang('Language.changed', languageName(result.selectedId)),
             type = 'success',
         })
     else
-        Kora.notify.send({ title = Kora.lang('Language.title'), message = err, type = 'error' })
+        Kora.bridge.sendNotify({ title = Kora.lang('Language.title'), message = err, type = 'error' })
     end
 end
 

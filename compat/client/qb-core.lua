@@ -290,7 +290,7 @@ function F.Notify(text, texttype, length, icon)
     else
         payload.message = resolveLocalizedText(text)
     end
-    Kora.notify.send(payload)
+    Kora.bridge.sendNotify(payload)
 end
 
 function F.Progressbar(name, label, duration, useWhileDead, canCancel, disableControls, animation, prop, propTwo, onFinish, onCancel)
