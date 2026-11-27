@@ -1029,7 +1029,7 @@ native data; the legacy compatibility views convert them to stock zero-based lev
 A new character starts with `Config.money.default`, `Config.jobs.defaultJob` at
 `Config.jobs.defaultGrade`, gang `none`, position Legion Square
 (`195.17, -933.77, 30.69`), full hunger/thirst, and `metadata.starterItems` marking
-the names in `QBCore.Shared.StarterItems` (`phone`, `id_card`, `driver_license`).
+the item names in `Config.starterItems` (`phone`, `id_card`, and `driver_license` by default).
 kora_core does not grant those items itself.
 
 ### Writing: the funnel
